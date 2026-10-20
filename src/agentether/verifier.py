@@ -59,7 +59,7 @@ class PathNotAllowedError(ValueError):
 #: A path of the shape ``C:\...``: a drive letter and a separator.  It is
 #: refused on every platform, so that a path that is a mistake on Windows
 #: does not become a legal file name on Linux.
-_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:[\/]")
+_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 def resolve_within(base: Path, candidate: str) -> Path:
