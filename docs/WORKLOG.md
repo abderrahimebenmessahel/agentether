@@ -397,6 +397,102 @@ verdicts.  The raw cells of the run and of the pilots are committed in
 * `scan_secrets.py` finds **0** in the tree, **0** in the history and
   nothing in the wheel.
 
+## 2026-10-20 — session 2: the consistency fixes (phase 1 of the new brief)
+
+The brief of the maintainer asked for three consistency fixes before
+anything else.  Each of them is a contradiction between the report of the
+first session and the raw data, and each of them now has a test.
+
+### Phase 1(a) — the totals of the report
+
+The report of the first session said "450 000 tokens" and, in the section
+"what could not be verified", that the token count of the Google model was
+**0**.  The raw cells of the trial v2 say something else:
+
+| | Requests | Tokens | Wall clock (s) |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 261 | 188 346 | 7 930.1 |
+| gpt-oss-120b | 189 | 206 605 | 2 597.0 |
+| **total** | **450** | **394 951** | **10 527.1** |
+
+**450** is the number of the *requests*, and the total of the tokens is
+**394 951**.  The Google model does report its usage (the adapter reads
+`usage.prompt_tokens` and `usage.completion_tokens` and the free tier of
+Google answers with them), so its token count is 188 346 and not 0.
+
+What *was* zero is the `model_stats` summary of the **payload** of the
+resumed Cerebras run: `_seed_stats` seeded the counters of a resumed run
+with `cell["input_tokens"]` and `cell["output_tokens"]`, and the cells
+carry a single `tokens` field.  The cells themselves were always right
+(the token count of a cell is a delta inside the session), and the tables
+of `docs/evidence.md` were always right, because they are summed from the
+cells.  The bug was in the summary of the payload, and it is fixed:
+`ModelStats` now has a `tokens` field that the seeding fills.
+
+**The generator.**  `benchmarks/evidence.py` now writes a **total row** in
+the table of the totals (a reader must be able to add the rows of the
+table and find the same number) and it can build a document with **several
+runs** (a manifest), so that the supplementary run of the protocol v2 and
+the confirmatory run of the protocol v3 live in the same document without
+being mixed.
+
+**The test.**  `tests/test_evidence_consistency.py` (7 tests) recomputes
+every total of `docs/evidence.md` and of the final report from the raw
+cell files, and it fails when a number does not match, when
+`docs/evidence.md` is not what the generator produces (it was edited by
+hand), or when a table of the document does not use the sign convention.
+The first run of the test failed on the report, as it should.
+
+**The erratum.**  The report has a new section 0 with the two old numbers
+visible and the reason of each.  A correction that hides what it corrects
+is not a correction.
+
+### Phase 1(b) — one sign convention
+
+Every paired difference of the document is now **arm A minus arm B**, and
+A is always the guarded arm.  A **positive** difference of the correct
+completion rate is an improvement; a **NEGATIVE** difference of the false
+completion rate is an improvement.  The convention is stated once, in a
+section of its own, and every table follows it.
+
+Two things were wrong before:
+
+* the table of the hypotheses showed the **opposite sign** of the table of
+  the paired differences for the false completion (`+0.250` against
+  `-0.250` for the same quantity);
+* the rule that turns a difference into a verdict was inverted with it:
+  the hypothesis of the false completion was tested with
+  `_verdict(-difference, p, mde, -1)`, which would have declared an arm
+  that caught **more** false completions as **NOT SUPPORTED**.  The rule
+  is now `_verdict(difference, p, mde, -1)`, and the expected sign of the
+  false completion is "less".
+
+The verdicts of the trial v2 do not change: every difference of that run
+is smaller than the minimum detectable effect of its sample, so every
+verdict was **INCONCLUSIVE** before and after.
+
+### Phase 1(c) — the naive arm and the baseline are not identical everywhere
+
+The report of the first session said that the naive arm and the
+simple-retry arm "are now identical".  That is true on **one cell** (the
+injected condition of the Cerebras model: 0.417 correct, 0.333 false
+completions, 31 requests each) and false on the others:
+
+| Model | Condition | naive | simple-retry |
+| --- | --- | --- | --- |
+| gpt-oss-120b | injected | 0.417 / 0.333 / 31 | 0.417 / 0.333 / 31 |
+| gemini-3.5-flash-lite | injected | 0.583 / 0.167 / 42 | 0.833 / 0.167 / 46 |
+| gemini-3.5-flash-lite | natural | 1.000 / 0.000 / 42 | 0.917 / 0.083 / 42 |
+
+(correct / false completions / requests)
+
+The two arms coincide when the first attempt of every step already
+satisfies the telemetry contract, and they differ when the baseline walks
+further along the fault schedule.  The property that the baseline must
+have is not "it is identical" but "it is **never worse** than doing
+nothing", and that property holds and is tested by
+`tests/test_trial_arms.py`.
+
 ### NEXT ACTION
 
 The final report is written

@@ -102,7 +102,18 @@ class ModelStats:
     requests: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    #: The tokens of the cells of an **earlier** session.  A resumed run
+    #: starts with empty counters, and the progress file carries the total
+    #: of the tokens of a cell, not the split between the input and the
+    #: output: without this field the summary of a resumed run reported
+    #: zero tokens.
+    seeded_tokens: int = 0
     consecutive_429: int = 0
+
+    @property
+    def tokens(self) -> int:
+        """The total of the tokens of the run, sessions included."""
+        return self.seeded_tokens + self.input_tokens + self.output_tokens
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable copy."""
@@ -111,6 +122,7 @@ class ModelStats:
             "requests": self.requests,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
+            "tokens": self.tokens,
         }
 
 
@@ -315,6 +327,11 @@ def _seed_stats(stats: dict[str, ModelStats], cells: list[dict[str, Any]]) -> No
         stat.requests += int(cell.get("requests", 0) or 0)
         stat.input_tokens += int(cell.get("input_tokens", 0) or 0)
         stat.output_tokens += int(cell.get("output_tokens", 0) or 0)
+        # The cells of an earlier session carry the *total* of the tokens of
+        # the cell, not the split between the input and the output.  The
+        # total is the field that must be carried over, otherwise the
+        # summary of a resumed run reports zero tokens.
+        stat.seeded_tokens += int(cell.get("tokens", 0) or 0)
 
 
 async def run_trial(
@@ -384,7 +401,7 @@ async def run_trial(
                     memory = sandbox.parent / f"{task.name}-memory"
                     memory.mkdir(parents=True, exist_ok=True)
                     before = stats[model].requests
-                    tokens_before = stats[model].input_tokens + stats[model].output_tokens
+                    tokens_before = stats[model].tokens
                     step_started = time.monotonic()
                     try:
                         if arm == "naive":
@@ -401,7 +418,7 @@ async def run_trial(
                         halted = str(exc)
                         break
                     requests = stats[model].requests - before
-                    tokens = stats[model].input_tokens + stats[model].output_tokens - tokens_before
+                    tokens = stats[model].tokens - tokens_before
                     record = {
                         "key": f"{model}|{condition}",
                         "model": model,

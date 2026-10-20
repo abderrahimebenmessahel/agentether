@@ -2,14 +2,30 @@
 
 > **A tiny sample from free models on a single day.**  This is not a
 > benchmark and it does not show that AgenTether works in general.  The
-> protocol was pre-registered and committed before the first result file
-> existed: [`docs/trial-protocol-v2.md`](trial-protocol-v2.md).
+> protocol of every run was pre-registered and committed before the
+> first result file of that run existed.
+
+> The protocol of this run: [`docs/trial-protocol-v2.md`](trial-protocol-v2.md).
+
+## The sign convention
+
+Every paired difference of this document is **arm A minus arm B**, and
+A is the first arm of the comparison (the guarded arm is always the
+first).  What the sign means depends on the metric:
+
+* for the **correct completion rate**, a **positive** difference is an
+  improvement: the first arm completed more tasks correctly;
+* for the **false completion rate**, a **NEGATIVE** difference is an
+  improvement: the first arm had fewer false completions.
+
+The same rule applies to the hypotheses, to the verdicts and to the
+tables of the report.
 
 ## Trial v2 (2026-10-20)
 
 > **Status: A PARTIAL confirmatory run.  The pre-registered selection was NOT met: the two models that satisfy the band of the selection rule are the two of Groq, whose daily quota was spent by the probe and the pilots, and the two models that had the quota are the two the band excludes.  The run below uses the two models that had the quota; their data are a SUPPLEMENTARY run and the deviation is stated here and in docs/WORKLOG.md.**
 
-## What was run
+### What was run
 
 - Cells completed: 144
 - Time the calls took: 10527.1 s
@@ -18,7 +34,7 @@
 - Attempt cap per step: 3
 - Halted: no
 
-## The models of the run
+### The models of the run
 
 | Provider | Model | Pilot (naive, natural) | Qualifies | N per cell | MDE of the paired difference |
 | --- | --- | --- | --- | --- | --- |
@@ -32,22 +48,23 @@
 - **qwen/qwen3.8-27b**: the model satisfies the rule, but the daily quota of Groq (200 000 tokens) was spent by the probe and the pilots: 130 000 tokens were already used, and the rule of the maintainer forbids going over half of the daily quota of the provider.  No cell of this model was run.
 - **openai/gpt-oss-20b**: the model satisfies the rule, but the daily quota of Groq was spent by the probe and the pilots (see above).  No cell of this model was run.
 
-## The request and token totals
+### The request and token totals
 
 | Model | Requests | Tokens | Wall clock (s) |
 | --- | --- | --- | --- |
 | gemini-3.5-flash-lite | 261 | 188346 | 7930.1 |
 | gpt-oss-120b | 189 | 206605 | 2597.0 |
+| **total** | **450** | **394951** | **10527.1** |
 
-## The arms
+### The arms
 
 | Arm | What it does |
 | --- | --- |
+| agentether | The full library with the declarative expectations of the step: the contract, the drift checks, the verifiers, the loop detector, the budget and the breaker. |
 | naive | One call per step; the claim is trusted. |
 | simple-retry | The baseline most people would write: retry on a contract failure, an exception or a timeout. No verification, no loop detection, no drift check. |
-| agentether | The full library: the contract, the drift checks, the verifiers, the loop detector, the budget and the breaker. |
 
-## Condition: injected
+### Condition: injected
 
 | Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -58,7 +75,7 @@
 | gpt-oss-120b | naive | 12 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 420.83 | 0 | 0 |
 | gpt-oss-120b | simple-retry | 12 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 449.62 | 0 | 0 |
 
-## Condition: natural
+### Condition: natural
 
 | Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -69,11 +86,12 @@
 | gpt-oss-120b | naive | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 371.3 | 0 | 0 |
 | gpt-oss-120b | simple-retry | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 449.75 | 0 | 0 |
 
-## The paired differences
+### The paired differences
 
 Every arm saw the same tasks and the same fault schedule, so the
 comparison is paired.  The difference is the share of the tasks where
-one arm was right and the other was not.
+one arm was right and the other was not, with the sign convention of
+the section above (A minus B).
 
 | Model | Condition | Comparison | Only A | Only B | Both | Neither | Difference |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -94,21 +112,22 @@ one arm was right and the other was not.
 | gpt-oss-120b | natural | correct completion (agentether vs simple-retry) | 0 | 0 | 9 | 3 | +0.000 |
 | gpt-oss-120b | natural | false completion (agentether vs simple-retry) | 0 | 0 | 0 | 12 | +0.000 |
 
-## The hypotheses
+### The hypotheses
 
 H1: the guarded arm completes more tasks correctly.  H2: the guarded arm
 catches more false completions (the primary endpoint).  The paired
-difference is the share of the tasks where one arm was right and the
-other was not.
+differences follow the sign convention of the section above: the
+guarded arm minus the naive arm, a **positive** H1 is an improvement
+and a **negative** H2 is an improvement.
 
 | Model | Condition | agentether | naive | H1 (paired) | H2 (paired) |
 | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | 0.833 | 0.583 | +0.250 | -0.000 |
-| gemini-3.5-flash-lite | natural | 0.917 | 1.000 | -0.083 | -0.083 |
-| gpt-oss-120b | injected | 0.667 | 0.417 | +0.250 | +0.250 |
-| gpt-oss-120b | natural | 0.750 | 0.750 | +0.000 | -0.000 |
+| gemini-3.5-flash-lite | injected | 0.833 | 0.583 | +0.250 | +0.000 |
+| gemini-3.5-flash-lite | natural | 0.917 | 1.000 | -0.083 | +0.083 |
+| gpt-oss-120b | injected | 0.667 | 0.417 | +0.250 | -0.250 |
+| gpt-oss-120b | natural | 0.750 | 0.750 | +0.000 | +0.000 |
 
-## The verdicts
+### The verdicts
 
 H1: under the injected faults, the guarded arm completes more tasks
 correctly than the baseline.  H2 (the primary endpoint): the guarded
@@ -122,12 +141,12 @@ discordant pairs.
 
 | Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |
 | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | +0.000 (1 against 1 discordant pairs, p = 1.000): INCONCLUSIVE (the sample is too small) | -0.000 (1 against 1 discordant pairs, p = 1.000): INCONCLUSIVE (the sample is too small) | 47 against 46 requests, 43905 against 28041 tokens: SUPPORTED |
-| gpt-oss-120b | +0.250 (3 against 0 discordant pairs, p = 0.250): INCONCLUSIVE (the sample is too small) | +0.250 (3 against 0 discordant pairs, p = 0.250): INCONCLUSIVE (the sample is too small) | 34 against 31 requests, 42408 against 31324 tokens: SUPPORTED |
+| gemini-3.5-flash-lite | +0.000 (in 1 task only the guarded arm completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | +0.000 (in 1 task only the guarded arm falsely completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | 47 against 46 requests, 43905 against 28041 tokens: SUPPORTED |
+| gpt-oss-120b | +0.250 (in 3 tasks only the guarded arm completed, in 0 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | -0.250 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 34 against 31 requests, 42408 against 31324 tokens: SUPPORTED |
 
 ## What this shows and what it does not
 
-**It shows** how three policies behave on the same tasks with the
+**It shows** how a few policies behave on the same tasks with the
 same injected faults, for a few free models, on one day.
 
 **It does not show** that AgenTether makes agents reliable in

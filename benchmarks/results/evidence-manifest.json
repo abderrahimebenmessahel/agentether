@@ -1,0 +1,13 @@
+{
+  "runs": [
+    {
+      "label": "Trial v2 (2026-10-20)",
+      "protocol": "trial-protocol-v2.md",
+      "progress": [
+        "benchmarks/results/trial-v2-cerebras-cells.jsonl",
+        "benchmarks/results/trial-v2-google-cells.jsonl"
+      ],
+      "meta": "benchmarks/results/trial-v2-meta.json"
+    }
+  ]
+}

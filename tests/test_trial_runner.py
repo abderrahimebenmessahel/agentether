@@ -169,6 +169,57 @@ def test_the_seeding_adds_the_cells_of_the_past_runs() -> None:
     assert stats["fake/model"].output_tokens == 10
 
 
+def test_the_seeding_carries_the_tokens_of_the_cells() -> None:
+    """A resumed run must not report zero tokens.
+
+    The cells carry a single ``tokens`` field and not the split between the
+    input and the output, so the seeding has to read that field.  It read
+    ``input_tokens`` and ``output_tokens`` before, and the summary of the
+    resumed run of the trial v2 reported 0 tokens next to 189 requests.
+    """
+    stats = {"fake/model": ModelStats("fake/model")}
+    cells = [
+        {"model": "fake/model", "requests": 3, "tokens": 3000},
+        {"model": "fake/model", "requests": 2, "tokens": 2000},
+    ]
+    _seed_stats(stats, cells)
+    assert stats["fake/model"].tokens == 5000
+    assert stats["fake/model"].to_dict()["tokens"] == 5000
+
+
+async def test_a_resumed_run_reports_the_tokens_of_the_earlier_cells(tmp_path: Path) -> None:
+    """The payload of a resumed run carries the tokens of the past cells."""
+    progress = tmp_path / "progress.jsonl"
+    first = await run_trial(
+        models=("fake/model",),
+        arms=("naive",),
+        conditions=("natural",),
+        tasks=[make_task()],
+        per_cell=1,
+        rate_limit=1000,
+        model_cap=100,
+        workdir=tmp_path / "work",
+        progress_path=progress,
+        caller_factory=factory(answer()),
+    )
+    assert first["model_stats"]["fake/model"]["tokens"] == 18
+
+    second = await run_trial(
+        models=("fake/model",),
+        arms=("naive",),
+        conditions=("natural",),
+        tasks=[make_task()],
+        per_cell=1,
+        rate_limit=1000,
+        model_cap=100,
+        workdir=tmp_path / "work",
+        progress_path=progress,
+        caller_factory=factory(answer()),
+    )
+    # The cell is not run again, but its tokens are still in the summary.
+    assert second["model_stats"]["fake/model"]["tokens"] == 18
+
+
 def test_the_progress_file_is_read_once_per_cell(tmp_path: Path) -> None:
     """A cell that was written twice is counted once."""
     progress = tmp_path / "progress.jsonl"

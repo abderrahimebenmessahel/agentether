@@ -13,6 +13,39 @@ uploaded anywhere).
 
 ---
 
+## 0. The erratum of the first version of this report
+
+> The first version of this report (the commit `be84cca`) contained two
+> numbers that the raw data does not support.  They are corrected here and
+> the old values are kept visible, because a correction that hides what it
+> corrects is not a correction.
+
+| What | The first version said | The raw cells say | Why |
+| --- | --- | --- | --- |
+| The total of the tokens of the trial v2 | "450 000 tokens" | **394 951 tokens** (188 346 for the Google model, 206 605 for the Cerebras model) | The total was read off the wrong place.  `docs/evidence.md` is generated from the raw cells and always carried the right numbers. |
+| The token count of the Google model | "0" | **188 346** | The claim came from the note that the usage fields of the OpenAI compatible answer of Google are not documented.  The adapter reads `usage.prompt_tokens` and `usage.completion_tokens` anyway, and the free tier of Google reports them.  What *was* zero is the `model_stats` summary of the **payload** of the resumed Cerebras run: the seeding of the counter of a resumed run read a field that the cells do not have.  That is a bug of the runner, fixed in `benchmarks/trial.py`; it never touched the cells and never touched the tables. |
+
+**The sign convention.**  Every paired difference of this report and of
+`docs/evidence.md` is **the guarded arm minus the comparator**.  A
+**positive** difference of the correct completion rate is an improvement; a
+**NEGATIVE** difference of the false completion rate is an improvement.  The
+first version of the report showed the false completion with the opposite
+sign in the table of the verdicts ("+0.250" where the table of the paired
+differences showed "-0.250"), and the rule that turns a difference into a
+verdict was inverted with it: the hypothesis of the false completion was
+tested with the wrong sign, and an arm that caught **more** false
+completions would have been declared **NOT SUPPORTED**.  Both are
+corrected.  The verdicts of the trial v2 do not change, because every
+difference of that run is smaller than the minimum detectable effect of its
+sample and every verdict was **INCONCLUSIVE** anyway.
+
+**A test prevents the repetition.**
+`tests/test_evidence_consistency.py` recomputes every total of
+`docs/evidence.md` and of this report from the raw cell files, and it
+fails when a number does not match, when `docs/evidence.md` is not what
+`benchmarks/evidence.py` produces, or when the tables of the document do
+not use one sign convention.
+
 ## 1. The four known problems of the brief
 
 ### 1.1 The version said 0.2.0 and 0.3.0-alpha at the same time
@@ -66,11 +99,22 @@ This was the important one.  The full diagnosis is in
 | 5 | The **belief of the arms was computed three different ways** (the last answer, "any step ever completed", the last step). | The three arms had three different definitions of "the task is done". | Every arm reports a verdict for every step; the belief of the task is true when every step was considered done. |
 | 6 | The **token accounting was hard-coded to zero** and the wall clock of the payload was 0. | `tokens = 0` in the runner of run 1. | See 1.2. |
 
-**The proof that the anomaly is gone** is in the trial v2: the naive arm
-and the simple-retry arm now behave **identically** (0.56 correct, 0.44
-false completions, 31 requests each, on the injected condition of the
-Cerebras model), which is what a fair baseline must do.  A baseline that
+**The proof that the anomaly of run 1 is gone** is in the trial v2: on the
+injected condition of the Cerebras model the naive arm and the simple-retry
+arm now behave **identically** (0.417 correct, 0.333 false completions, 31
+requests each), which is what a fair baseline must do.  A baseline that
 only adds retries cannot be worse than doing nothing, and it is not.
+
+**The two arms are not identical everywhere, and the first version of this
+report said they were.**  They coincide on that one cell and they differ on
+the others, because the simple-retry arm walks further along the fault
+schedule when the first attempt of a step does not satisfy the telemetry
+contract.  On the injected condition of the Google model the naive arm
+reached 0.583 correct completions with 42 requests and the simple-retry arm
+0.833 with 46 requests; on the natural condition of the Google model the
+naive arm reached 1.000 and the simple-retry arm 0.917.  The two arms are
+equal on the cells where the first attempt already satisfies the contract,
+and the baseline is never worse than doing nothing.
 
 `tests/test_trial_arms.py` (17 tests) proves the property with a
 scripted fake model: the model fails once and then succeeds, the first
@@ -79,7 +123,7 @@ times out, the first call fails, the first step name is wrong.  In every
 case the simple-retry arm is **never worse** than the naive arm, and a
 retry never destroys a file the model produced.
 
-### 1.4 The 174 surviving mutants were untriaged
+### 1.4 The surviving mutants of the mutation triage were not all triaged
 
 See section 5.
 
@@ -192,10 +236,13 @@ could not be run at all.
 
 ### 3.2 The numbers
 
-144 cells, 450 model calls, 10 527 s of calls, 450 000 tokens.  The full
+144 cells, 450 model calls, 10 527.1 s of calls, **394 951 tokens** (188 346
+for the Google model and 206 605 for the Cerebras model).  The full
 tables, the Wilson intervals, the paired differences and the p values are
 in [`docs/evidence.md`](evidence.md), which is **regenerated from the raw
-cells** (`benchmarks/results/trial-v2-*-cells.jsonl`).
+cells** (`benchmarks/results/trial-v2-*-cells.jsonl`).  The numbers of this
+paragraph are checked against the raw cells by
+`tests/test_evidence_consistency.py`.
 
 **The injected condition** (20 % of the attempts get a fault, applied
 after the model answered):
@@ -219,14 +266,18 @@ after the model answered):
 
 **What the numbers say.**
 
-* The **anomaly of run 1 is gone**: the naive arm and the simple-retry
-  arm are now identical (0.417 and 0.333 on the injected condition of the
-  Cerebras model, 31 requests each).  A baseline that only adds retries
-  cannot be worse than doing nothing, and it is not.
+* The **anomaly of run 1 is gone**: on the injected condition of the
+  Cerebras model the naive arm and the simple-retry arm are identical
+  (0.417 correct, 0.333 false completions, 31 requests each).  A baseline
+  that only adds retries cannot be worse than doing nothing, and it is not.
+  They are **not** identical on the other cells (see 1.3), and this report
+  does not claim it any more.
 * With `cerebras/gpt-oss-120b`, the guarded arm **caught three of the
   four false completions** of the baseline (0.333 -> 0.083) and completed
   three more tasks correctly (0.417 -> 0.667), at the price of three
-  more requests and 11 000 more tokens.
+  more requests and 11 000 more tokens.  In the sign convention of this
+  report that is a false completion difference of **-0.250**: a negative
+  value is an improvement.
 * With `google/gemini-3.5-flash-lite`, the guarded arm caught **no**
   additional false completion: all three arms are at 0.167.
 * The one false completion of the guarded arm in the natural condition of
@@ -239,8 +290,11 @@ after the model answered):
 
 | Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |
 | --- | --- | --- | --- |
-| cerebras gpt-oss-120b | +0.250 (3 against 0 discordant pairs, p = 0.250): **INCONCLUSIVE** (the sample is too small) | +0.250 (3 against 0 discordant pairs, p = 0.250): **INCONCLUSIVE** (the sample is too small) | 34 against 31 requests, 42 408 against 31 324 tokens: **SUPPORTED** |
-| google gemini-3.5-flash-lite | +0.000 (1 against 1, p = 1.000): **INCONCLUSIVE** (the sample is too small) | -0.000 (1 against 1, p = 1.000): **INCONCLUSIVE** (the sample is too small) | 47 against 46 requests, 43 905 against 28 041 tokens: **SUPPORTED** |
+| cerebras gpt-oss-120b | +0.250 (3 tasks only the guarded arm completed, 0 only the comparator; p = 0.250): **INCONCLUSIVE** (the sample is too small) | -0.250 (0 tasks only the guarded arm falsely completed, 3 only the comparator; p = 0.250): **INCONCLUSIVE** (the sample is too small) | 34 against 31 requests, 42 408 against 31 324 tokens: **SUPPORTED** |
+| google gemini-3.5-flash-lite | +0.000 (1 task only the guarded arm completed, 1 only the comparator; p = 1.000): **INCONCLUSIVE** (the sample is too small) | +0.000 (1 task only the guarded arm falsely completed, 1 only the comparator; p = 1.000): **INCONCLUSIVE** (the sample is too small) | 47 against 46 requests, 43 905 against 28 041 tokens: **SUPPORTED** |
+
+**The sign convention of this table** is the one of the section 0: the
+guarded arm minus the comparator, so a **negative** H2 is an improvement.
 
 **The verdicts are inconclusive, and the rule says so.**  The
 pre-registered rule is that a difference smaller than the minimum
@@ -391,9 +445,11 @@ no wheel was uploaded.
 * The **numeric free tier limits of Google AI Studio and of Mistral are
   not published**; the limits of Cerebras per day are not published
   either.  They are marked UNVERIFIED in `docs/providers.md`.
-* The **usage fields of the OpenAI compatible answer of Google and of
-  Ollama are not documented**: the token count of the Google model of
-  this report is therefore **0**, and the report says so.
+* The **usage fields of the OpenAI compatible answer of Ollama are not
+  documented**.  The **Google** model is a different case: the adapter
+  reads `usage.prompt_tokens` and `usage.completion_tokens` and the
+  provider reports them, so the token count of the Google model of the
+  trial v2 is **188 346** and not 0 (see the erratum of the section 0).
 * The **class "gap (behaviour)" of the mutation triage** (598 survivors)
   was not triaged one by one.
 * The **stretch** of the protocol (a twelve step long task, N = 1) was
