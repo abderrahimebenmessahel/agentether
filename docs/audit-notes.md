@@ -58,6 +58,35 @@ and is named here.  A test that only *partly* covers the claim says so.
 | C7 | A broken verifier is a failed verification, not a crash. | `test_a_broken_verifier_is_a_failed_verification`. |
 | C8 | A slow verifier cannot hang the run. | `test_a_slow_verifier_times_out`. |
 
+### A step cannot complete while a declared expectation is unmet
+
+The verifiers of a step check the **claim** of the agent: the files it
+listed must exist.  They cannot know what the step owed, so an agent that
+claimed to be done without having written half of its files passed every
+check.  The analysis of the false completions of the trial v2
+(`docs/false-completions.md`) found the two cases that follow from it: a
+file that the agent never produced, and a file that exists but is damaged.
+
+The declarative expectations close the gap: a step declares what it must
+produce, and the library checks that declaration after every attempt.
+
+| # | Invariant | Proof |
+| --- | --- | --- |
+| E1 | **A step cannot complete while a declared expectation is unmet.** | `test_expectations.py::test_a_step_cannot_complete_while_an_expectation_is_unmet` and `::test_a_step_completes_when_the_expectation_is_met`. |
+| E2 | The declaration is checked whatever the agent claimed: a claim that lists the file does not make the file exist. | `test_expectations.py::test_the_expectation_is_checked_even_when_the_claim_lists_the_file`. |
+| E3 | The expectations are evaluated after **every** attempt, not only when the agent claims to be done. | `test_expectations.py::test_the_expectations_are_checked_on_every_attempt` (the `verification_failed` event is emitted even when the claim is `in_progress`). |
+| E4 | An unmet expectation is a **retryable** `VerificationFailedError`, and the step is retried. | `test_expectations.py::test_the_failure_is_a_retryable_verification_error` and `::test_the_step_is_retried_until_the_expectation_is_met`. |
+| E5 | The corrective hint names the **missing** files. | `test_expectations.py::test_the_hint_names_the_missing_files`. |
+| E6 | A path that leaves the work directory is refused when the step is **declared** (absolute path, `..`, symlink escape). | `test_expectations.py::test_an_absolute_or_escaping_path_is_refused` and `::test_a_path_that_escapes_through_a_symbolic_link_is_refused`; the property test `test_properties.py::test_an_expectation_never_accepts_a_path_outside_the_work_dir`. |
+| E7 | The verdict of the declaration is recorded, like the verdict of any other verification. | `test_expectations.py::test_the_ledger_records_the_failed_expectation`. |
+| E8 | The shape of the file is checked: a JSON that does not parse, a Python that does not compile and a Markdown without its headings do not satisfy the declaration. | `test_expectations.py::test_a_json_file_must_parse`, `::test_a_python_file_must_compile`, `::test_a_markdown_file_must_have_its_headings`. |
+
+**What the invariant does not say.**  An expectation checks the **shape** of
+a file, not its meaning.  A JSON that parses may hold the wrong number, and
+a Python file that compiles may do the wrong thing.  The library says so
+where the feature is documented, and the semantic check is left to a judge
+(`llm_judge`) or to a verifier of your own.
+
 ### The loop of death
 
 | # | Invariant | Proof |

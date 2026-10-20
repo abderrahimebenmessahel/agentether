@@ -115,3 +115,67 @@ file exist", "does the JSON have the right keys", "does the build pass".
 
 A verifier that asks the model "is this good?" is a judge, not a check, and
 it inherits the unreliability of the model.
+
+## The declarative expectations of a step
+
+A verifier checks what the agent **claimed**.  An **expectation** checks
+what the step **owes**.  The agent can claim to be done while it never
+wrote half of the files the step asked for, and the existence check of the
+claimed files passes: the claim is backed, the work is not complete.
+
+```python
+from agentether import AutoOrchestrator, Expectation
+
+orch = AutoOrchestrator(
+    roadmap=["write"],
+    memory_dir="./memory",
+    timeout_seconds=60,
+    max_retries=3,
+    workdir="./work",
+)
+
+
+@orch.guard_step(
+    "write",
+    expects=[
+        "README.md",  # must exist, not empty
+        Expectation("data.json", json_keys=("a", "b")),  # must be a JSON with a and b
+        Expectation("build.py", python_valid=True),  # must compile
+        Expectation("guide.md", markdown_headings=("## Install",)),
+    ],
+)
+async def write(ctx):
+    return await my_llm(ctx.build_prompt("Write the documentation"))
+```
+
+| Field | What it checks |
+| --- | --- |
+| `path` | The file exists (and is not empty when `non_empty` is true). |
+| `contains` | The file matches every regular expression. |
+| `json_keys` | The file is a JSON object with those keys. |
+| `json_valid` | The file is valid JSON. |
+| `python_valid` | The file compiles (it is never executed). |
+| `markdown_headings` | The file has those headings. |
+
+A plain string in the list is a shorthand for `Expectation(path)`.
+
+**The rules.**
+
+* The expectations are evaluated **after every attempt**, whatever the agent
+  claimed.  A step cannot complete while a declared expectation is unmet.
+* An unmet expectation is a **retryable** `VerificationFailedError`, and the
+  corrective hint of the next attempt **names the missing files**.
+* The paths are confined to the work directory: an absolute path, a `..`
+  component and a symbolic link that leaves the directory are refused
+  **when the step is declared** (a `ConfigurationError`).
+* The expectations are checked **before** the verifiers of `verify=[...]`:
+  a file that does not exist is the more actionable failure.
+
+**What an expectation cannot do.**  It checks the **shape** of a file, not
+its meaning.  A JSON file that parses may hold the wrong number, a Markdown
+file that has its headings may say the wrong thing, and a Python file that
+compiles may do the wrong thing.  For the meaning you need a judge
+(`llm_judge`) or a check of your own (`callable_verifier`).  An expectation
+is a floor, not a proof.
+
+The full contract is in [`docs/spec/expectations-v1.md`](spec/expectations-v1.md).

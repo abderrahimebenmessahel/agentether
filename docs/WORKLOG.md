@@ -547,6 +547,57 @@ completion of the current one.  That is why the `replay_previous` fault
 ended in a false completion of the baseline.  The library itself checks
 the step name (a drift check), which is why the guarded arm caught it.
 
+### Phase 3 — the declarative expectations of a step
+
+The main library change of the brief.  A step can now declare what it
+**must** produce, and the library checks that declaration instead of only
+the claim of the agent.
+
+```python
+@orch.guard_step(
+    "write",
+    expects=[
+        "README.md",                                     # must exist, not empty
+        Expectation("data.json", json_keys=("a", "b")),  # must be a JSON with a and b
+        Expectation("build.py", python_valid=True),      # must compile
+        Expectation("guide.md", markdown_headings=("## Install",)),
+    ],
+)
+```
+
+* `src/agentether/expectations.py` is new: the `Expectation` dataclass, the
+  resolution of the declared paths and the composite verifier.  The checks
+  of the content **reuse** the verifiers of the library (`file_contains`,
+  `json_file_valid`, `python_syntax_valid`, `markdown_has_headings`).
+* `AutoOrchestrator.guard_step` takes `expects=` and resolves the paths
+  **when the step is declared**: an absolute path, a `..` component and a
+  symlink that leaves the work directory are a `ConfigurationError` and not
+  a failure at the end of the run.
+* The expectations are evaluated **after every attempt**, whatever the
+  agent claimed, and **a step cannot complete while a declared expectation
+  is unmet**.  The failure is a retryable `VerificationFailedError` and the
+  hint of the next attempt names the **missing** files.
+* The expectations are checked **before** the verifiers of `verify=[...]`:
+  a file that does not exist is the more actionable failure.
+
+**The tests.**  `tests/test_expectations.py` (21 tests) and two property
+tests in `tests/test_properties.py`.  They cover the invariant, the
+confinement of the paths, the validators, the hint, the retry and the
+record of the ledger.
+
+**The documentation.**  `docs/spec/expectations-v1.md` is the contract (for
+other implementations too), `docs/verifiers.md` has the guide, the README
+has a section, the CHANGELOG has the entry, `docs/audit-notes.md` has the
+new invariant with its eight proofs, and `examples/declared_expectations.py`
+is a runnable example (it lies twice and is caught twice).
+
+**What `expects` cannot do**, and what the documentation says: an
+expectation checks the **shape** of a file, not its meaning.  A JSON that
+parses may hold the wrong number, a Markdown that has its headings may say
+the wrong thing, a Python that compiles may do the wrong thing.  The
+semantic check is left to a judge (`llm_judge`) or to a verifier of your
+own (`callable_verifier`).
+
 ### NEXT ACTION
 
 The final report is written

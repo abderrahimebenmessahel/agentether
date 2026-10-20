@@ -29,6 +29,43 @@ alpha of the 0.3.0 series.
 
 ### Added
 
+- **The declarative expectations of a step.**  A step can now declare what
+  it **must** produce, and the library checks that declaration instead of
+  only the claim of the agent:
+
+  ```python
+  from agentether import Expectation
+
+
+  @orch.guard_step(
+      "write",
+      expects=[
+          "README.md",  # must exist, not empty
+          Expectation("data.json", json_keys=("a", "b")),  # must be a JSON with a and b
+          Expectation("build.py", python_valid=True),  # must compile
+          Expectation("guide.md", markdown_headings=("## Install",)),
+      ],
+  )
+  async def write(ctx): ...
+  ```
+
+  The expectations are evaluated after **every** attempt, whatever the agent
+  claimed, and **a step cannot complete while a declared expectation is
+  unmet**.  An unmet expectation is a retryable `VerificationFailedError`,
+  and the corrective hint of the next attempt names the missing files.  The
+  paths are confined to the work directory: an absolute path, a `..`
+  component and a symbolic link that escapes the directory are refused when
+  the step is declared.
+
+  An expectation checks the **shape** of a file, not its meaning: a JSON
+  that parses may hold the wrong number.  The contract is in
+  `docs/spec/expectations-v1.md` and the guide in `docs/verifiers.md`.
+
+  The feature exists because the analysis of the false completions of the
+  trial v2 found that a verifier that only checks the files the agent
+  **claims** cannot catch a file that exists but is damaged, and cannot see
+  a file the agent never produced.
+
 - Python 3.14 in the CI matrix (Linux and Windows).
 - A non-blocking `pip-audit` job, a Dependabot configuration and a
   pre-commit configuration (ruff, ruff-format, mypy and the repository's own

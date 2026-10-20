@@ -42,6 +42,7 @@ from .exceptions import (
     TelemetryParseError,
     VerificationFailedError,
 )
+from .expectations import Expectation
 from .ledger import ClaimsLedger, ClaimStats, verify_chain
 from .logging_utils import ColorFormatter, configure_logging, logger
 from .loop_detector import LoopDetector, StallDetector, fingerprint, jaccard, normalize
@@ -104,6 +105,7 @@ __all__ = [
     "ContextDriftError",
     "EventBus",
     "EventLog",
+    "Expectation",
     "FailureKind",
     "GuardPolicy",
     "GuardedStep",

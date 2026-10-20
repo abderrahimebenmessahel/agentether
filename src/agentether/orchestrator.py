@@ -42,6 +42,7 @@ from .exceptions import (
     TelemetryParseError,
     VerificationFailedError,
 )
+from .expectations import Expectation, expectations_verifier, resolve_expectations
 from .ledger import ClaimsLedger
 from .logging_utils import logger
 from .loop_detector import LoopDetector, StallDetector
@@ -451,6 +452,7 @@ class AutoOrchestrator:
         step_name: str,
         *,
         verify: Sequence[Verifier] | None = None,
+        expects: Sequence[str | Expectation] | None = None,
     ) -> Callable[[StepFunction[P, R]], GuardedStep[P]]:
         """Return a decorator that supervises one roadmap step.
 
@@ -464,23 +466,46 @@ class AutoOrchestrator:
             step_name: The roadmap step this decorator guards.
             verify: Independent verifiers that check the agent's completion
                 claim.  They run in order and all of them must pass.
+            expects: What the step **must** produce: a path (the file must
+                exist and must not be empty) or an
+                :class:`~agentether.expectations.Expectation` (the file must
+                exist and its content must satisfy the declaration).  The
+                expectations are checked after every attempt, whatever the
+                agent claimed, and the step cannot complete while one of
+                them is unmet.
+
+        Raises:
+            ConfigurationError: If the step name is empty, or if a declared
+                path is not allowed inside the work directory.
 
         .. note::
             A thread cannot be killed.  When a *synchronous* function exceeds
             ``timeout_seconds`` the supervisor stops waiting, but the thread
             keeps running in the background.  Use an ``async def`` function
             when the work must actually be cancellable.
+
+        .. versionchanged:: 0.3.0a1
+            Added ``expects``.
         """
         if not isinstance(step_name, str) or not step_name:
             raise ConfigurationError("step name must be a non-empty string")
         verifiers = list(verify or ())
+        expectation_verifier: Verifier | None = None
+        if expects is not None:
+            declared = resolve_expectations(self._workdir, expects)
+            if declared:
+                expectation_verifier = expectations_verifier(declared)
 
         def decorator(func: StepFunction[P, R]) -> GuardedStep[P]:
             async def _run(*args: P.args, **kwargs: P.kwargs) -> StepResult:
-                return await self._run_step(step_name, func, args, kwargs, False, verifiers)
+                return await self._run_step(
+                    step_name, func, args, kwargs, False, verifiers, expectation_verifier
+                )
 
             async def _rerun(*args: P.args, **kwargs: P.kwargs) -> StepResult:
-                return await self._run_step(step_name, func, args, kwargs, True, verifiers)
+                return await self._run_step(
+                    step_name, func, args, kwargs, True, verifiers, expectation_verifier
+                )
 
             guarded = _GuardedStepImpl[P](run=_run, rerun=_rerun)
             functools.update_wrapper(guarded, func)
@@ -499,6 +524,7 @@ class AutoOrchestrator:
         kwargs: dict[str, Any],
         force: bool,
         verifiers: list[Verifier],
+        expectation_verifier: Verifier | None = None,
     ) -> StepResult:
         # Two concurrent calls to the same step are serialised: the second
         # one waits and then finds the cached result.
@@ -508,7 +534,9 @@ class AutoOrchestrator:
             entry = (loop, asyncio.Lock())
             self._step_locks[step_name] = entry
         async with entry[1]:
-            return await self._run_step_locked(step_name, func, args, kwargs, force, verifiers)
+            return await self._run_step_locked(
+                step_name, func, args, kwargs, force, verifiers, expectation_verifier
+            )
 
     async def _run_step_locked(
         self,
@@ -518,6 +546,7 @@ class AutoOrchestrator:
         kwargs: dict[str, Any],
         force: bool,
         verifiers: list[Verifier],
+        expectation_verifier: Verifier | None = None,
     ) -> StepResult:
         if step_name not in self._index:
             raise ContextDriftError(
@@ -627,7 +656,9 @@ class AutoOrchestrator:
                 max_attempts=self._policy.retry.max_attempts,
             )
 
-            outcome = await self._attempt(step_name, func, args, kwargs, context, verifiers)
+            outcome = await self._attempt(
+                step_name, func, args, kwargs, context, verifiers, expectation_verifier
+            )
             if outcome.telemetry is not None:
                 self._claims.append(
                     step=step_name,
@@ -831,6 +862,7 @@ class AutoOrchestrator:
         kwargs: dict[str, Any],
         context: StepContext,
         verifiers: list[Verifier],
+        expectation_verifier: Verifier | None = None,
     ) -> _AttemptResult:
         try:
             raw_output, usage, model = await self._invoke(func, context, args, kwargs)
@@ -1039,25 +1071,42 @@ class AutoOrchestrator:
             )
 
         verification: dict[str, Any] | None = None
-        if telemetry.status == "completed" and verifiers:
+        failure: _Failure | None = None
+        expectation_hint = ""
+        if expectation_verifier is not None:
+            # The declared expectations are evaluated after **every**
+            # attempt, whatever the agent claimed: a step cannot complete
+            # while a declared expectation is unmet.  When the agent did
+            # not claim to be done the step fails for its own reason, and
+            # the expectations only add to the hint.
+            failure = await self._verify(
+                step_name, telemetry, raw_output, [expectation_verifier], expectation=True
+            )
+            if failure is None:
+                verification = {"ok": True, "reason": "", "evidence": {}}
+            elif telemetry.status != "completed":
+                expectation_hint = failure.hint
+                failure = None
+        if failure is None and telemetry.status == "completed" and verifiers:
             failure = await self._verify(step_name, telemetry, raw_output, verifiers)
-            if failure is not None:
-                error = failure.exception
-                return _AttemptResult(
-                    # The claim itself is kept: the agent *did* claim to be
-                    # done, and that claim is what the ledger records.
-                    telemetry=telemetry,
-                    verification={
-                        "ok": False,
-                        "reason": str(getattr(error, "reason", error)),
-                        "evidence": dict(getattr(error, "evidence", {})),
-                    },
-                    model=model,
-                    failure=failure,
-                    raw_output=raw_output,
-                    usage=usage,
-                )
-            verification = {"ok": True, "reason": "", "evidence": {}}
+            if failure is None:
+                verification = {"ok": True, "reason": "", "evidence": {}}
+        if failure is not None:
+            error = failure.exception
+            return _AttemptResult(
+                # The claim itself is kept: the agent *did* claim to be
+                # done, and that claim is what the ledger records.
+                telemetry=telemetry,
+                verification={
+                    "ok": False,
+                    "reason": str(getattr(error, "reason", error)),
+                    "evidence": dict(getattr(error, "evidence", {})),
+                },
+                model=model,
+                failure=failure,
+                raw_output=raw_output,
+                usage=usage,
+            )
 
         if telemetry.status == "completed":
             return _AttemptResult(
@@ -1078,7 +1127,10 @@ class AutoOrchestrator:
                         reason="the step was not completed",
                         retryable=True,
                     ),
-                    hint="step not completed, continue",
+                    hint=(
+                        "step not completed, continue"
+                        + (f". {expectation_hint}" if expectation_hint else "")
+                    ),
                     detail="did not complete the step",
                     kind=FailureKind.IN_PROGRESS,
                     retryable=True,
@@ -1116,8 +1168,20 @@ class AutoOrchestrator:
         telemetry: Telemetry,
         raw_output: str,
         verifiers: list[Verifier],
+        *,
+        expectation: bool = False,
     ) -> _Failure | None:
-        """Run the verifiers.  Returns a failure when one of them rejects."""
+        """Run the verifiers.  Returns a failure when one of them rejects.
+
+        Args:
+            step_name: The step that is verified.
+            telemetry: The telemetry the agent reported.
+            raw_output: The raw answer of the agent.
+            verifiers: The verifiers to run, in order.
+            expectation: Whether these verifiers are the declared
+                expectations of the step.  The hint of the failure then
+                names the missing files.
+        """
         if not self._policy.verification_enabled:
             return None
         context = VerifyContext(
@@ -1152,12 +1216,23 @@ class AutoOrchestrator:
                     reason=result.reason,
                     evidence=result.evidence,
                 )
-                return _Failure(
-                    exception=VerificationFailedError(step_name, result.reason, result.evidence),
-                    hint=(
+                if expectation:
+                    missing = list(result.evidence.get("missing") or [])
+                    hint = (
+                        f"the step did not produce what it declared: {result.reason}; "
+                        "write the missing files (or fix them) and only then report "
+                        "the step as done"
+                    )
+                    if missing:
+                        hint += f". The missing files are: {', '.join(missing)}"
+                else:
+                    hint = (
                         f"you reported completed but: {result.reason}; "
                         "do that work before reporting the step as done"
-                    ),
+                    )
+                return _Failure(
+                    exception=VerificationFailedError(step_name, result.reason, result.evidence),
+                    hint=hint,
                     detail=f"verification failed: {result.reason}",
                     kind=FailureKind.VERIFICATION_FAILED,
                 )

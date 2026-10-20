@@ -167,6 +167,43 @@ interface only -- the core ships no provider code).
 Every path that comes from the model is untrusted: absolute paths, `..`
 components and symlinks that escape the work directory are rejected.
 
+## Declaring what a step must produce
+
+A verifier checks what the agent **claimed**.  An **expectation** checks
+what the step **owes**: the agent can claim to be done while it never wrote
+half of the files the step asked for, and the check of the claimed files
+passes.
+
+```python
+from agentether import Expectation
+
+
+@orch.guard_step(
+    "write",
+    expects=[
+        "README.md",  # must exist, not empty
+        Expectation("data.json", json_keys=("a", "b")),  # must be a JSON with a and b
+        Expectation("build.py", python_valid=True),  # must compile
+        Expectation("guide.md", markdown_headings=("## Install",)),
+    ],
+)
+async def write(ctx): ...
+```
+
+The expectations are checked after **every** attempt, whatever the agent
+claimed, and a step cannot complete while one of them is unmet.  An unmet
+expectation is a retryable `VerificationFailedError`, and the hint of the
+next attempt names the missing files: *"the step did not produce what it
+declared: the step must produce these files: data.json"*.
+
+The paths are confined to the work directory (an absolute path, a `..`
+component and a symlink that escapes it are refused when the step is
+declared).  An expectation checks the **shape** of a file, not its meaning:
+a JSON that parses may hold the wrong number.  For the meaning you need a
+judge (`llm_judge`) or a check of your own (`callable_verifier`).
+
+The full contract is in [`docs/spec/expectations-v1.md`](docs/spec/expectations-v1.md).
+
 ## The claims ledger and the "reliability meter"
 
 Every attempt that produced a claim is recorded in `claims.jsonl`: the status
@@ -382,6 +419,7 @@ How to reproduce the evidence: see
 | [`examples/demo.py`](examples/demo.py) | The 60 second demo, without an API key. |
 | [`examples/quickstart.py`](examples/quickstart.py) | The basics, the cache and `rerun()`. |
 | [`examples/verified_step.py`](examples/verified_step.py) | An agent that lies, and a verifier that catches it. |
+| [`examples/declared_expectations.py`](examples/declared_expectations.py) | A step that declares what it must produce, and an agent that does not. |
 | [`examples/human_in_the_loop.py`](examples/human_in_the_loop.py) | A blocked step waiting for a human answer. |
 | [`examples/loop_detection.py`](examples/loop_detection.py) | A loop of equivalent answers. |
 | [`examples/anthropic_agent.py`](examples/anthropic_agent.py) | The Anthropic adapter (needs the extra and a real key). |

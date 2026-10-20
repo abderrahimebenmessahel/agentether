@@ -7,9 +7,13 @@ the library itself stays standard library only.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
+import tempfile
 from pathlib import Path
 
+import pytest
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
@@ -152,3 +156,59 @@ def test_arbitrary_json_objects_are_parsed_or_rejected(payload: dict[str, str]) 
     except TelemetryParseError:
         return
     assert isinstance(data, dict)
+
+
+# ----------------------------------------------------------------------
+# the declarative expectations
+# ----------------------------------------------------------------------
+@given(
+    st.lists(
+        st.text(
+            alphabet=st.characters(min_codepoint=97, max_codepoint=122), min_size=1, max_size=8
+        ),
+        min_size=1,
+        max_size=4,
+    )
+)
+@SETTINGS
+def test_an_expectation_never_accepts_a_path_outside_the_work_dir(names: list[str]) -> None:
+    """A path with a ``..`` or an absolute path is always refused."""
+    from agentether import ConfigurationError, Expectation
+    from agentether.expectations import resolve_expectations
+
+    base = Path("C:/work") if os.name == "nt" else Path("/work")
+    for name in names:
+        for path in (f"../{name}", f"/{name}", f"a/../../{name}"):
+            with pytest.raises(ConfigurationError):
+                resolve_expectations(base, [Expectation(path)])
+        # A plain relative path is allowed.
+        resolved = resolve_expectations(base, [Expectation(name)])
+        assert resolved[0].path == name
+
+
+@given(st.lists(st.text(max_size=30), max_size=3))
+@SETTINGS
+def test_the_expectation_verifier_never_raises(contents: list[str]) -> None:
+    """The verifier of the expectations always answers, it never raises."""
+    from agentether import Expectation
+    from agentether.expectations import expectations_verifier
+    from agentether.models import Telemetry, VerifyContext
+
+    with tempfile.TemporaryDirectory() as directory:
+        work = Path(directory)
+        for index, content in enumerate(contents):
+            (work / f"file{index}.md").write_text(content, encoding="utf-8")
+        expectations = [
+            Expectation(f"file{index}.md", markdown_headings=("## Title",))
+            for index in range(len(contents))
+        ]
+        verifier = expectations_verifier(expectations)
+        context = VerifyContext(
+            step="s",
+            telemetry=Telemetry(step="s", status="completed", summary="x", progress=100),
+            raw_output="",
+            memory_dir=work,
+            workdir=work,
+        )
+        result = asyncio.run(verifier(context))
+        assert isinstance(result.ok, bool)
