@@ -70,18 +70,22 @@ FAULT_SEED = 20261020
 #: model, and the fix was applied to every arm.
 PROTOCOL = """\
 You are working inside a sandbox. You cannot use tools: you return the content
-of every file in a fenced block whose first line is "FILE: <relative path>".
+of every file in a fenced block.  The **first line inside the block** is
+"FILE: <relative path>" and the rest of the block is the content of the file.
 
-Example:
+Example (this is the whole answer, the fences included):
 
+```
 FILE: notes.md
 # Notes
 ## Context
 ...
+```
 
 Rules:
-- one fenced block per file, and the first line of the block must be
-  "FILE: <path>" followed by the content of the file;
+- one fenced block per file, and the first line **inside** the block must be
+  "FILE: <path>", followed by the content of the file (the fences are part
+  of the answer, as in the example above);
 - the path must be relative, without ".." and without a drive letter;
 - write every file the step asks for, with exactly the content that is asked
   for (the exact headings, the exact keys, the exact numbers);
@@ -112,8 +116,23 @@ def build_prompt(step: Any) -> str:
 
 
 def parse_file_blocks(answer: str) -> list[tuple[str, str]]:
-    """Extract the ``FILE: path`` blocks of an answer."""
-    found: list[tuple[str, str]] = []
+    """Extract the ``FILE: path`` blocks of an answer.
+
+    Two spellings are accepted, because models write both and the
+    difference is a matter of taste, not of competence:
+
+    * the first line **inside** the block is ``FILE: path`` and the rest of
+      the block is the content of the file;
+    * the line ``FILE: path`` stands **right before** the block and the
+      whole block is the content of the file.
+
+    The second spelling was found by the capability probe: two of the
+    free models wrote it, and the harness would have thrown their work
+    away.  A harness that only accepts one spelling measures the
+    formatting taste of a model and not the supervision of a claim.
+    """
+    found: list[tuple[int, str, str]] = []
+    inside: list[tuple[int, int]] = []
     for match in _FENCE.finditer(answer):
         body = match.group("body")
         lines = body.splitlines()
@@ -122,8 +141,20 @@ def parse_file_blocks(answer: str) -> list[tuple[str, str]]:
         head = _FILE_HEAD.match(lines[0])
         if head is None:
             continue
-        found.append((head.group("path").strip(), "\n".join(lines[1:])))
-    return found
+        inside.append(match.span())
+        found.append((match.start(), head.group("path").strip(), "\n".join(lines[1:])))
+    for match in _FENCE.finditer(answer):
+        if any(start <= match.start() < stop for start, stop in inside):
+            continue
+        before = answer[: match.start()].rstrip()
+        if not before:
+            continue
+        head = _FILE_HEAD.match(before.splitlines()[-1])
+        if head is None:
+            continue
+        found.append((match.start(), head.group("path").strip(), match.group("body")))
+    found.sort(key=lambda item: item[0])
+    return [(path, content) for _, path, content in found]
 
 
 def write_answer_files(answer: str, sandbox: Path) -> list[str]:

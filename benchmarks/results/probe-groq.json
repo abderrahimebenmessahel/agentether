@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-10-20T12:28:31Z",
+  "provider": "groq",
+  "requests_per_model": 12,
+  "results": [
+    {
+      "artifacts_rate": 1.0,
+      "deterministic": true,
+      "errors": 1,
+      "file_block_rate": 1.0,
+      "input_tokens": 4730,
+      "model": "qwen/qwen3.8-27b",
+      "notes": [
+        {
+          "error": "OpenAICompatibleTransientError",
+          "message": "the provider returned HTTP 429: {\"error\":{\"message\":\"Request too large for model `qwen/qwen3.8-27b` in organization `org_01m5cdceajev1vm8afaj9bgcp3` service tier `on_demand` on output tokens per minut"
+        }
+      ],
+      "output_tokens": 2075,
+      "progress_100_rate": 1.0,
+      "provider": "groq",
+      "requests_ok": 11,
+      "requests_sent": 12,
+      "seconds": 72.0,
+      "step_exact_rate": 1.0,
+      "telemetry_rate": 1.0,
+      "tokens_per_request": 618.6
+    },
+    {
+      "artifacts_rate": 1.0,
+      "deterministic": false,
+      "errors": 0,
+      "file_block_rate": 1.0,
+      "input_tokens": 5616,
+      "model": "openai/gpt-oss-20b",
+      "notes": [],
+      "output_tokens": 5760,
+      "progress_100_rate": 1.0,
+      "provider": "groq",
+      "requests_ok": 12,
+      "requests_sent": 12,
+      "seconds": 46.2,
+      "step_exact_rate": 1.0,
+      "telemetry_rate": 1.0,
+      "tokens_per_request": 948.0
+    }
+  ]
+}

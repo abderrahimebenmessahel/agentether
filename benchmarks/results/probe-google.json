@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-10-20T12:34:29Z",
+  "provider": "google",
+  "requests_per_model": 12,
+  "results": [
+    {
+      "artifacts_rate": 1.0,
+      "deterministic": false,
+      "errors": 0,
+      "file_block_rate": 1.0,
+      "input_tokens": 5112,
+      "model": "gemini-3.6-flash",
+      "notes": [],
+      "output_tokens": 2588,
+      "progress_100_rate": 1.0,
+      "provider": "google",
+      "requests_ok": 12,
+      "requests_sent": 12,
+      "seconds": 120.4,
+      "step_exact_rate": 1.0,
+      "telemetry_rate": 1.0,
+      "tokens_per_request": 641.7
+    },
+    {
+      "artifacts_rate": 1.0,
+      "deterministic": false,
+      "errors": 0,
+      "file_block_rate": 1.0,
+      "input_tokens": 5112,
+      "model": "gemini-3.5-flash-lite",
+      "notes": [],
+      "output_tokens": 2420,
+      "progress_100_rate": 1.0,
+      "provider": "google",
+      "requests_ok": 12,
+      "requests_sent": 12,
+      "seconds": 125.9,
+      "step_exact_rate": 1.0,
+      "telemetry_rate": 1.0,
+      "tokens_per_request": 627.7
+    }
+  ]
+}

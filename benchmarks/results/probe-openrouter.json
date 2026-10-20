@@ -1,0 +1,42 @@
+{
+  "generated_at": "2026-10-20T12:27:19Z",
+  "provider": "openrouter",
+  "requests_per_model": 12,
+  "results": [
+    {
+      "artifacts_rate": 0.0,
+      "deterministic": null,
+      "errors": 12,
+      "file_block_rate": 0.0,
+      "input_tokens": 0,
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "notes": [
+        {
+          "error": "OpenAICompatibleTransientError",
+          "message": "the provider returned HTTP 429: {\"error\":{\"message\":\"Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day\",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit"
+        },
+        {
+          "error": "OpenAICompatibleTransientError",
+          "message": "the provider returned HTTP 429: {\"error\":{\"message\":\"Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day\",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit"
+        },
+        {
+          "error": "OpenAICompatibleTransientError",
+          "message": "the provider returned HTTP 429: {\"error\":{\"message\":\"Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day\",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit"
+        },
+        {
+          "error": "OpenAICompatibleTransientError",
+          "message": "the provider returned HTTP 429: {\"error\":{\"message\":\"Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day\",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit"
+        }
+      ],
+      "output_tokens": 0,
+      "progress_100_rate": 0.0,
+      "provider": "openrouter",
+      "requests_ok": 0,
+      "requests_sent": 12,
+      "seconds": 49.2,
+      "step_exact_rate": 0.0,
+      "telemetry_rate": 0.0,
+      "tokens_per_request": 0.0
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-10-20T12:32:05Z",
+  "provider": "cerebras",
+  "requests_per_model": 12,
+  "results": [
+    {
+      "artifacts_rate": 1.0,
+      "deterministic": true,
+      "errors": 0,
+      "file_block_rate": 1.0,
+      "input_tokens": 5568,
+      "model": "gpt-oss-120b",
+      "notes": [],
+      "output_tokens": 8568,
+      "progress_100_rate": 1.0,
+      "provider": "cerebras",
+      "requests_ok": 12,
+      "requests_sent": 12,
+      "seconds": 133.0,
+      "step_exact_rate": 1.0,
+      "telemetry_rate": 1.0,
+      "tokens_per_request": 1178.0
+    }
+  ]
+}

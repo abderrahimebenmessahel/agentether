@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+import agentether
 from agentether import __version__
 
 #: The version of this release.  Bumping it means bumping this constant and
@@ -60,25 +61,38 @@ def test_the_declared_version_is_the_expected_one() -> None:
 
 
 def test_the_package_and_the_project_file_agree() -> None:
-    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert _pyproject_version(text) == __version__
+    path = ROOT / "pyproject.toml"
+    if not path.exists():
+        # The tree may be a copy of the checkout (the mutation testing
+        # copies it before it mutates it), and the copy has no
+        # pyproject.toml.
+        pytest.skip("this is not a checkout")
+    assert _pyproject_version(path.read_text(encoding="utf-8")) == __version__
 
 
 def test_the_changelog_agrees_with_the_package() -> None:
-    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert _changelog_heading(text) == __version__
+    path = ROOT / "CHANGELOG.md"
+    if not path.exists():
+        pytest.skip("this is not a checkout")
+    assert _changelog_heading(path.read_text(encoding="utf-8")) == __version__
 
 
 def test_the_installed_distribution_agrees_with_the_package() -> None:
     """The installed metadata must carry the same version.
 
     The test is skipped when the package is not installed (a plain source
-    checkout), because there is then no metadata to compare.
+    checkout) and when the imported package is not the installed one (a
+    copy of the tree, which is what the mutation testing makes): in both
+    cases there is nothing to compare.  The wheel is checked by
+    ``packaging_check.py``, which installs it and runs the command.
     """
     try:
         installed = distribution_version("agentether")
     except PackageNotFoundError:
         pytest.skip("the package is not installed in this environment")
+    imported = Path(agentether.__file__).resolve().parent
+    if imported.name != "agentether" or not (imported / "__init__.py").exists():
+        pytest.skip("the imported package is not the installed one")
     assert installed == __version__
 
 

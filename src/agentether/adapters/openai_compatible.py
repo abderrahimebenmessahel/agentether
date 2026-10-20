@@ -63,6 +63,12 @@ MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 #: The path of the model list of an OpenAI compatible API.
 DEFAULT_MODELS_PATH = "/models"
 
+#: The User-Agent of the requests.  Some providers put a robot filter in
+#: front of their API that answers the default agent of ``urllib``
+#: ("Python-urllib/3.x") with a 403 and the error code 1010 of
+#: Cloudflare, so the library sends a name of its own.
+USER_AGENT = "agentether/0.3.0a1"
+
 #: The HTTP status codes that are worth another attempt.
 RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 
@@ -114,6 +120,10 @@ class ProviderSpec:
         free_marker: A suffix that marks a free model in the catalogue of
             the provider.  It is used when the catalogue has no price
             fields, which is the case of every provider but OpenRouter.
+        free_models: The ids of the free models of a provider whose
+            catalogue has no price.  They come from the documentation of
+            the provider and they are only used when the catalogue still
+            lists them, so a model that disappears is never called.
         docs_url: The page the facts come from.
         verified_on: The day the facts were read.
         notes: What could not be verified.
@@ -129,6 +139,7 @@ class ProviderSpec:
     seed_parameter: str | None = "seed"
     free_marker: str | None = None
     key_names: tuple[str, ...] = ()
+    free_models: tuple[str, ...] = ()
     docs_url: str = ""
     verified_on: str = ""
     notes: str = ""
@@ -366,7 +377,12 @@ def _post_json(
         OpenAICompatibleError: On a rejected request or a broken answer.
     """
     data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        headers={**headers, "User-Agent": USER_AGENT},
+        method="POST",
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read(max_bytes + 1)
@@ -385,6 +401,63 @@ def _post_json(
                 ) from exc
             raise OpenAICompatibleError(
                 f"{message} (the API key was rejected; check the key and its access to the model)"
+            ) from exc
+        if exc.code in RETRYABLE_STATUS:
+            raise OpenAICompatibleTransientError(
+                message, retry_after=_retry_after_seconds(exc.headers)
+            ) from exc
+        raise OpenAICompatibleError(message) from exc
+    except urllib.error.URLError as exc:
+        reason = _redact(str(getattr(exc, "reason", exc)), secret)
+        raise OpenAICompatibleTransientError(f"could not reach the provider: {reason}") from exc
+    except (TimeoutError, OSError) as exc:
+        reason = _redact(str(exc), secret)
+        raise OpenAICompatibleTransientError(f"the request failed: {reason}") from exc
+
+    if len(raw) > max_bytes:
+        raise OpenAICompatibleError(f"the response was larger than {max_bytes} bytes")
+    try:
+        decoded = json.loads(raw.decode("utf-8", errors="replace"))
+    except json.JSONDecodeError as exc:
+        raise OpenAICompatibleError("the response was not valid JSON") from exc
+    if not isinstance(decoded, dict):
+        raise OpenAICompatibleError("the response was not a JSON object")
+    return decoded
+
+
+def _get_json(
+    url: str,
+    headers: dict[str, str],
+    timeout: float,
+    max_bytes: int,
+    secret: str,
+) -> dict[str, Any]:
+    """Send one GET request and return the decoded JSON body.
+
+    The catalogue of the models is a GET, not a POST: a POST on it is
+    answered with 404 or 405 by most of the providers.
+
+    Raises:
+        OpenAICompatibleError: On a rejected request or a broken answer.
+    """
+    request = urllib.request.Request(
+        url, headers={**headers, "User-Agent": USER_AGENT}, method="GET"
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read(max_bytes + 1)
+    except urllib.error.HTTPError as exc:
+        body = b""
+        with contextlib.suppress(Exception):  # the body is best effort
+            body = exc.read(4096)
+        detail = _redact(body.decode("utf-8", errors="replace"), secret)[:500]
+        message = f"the provider returned HTTP {exc.code}"
+        if detail:
+            message = f"{message}: {detail}"
+        if exc.code in NON_RETRYABLE_STATUS:
+            raise OpenAICompatibleError(
+                f"{message} (the API key was rejected; check the key and its access "
+                f"to the catalogue)"
             ) from exc
         if exc.code in RETRYABLE_STATUS:
             raise OpenAICompatibleTransientError(
@@ -679,9 +752,8 @@ def list_free_models(
     headers = {"Content-Type": "application/json"}
     if secret:
         headers["Authorization"] = f"Bearer {secret}"
-    data = _post_json(
+    data = _get_json(
         spec.url(spec.models_path),
-        {},
         headers,
         timeout,
         max_response_bytes,
@@ -696,6 +768,18 @@ def list_free_models(
             continue
         identifier = item.get("id")
         if not isinstance(identifier, str) or not identifier:
+            continue
+        if spec.free_models:
+            # The documentation of the provider lists the models of the
+            # free tier.  The catalogue is only used to know that they
+            # still exist: the price of the catalogue is the price of the
+            # paid tier (Groq publishes one) and says nothing about the
+            # free tier.
+            # The catalogue of Google prefixes the ids with "models/",
+            # while the request wants the bare id.
+            request_id = identifier.removeprefix("models/")
+            if request_id in spec.free_models:
+                found.append(request_id)
             continue
         pricing = item.get("pricing")
         if isinstance(pricing, dict):
@@ -765,6 +849,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
         requests_per_minute=30,
         requests_per_day=1000,
         seed_parameter="seed",
+        free_models=("openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"),
         docs_url="https://console.groq.com/docs/rate-limits",
         verified_on="2026-10-20",
         notes=(
@@ -781,6 +866,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
         requests_per_minute=5,
         requests_per_day=1000,
         seed_parameter="seed",
+        free_models=("gpt-oss-120b", "qwen-3.8-27b"),
         docs_url="https://inference-docs.cerebras.ai/support/rate-limits",
         verified_on="2026-10-20",
         notes=(
@@ -812,6 +898,16 @@ PROVIDERS: dict[str, ProviderSpec] = {
         requests_per_minute=15,
         requests_per_day=1500,
         seed_parameter=None,
+        free_models=(
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-3-flash-preview",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-pro",
+        ),
         docs_url="https://ai.google.dev/gemini-api/docs/rate-limits",
         verified_on="2026-10-20",
         notes=(
