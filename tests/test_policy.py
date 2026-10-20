@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 import pytest
 
-from context_guard import (
+from agentether import (
     AgentExecutionError,
     AgentTimeoutError,
     BreakerPolicy,
@@ -21,7 +21,7 @@ from context_guard import (
     TelemetryParseError,
     VerificationFailedError,
 )
-from context_guard.policy import DEFAULT_NO_RETRY_ON, DEFAULT_RETRY_ON
+from agentether.policy import DEFAULT_NO_RETRY_ON, DEFAULT_RETRY_ON
 
 
 def test_the_defaults_are_documented() -> None:

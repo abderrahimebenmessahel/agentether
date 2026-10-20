@@ -2,13 +2,13 @@
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# The name "contextguard" is TAKEN on PyPI (an unrelated project, v0.1.2), so
-# the distribution is published as "context-guard".  The import package stays
-# "context_guard".  Both spellings were checked on PyPI and on GitHub:
-# "context-guard", "context_guard", "contextguard-lite", "context-guard-lite"
-# and "contextguard-core" are all free at the time of writing.
+# The name "agentether" is TAKEN on PyPI (an unrelated project, v0.1.2), so
+# the distribution is published as "agentether".  The import package stays
+# "agentether".  Both spellings were checked on PyPI and on GitHub:
+# "agentether", "agentether", "agentether-lite", "agentether-lite"
+# and "agentether-core" are all free at the time of writing.
 [project]
-name = "context-guard"
+name = "agentether"
 version = "0.2.0"
 description = "A tiny supervisor for LLM agent steps: verified claims, semantic loop detection and a human-editable Markdown project memory."
 readme = "README.md"
@@ -31,9 +31,9 @@ dependencies = []
 authors = [{ name = "Abderrahime BENMESSAHEL" }]
 maintainers = [{ name = "Abderrahime BENMESSAHEL" }]
 [project.urls]
-Homepage = "https://github.com/abderrahimebenmessahel/context-guard"
-Repository = "https://github.com/abderrahimebenmessahel/context-guard"
-Issues = "https://github.com/abderrahimebenmessahel/context-guard/issues"
+Homepage = "https://github.com/abderrahimebenmessahel/agentether"
+Repository = "https://github.com/abderrahimebenmessahel/agentether"
+Issues = "https://github.com/abderrahimebenmessahel/agentether/issues"
 
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.34"]
@@ -44,11 +44,13 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.4",
     "mypy>=1.8",
+    "hypothesis>=6.100",
+    "build>=1.2",
+    "twine>=5.1",
 ]
 
 [project.scripts]
-contextguard = "context_guard.cli:main"
-context-guard = "context_guard.cli:main"
+agentether = "agentether.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -57,7 +59,7 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-context_guard = ["py.typed"]
+agentether = ["py.typed"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -67,7 +69,7 @@ addopts = "-ra"
 filterwarnings = ["error::RuntimeWarning"]
 
 [tool.coverage.run]
-source = ["src/context_guard"]
+source = ["src/agentether"]
 branch = true
 
 [tool.coverage.report]

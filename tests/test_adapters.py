@@ -2,7 +2,7 @@
 
 The adapters are exercised against fakes only.  Nothing here calls a real
 provider: the live tests are opt-in and skipped unless
-``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+``AGENTETHER_LIVE_TESTS=1`` is set.
 """
 
 from __future__ import annotations
@@ -13,10 +13,10 @@ from typing import Any
 
 import pytest
 
-from context_guard import StepContext, WorkerOutput
-from context_guard.adapters import anthropic_worker, ollama_worker, openai_worker
+from agentether import StepContext, WorkerOutput
+from agentether.adapters import anthropic_worker, ollama_worker, openai_worker
 
-LIVE = os.environ.get("CONTEXTGUARD_LIVE_TESTS") == "1"
+LIVE = os.environ.get("AGENTETHER_LIVE_TESTS") == "1"
 
 
 def make_context() -> StepContext:
@@ -149,12 +149,12 @@ async def test_ollama_worker_uses_urllib(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_core_imports_never_touch_a_provider_sdk() -> None:
-    import context_guard
+    import agentether
 
     source_modules = [
         value
-        for name, value in vars(context_guard).items()
-        if getattr(value, "__module__", "").startswith("context_guard")
+        for name, value in vars(agentether).items()
+        if getattr(value, "__module__", "").startswith("agentether")
     ]
     assert source_modules
     # The core package must not import a provider SDK at import time.
@@ -164,7 +164,7 @@ def test_core_imports_never_touch_a_provider_sdk() -> None:
         assert module not in sys.modules or module in sys.modules  # only imported on demand
 
 
-@pytest.mark.skipif(not LIVE, reason="live provider tests need CONTEXTGUARD_LIVE_TESTS=1")
+@pytest.mark.skipif(not LIVE, reason="live provider tests need AGENTETHER_LIVE_TESTS=1")
 async def test_live_anthropic() -> None:  # pragma: no cover - opt-in
     if "ANTHROPIC_API_KEY" not in os.environ:
         pytest.skip("ANTHROPIC_API_KEY is not set")
@@ -179,7 +179,7 @@ def test_the_anthropic_adapter_reports_a_missing_extra() -> None:
     try:
         importlib.import_module("anthropic")
     except ImportError:
-        with pytest.raises(ImportError, match=r"contextguard\[anthropic\]"):
+        with pytest.raises(ImportError, match=r"agentether\[anthropic\]"):
             anthropic_worker()
     else:  # pragma: no cover - depends on the environment
         pytest.skip("the anthropic SDK is installed")
@@ -191,7 +191,7 @@ def test_the_openai_adapter_reports_a_missing_extra() -> None:
     try:
         importlib.import_module("openai")
     except ImportError:
-        with pytest.raises(ImportError, match=r"contextguard\[openai\]"):
+        with pytest.raises(ImportError, match=r"agentether\[openai\]"):
             openai_worker()
     else:  # pragma: no cover - depends on the environment
         pytest.skip("the openai SDK is installed")

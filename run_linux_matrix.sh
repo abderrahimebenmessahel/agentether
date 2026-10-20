@@ -5,7 +5,7 @@
 # never see them.
 set -uo pipefail
 export PATH="$HOME/.local/bin:$PATH"
-cd "$HOME/contextguard-linux" || exit 1
+cd "$HOME/agentether-linux" || exit 1
 PY="$1"
 VENV="$HOME/venvs/cg${PY/./}"
 mkdir -p "$HOME/venvs"
@@ -16,7 +16,7 @@ if [ ! -d "$VENV" ]; then
 fi
 "$VENV/bin/python" -V
 echo "--- pytest ---"
-"$VENV/bin/python" -m pytest -q --cov=src/context_guard --cov-report=term 2>&1 | tail -4
+"$VENV/bin/python" -m pytest -q --cov=src/agentether --cov-report=term 2>&1 | tail -4
 echo "--- mypy --strict ---"
 "$VENV/bin/python" -m mypy --strict 2>&1 | tail -3
 echo "--- ruff check ---"

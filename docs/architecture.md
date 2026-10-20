@@ -1,6 +1,6 @@
 # Architecture
 
-ContextGuard supervises **one** worker function, one roadmap step at a time.
+AgenTether supervises **one** worker function, one roadmap step at a time.
 It is not a multi-agent framework, a workflow engine or an orchestration
 platform: there is no scheduler, no graph, no queue and no cluster.
 
@@ -45,7 +45,7 @@ platform: there is no scheduler, no graph, no queue and no cluster.
 | `budget.py` | The budget tracker. |
 | `policy.py` | The frozen configuration objects. |
 | `events.py` | The event bus and the append-only event log. |
-| `cli.py` | The `contextguard` command. |
+| `cli.py` | The `agentether` command. |
 | `benchmark.py` | The simulated benchmark. |
 | `adapters/` | Optional provider helpers (lazy imports, never in the core path).  The OpenRouter one is standard library only. |
 

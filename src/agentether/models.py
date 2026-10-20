@@ -313,7 +313,7 @@ class StepContext:
 
     The context is rebuilt from disk for *every* attempt, so the agent always
     sees the current state of the project rather than a stale in-memory copy.
-    That re-read is the core "external memory" guarantee of ContextGuard.
+    That re-read is the core "external memory" guarantee of AgenTether.
 
     Attributes:
         step_name: The roadmap step being executed.

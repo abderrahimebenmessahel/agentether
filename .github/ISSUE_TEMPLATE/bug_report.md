@@ -21,7 +21,7 @@ reproduction -- the repository has no network access requirement, so please
 keep it offline.
 
 ```python
-from context_guard import AutoOrchestrator
+from agentether import AutoOrchestrator
 
 orch = AutoOrchestrator(
     roadmap=["research"],
@@ -33,7 +33,7 @@ orch = AutoOrchestrator(
 
 **Environment**
 
-- ContextGuard version:
+- AgenTether version:
 - Python version:
 - Operating system:
 

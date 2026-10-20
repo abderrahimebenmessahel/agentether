@@ -26,7 +26,7 @@ from typing import Any, Literal
 
 __all__ = ["EVENT_NAMES", "EventBus", "EventLog", "EventName"]
 
-logger = logging.getLogger("context_guard")
+logger = logging.getLogger("agentether")
 
 #: Every event the orchestrator emits.
 EVENT_NAMES: tuple[str, ...] = (

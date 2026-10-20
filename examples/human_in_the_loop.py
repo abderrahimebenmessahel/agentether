@@ -1,14 +1,14 @@
 """A human in the loop.
 
-When a step ends ``blocked``, ContextGuard writes a "Needs human input" entry
+When a step ends ``blocked``, AgenTether writes a "Needs human input" entry
 into ``PROJECT_MEMORY.md`` and refuses to run the step again until the human
 answers in their own section of the file.
 
 The human section is never rewritten by the library:
 
-    <!-- contextguard:human:start -->
+    <!-- agentether:human:start -->
     ... the human writes here ...
-    <!-- contextguard:human:end -->
+    <!-- agentether:human:end -->
 
     python examples/human_in_the_loop.py
 """
@@ -20,10 +20,10 @@ import json
 import tempfile
 from pathlib import Path
 
-from context_guard import AutoOrchestrator, StepContext, configure_logging
+from agentether import AutoOrchestrator, StepContext, configure_logging
 
-HUMAN_START = "<!-- contextguard:human:start -->"
-HUMAN_END = "<!-- contextguard:human:end -->"
+HUMAN_START = "<!-- agentether:human:start -->"
+HUMAN_END = "<!-- agentether:human:end -->"
 
 
 async def main() -> None:

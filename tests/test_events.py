@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from context_guard.events import EVENT_NAMES, EventBus, EventLog
+from agentether.events import EVENT_NAMES, EventBus, EventLog
 
 
 async def test_event_bus_calls_the_callbacks() -> None:

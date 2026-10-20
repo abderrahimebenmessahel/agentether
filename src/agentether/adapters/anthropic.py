@@ -1,7 +1,7 @@
 """Anthropic adapter (optional extra).
 
 .. warning::
-   Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+   Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
    The API key is read from the environment by the SDK; never hard code it
    and never log it.
 """
@@ -24,7 +24,7 @@ def _require_anthropic() -> Any:
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise ImportError(
             "the 'anthropic' package is required for this adapter; "
-            "install it with: pip install 'contextguard[anthropic]'"
+            "install it with: pip install 'agentether[anthropic]'"
         ) from exc
 
 

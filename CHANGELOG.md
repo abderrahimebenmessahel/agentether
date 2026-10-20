@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0-alpha] - unreleased
+
+Status: **Alpha**.
+
+### Changed
+
+- **The project is now AgenTether.**  The distribution is `agentether`, the
+  import package is `agentether` and the command is `agentether`.  The
+  previous names were `context-guard` / `context_guard` / `contextguard`.
+  The name was changed because `contextguard` is taken on PyPI by an unrelated
+  project and because "context" does not describe what the library does: it
+  supervises the *claims* of an agent step, not its context.
+- **The state file markers are now `agentether:*`.**  A memory file written
+  with the old `contextguard:*` markers is still read -- including its human
+  section -- and is rewritten with the new markers on the next save.  The
+  old markers are never written again.
+- **The environment variable prefix is now `AGENTETHER_*`**
+  (`AGENTETHER_LIVE_TESTS=1` enables the opt-in live tests).
+- The state file schema is still version 2; the marker change is a file
+  format detail, not a schema change.
+
+### Added
+
+- Python 3.14 in the CI matrix (Linux and Windows).
+- A non-blocking `pip-audit` job, a Dependabot configuration and a
+  pre-commit configuration (ruff, ruff-format, mypy and the repository's own
+  secret scanner).
+
 ## [0.2.0] - 2026-10-20
 
 Status: **Alpha**. The public API of 0.1 is mostly preserved, but there are
@@ -73,8 +101,8 @@ breaking changes. They are listed below.
   plain `str` workers keep working unchanged.  Exceeding a budget raises the
   new `BudgetExceededError` and is never retried.
 - **Human in the loop.**  `PROJECT_MEMORY.md` has a human owned section
-  between `<!-- contextguard:human:start -->` and
-  `<!-- contextguard:human:end -->`.  The library never rewrites it, and a
+  between `<!-- agentether:human:start -->` and
+  `<!-- agentether:human:end -->`.  The library never rewrites it, and a
   blocked step is released as soon as the human edits that section.
 - **Event hooks.**  `orch.on(event, callback)` for seven events, plus an
   append-only `events.jsonl` in the memory directory with a monotonic sequence
@@ -84,20 +112,20 @@ breaking changes. They are listed below.
   re-opens it.
 - **Retry classification.**  `retry_on` and `no_retry_on` make the set of
   retryable exceptions explicit.
-- **A `contextguard` command line interface**: `status`, `reset-breaker`,
+- **A `agentether` command line interface**: `status`, `reset-breaker`,
   `doctor`, `verify` and `benchmark`, all with `--json`.
-- **A simulated benchmark** (`contextguard benchmark --trials N --seed S`).
+- **A simulated benchmark** (`agentether benchmark --trials N --seed S`).
   It is a simulation: no LLM is called.
 - **Optional provider adapters** (`anthropic`, `openai`, `ollama`,
-  `openrouter`) in `context_guard.adapters`.  The core package never imports
+  `openrouter`) in `agentether.adapters`.  The core package never imports
   a provider SDK.  The OpenRouter adapter is standard library only: it reads
   the key from the environment, never logs it, never puts it in an error
   message, retries a rate limit with `Retry-After` and jittered backoff and
   never retries a rejected key.
-- **The distribution is published as `context-guard`.**  The shorter name
-  `contextguard` is taken on PyPI by an unrelated project.  The import name
-  stays `context_guard`; the command is installed as `contextguard` and
-  `context-guard`.
+- **The distribution is published as `agentether`.**  The shorter name
+  `agentether` is taken on PyPI by an unrelated project.  The import name
+  stays `agentether`; the command is installed as `agentether` and
+  `agentether`.
 - `GuardPolicy` with `loop`, `stall`, `budget`, `retry` and `breaker`
   sub-policies.  The flat constructor arguments of 0.1 still work and are
   mapped onto the policy.

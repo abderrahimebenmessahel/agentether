@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from context_guard import LoopDetector, LoopPolicy, StallDetector, StallPolicy, Telemetry
-from context_guard.loop_detector import fingerprint, jaccard, normalize
+from agentether import LoopDetector, LoopPolicy, StallDetector, StallPolicy, Telemetry
+from agentether.loop_detector import fingerprint, jaccard, normalize
 
 
 def test_normalize_masks_numbers_and_ids() -> None:

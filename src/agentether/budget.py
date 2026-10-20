@@ -1,7 +1,7 @@
 """Budget accounting.
 
 A budget is a hard limit on what a run may spend.  When a limit is hit the
-supervisor stops with :class:`~context_guard.exceptions.BudgetExceededError`:
+supervisor stops with :class:`~agentether.exceptions.BudgetExceededError`:
 retrying would only spend more of the budget that is already gone.
 
 Token and cost accounting is driven by the optional ``usage`` field a worker

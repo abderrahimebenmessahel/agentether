@@ -1,11 +1,11 @@
-"""Exception hierarchy for ContextGuard.
+"""Exception hierarchy for AgenTether.
 
-Every error raised by the library derives from :class:`ContextGuardError`, so a
+Every error raised by the library derives from :class:`AgenTetherError`, so a
 caller can catch the whole family with a single ``except`` clause::
 
     try:
         await research()
-    except ContextGuardError as exc:
+    except AgenTetherError as exc:
         log.warning("step failed: %s", exc)
 
 Each exception carries structured attributes (not just a message) so that a
@@ -22,13 +22,13 @@ from enum import Enum
 from typing import Any
 
 __all__ = [
+    "AgenTetherError",
     "AgentExecutionError",
     "AgentTimeoutError",
     "BudgetExceededError",
     "CircuitBreakerOpenError",
     "ConfigurationError",
     "ContextDriftError",
-    "ContextGuardError",
     "FailureKind",
     "LoopDetectedError",
     "StateCorruptionError",
@@ -63,11 +63,11 @@ class FailureKind(str, Enum):
         return self.value
 
 
-class ContextGuardError(Exception):
-    """Base class for every error raised by ContextGuard."""
+class AgenTetherError(Exception):
+    """Base class for every error raised by AgenTether."""
 
 
-class ConfigurationError(ContextGuardError):
+class ConfigurationError(AgenTetherError):
     """Raised when the supervisor is set up with invalid arguments.
 
     This is a programming error, not a runtime failure of the agent: it is
@@ -75,7 +75,7 @@ class ConfigurationError(ContextGuardError):
     """
 
 
-class AgentTimeoutError(ContextGuardError):
+class AgentTimeoutError(AgenTetherError):
     """Raised when the wrapped agent call exceeded its time budget.
 
     Attributes:
@@ -89,7 +89,7 @@ class AgentTimeoutError(ContextGuardError):
         Exception.__init__(self, f"Step '{step}' timed out after {timeout_seconds}s")
 
 
-class TelemetryParseError(ContextGuardError):
+class TelemetryParseError(AgenTetherError):
     """Raised when the agent output does not contain usable telemetry.
 
     Attributes:
@@ -109,7 +109,7 @@ class TelemetryParseError(ContextGuardError):
         Exception.__init__(self, message)
 
 
-class ContextDriftError(ContextGuardError):
+class ContextDriftError(AgenTetherError):
     """Raised when the agent's answer does not line up with the plan.
 
     Two flavours exist, distinguished by :attr:`retryable`:
@@ -150,7 +150,7 @@ class ContextDriftError(ContextGuardError):
         )
 
 
-class AgentExecutionError(ContextGuardError):
+class AgentExecutionError(AgenTetherError):
     """Wraps an exception raised by the developer's worker function.
 
     The original exception is kept both as :attr:`original` and as the
@@ -167,7 +167,7 @@ class AgentExecutionError(ContextGuardError):
         Exception.__init__(self, f"Step '{step}' failed with {type(original).__name__}: {original}")
 
 
-class VerificationFailedError(ContextGuardError):
+class VerificationFailedError(AgenTetherError):
     """Raised when an independent verifier rejected the agent's claim.
 
     The reason is injected into the next attempt as a corrective hint, so the
@@ -186,7 +186,7 @@ class VerificationFailedError(ContextGuardError):
         Exception.__init__(self, f"Verification failed for step '{step}': {reason}")
 
 
-class LoopDetectedError(ContextGuardError):
+class LoopDetectedError(AgenTetherError):
     """Raised when the agent keeps producing near-identical output.
 
     Attributes:
@@ -214,7 +214,7 @@ class LoopDetectedError(ContextGuardError):
         )
 
 
-class BudgetExceededError(ContextGuardError):
+class BudgetExceededError(AgenTetherError):
     """Raised when a configured budget is exhausted.
 
     A budget violation is never retried: retrying would only spend more of
@@ -237,7 +237,7 @@ class BudgetExceededError(ContextGuardError):
         )
 
 
-class CircuitBreakerOpenError(ContextGuardError):
+class CircuitBreakerOpenError(AgenTetherError):
     """Raised when the circuit breaker is open and a step is attempted.
 
     The breaker is persisted in the project memory, so it survives process
@@ -269,13 +269,13 @@ class CircuitBreakerOpenError(ContextGuardError):
         )
 
 
-class StateCorruptionError(ContextGuardError):
+class StateCorruptionError(AgenTetherError):
     """Raised when the on-disk project memory cannot be trusted.
 
-    ContextGuard never silently resets a corrupted state file: doing so would
+    AgenTether never silently resets a corrupted state file: doing so would
     throw away the plan the agent already executed, which is exactly the kind
     of drift this library exists to prevent.
 
-    The message points at ``contextguard doctor`` and at the ``.bak`` file that
+    The message points at ``agentether doctor`` and at the ``.bak`` file that
     is written before an automatic migration.
     """

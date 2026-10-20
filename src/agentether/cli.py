@@ -1,4 +1,4 @@
-"""The ``contextguard`` command line interface.
+"""The ``agentether`` command line interface.
 
 Standard library only (``argparse``).  Every command accepts ``--json`` for
 machine readable output and returns a process exit code:
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from .benchmark import BenchmarkResult, run_benchmark
-from .exceptions import ContextGuardError
+from .exceptions import AgenTetherError
 from .state_manager import (
     MEMORY_FILENAME,
     SCHEMA_VERSION,
@@ -39,10 +39,10 @@ EXIT_USAGE = 2
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the argument parser of the ``contextguard`` command."""
+    """Build the argument parser of the ``agentether`` command."""
     parser = argparse.ArgumentParser(
-        prog="contextguard",
-        description="Inspect and repair a ContextGuard project memory.",
+        prog="agentether",
+        description="Inspect and repair a AgenTether project memory.",
     )
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     sub = parser.add_subparsers(dest="command")
@@ -102,7 +102,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     memory_dir = Path(args.memory_dir)
     try:
         state = _load_state(memory_dir)
-    except ContextGuardError as exc:
+    except AgenTetherError as exc:
         if args.json:
             _print_json({"ok": False, "error": str(exc)})
         else:
@@ -177,7 +177,7 @@ def cmd_reset_breaker(args: argparse.Namespace) -> int:
 
     try:
         asyncio.run(_run())
-    except ContextGuardError as exc:
+    except AgenTetherError as exc:
         if args.json:
             _print_json({"ok": False, "error": str(exc)})
         else:
@@ -217,26 +217,32 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         if text:
             if STATE_MARKER not in text:
                 problems.append(f"{memory_path} does not contain the state marker {STATE_MARKER!r}")
-            if "<!-- contextguard:human:start -->" not in text:
+            has_start = "<!-- agentether:human:start -->" in text or (
+                "<!-- contextguard:human:start -->" in text
+            )
+            has_end = "<!-- agentether:human:end -->" in text or (
+                "<!-- contextguard:human:end -->" in text
+            )
+            if not has_start:
                 notes.append(
-                    "the file has no human section markers; ContextGuard will add them "
+                    "the file has no human section markers; AgenTether will add them "
                     "on the next write"
                 )
-            elif "<!-- contextguard:human:end -->" not in text:
+            elif not has_end:
                 problems.append(
                     "the human section start marker is present but the end marker is "
                     "missing; the file was edited by hand"
                 )
             try:
                 state = _load_state(memory_dir)
-            except ContextGuardError as exc:
+            except AgenTetherError as exc:
                 problems.append(str(exc))
             else:
                 version = state.get("schema_version")
                 if version != SCHEMA_VERSION:
                     problems.append(
                         f"schema version {version} differs from {SCHEMA_VERSION}; "
-                        "ContextGuard migrates it automatically on the next run"
+                        "AgenTether migrates it automatically on the next run"
                     )
 
     payload = {
@@ -280,7 +286,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     workdir = Path(args.workdir).resolve() if args.workdir else Path.cwd()
     try:
         state = _load_state(memory_dir)
-    except ContextGuardError as exc:
+    except AgenTetherError as exc:
         if args.json:
             _print_json({"ok": False, "error": str(exc)})
         else:
@@ -362,7 +368,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Entry point of the ``contextguard`` command.
+    """Entry point of the ``agentether`` command.
 
     Args:
         argv: The argument vector.  ``None`` means ``sys.argv[1:]``.
@@ -392,7 +398,7 @@ def main(argv: list[str] | None = None) -> int:
     handler = handlers[args.command]
     try:
         return handler(args)
-    except ContextGuardError as exc:
+    except AgenTetherError as exc:
         if getattr(args, "json", False):
             _print_json({"ok": False, "error": str(exc)})
         else:

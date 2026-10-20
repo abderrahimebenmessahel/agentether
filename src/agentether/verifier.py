@@ -454,7 +454,7 @@ def llm_judge(
 ) -> Verifier:
     """Interface for a model based judge.
 
-    **Interface only.**  ContextGuard ships no provider code in the core
+    **Interface only.**  AgenTether ships no provider code in the core
     package: you pass a callable that asks your own model whether the answer
     is acceptable.  The callable follows the same contract as
     :func:`callable_verifier` and may be synchronous or asynchronous.

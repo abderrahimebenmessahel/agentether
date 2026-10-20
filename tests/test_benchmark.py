@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from context_guard.benchmark import BenchmarkConfig, run_benchmark
+from agentether.benchmark import BenchmarkConfig, run_benchmark
 
 
 def test_the_same_seed_produces_the_same_result() -> None:
@@ -91,7 +91,7 @@ def test_the_configuration_is_echoed() -> None:
 
 
 def test_the_benchmark_can_write_a_json_file(tmp_path: Path) -> None:
-    from context_guard.cli import main
+    from agentether.cli import main
 
     target = tmp_path / "result.json"
     assert main(["benchmark", "--trials", "2", "--seed", "0", "--output", str(target)]) == 0

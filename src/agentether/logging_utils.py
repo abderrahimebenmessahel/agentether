@@ -1,9 +1,9 @@
 """Logging helpers.
 
-ContextGuard is a library: it must never install handlers on import, because
+AgenTether is a library: it must never install handlers on import, because
 that would hijack the logging configuration of the application embedding it.
 Importing this module only attaches a :class:`logging.NullHandler` so that
-``logging.getLogger("context_guard")`` never complains about missing handlers.
+``logging.getLogger("agentether")`` never complains about missing handlers.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import sys
 __all__ = ["LOGGER_NAME", "ColorFormatter", "configure_logging", "logger"]
 
 #: The name of the library logger.
-LOGGER_NAME = "context_guard"
+LOGGER_NAME = "agentether"
 
 logger = logging.getLogger(LOGGER_NAME)
 # A library must not configure logging, but it should not warn either.
@@ -82,10 +82,10 @@ def configure_logging(level: int = logging.INFO, color: bool | None = None) -> l
     Returns:
         The configured library logger.
     """
-    if not any(getattr(handler, "_context_guard_handler", False) for handler in logger.handlers):
+    if not any(getattr(handler, "_agentether_handler", False) for handler in logger.handlers):
         handler = logging.StreamHandler(stream=sys.stderr)
         handler.setFormatter(ColorFormatter(color=color))
-        handler._context_guard_handler = True  # type: ignore[attr-defined]
+        handler._agentether_handler = True  # type: ignore[attr-defined]
         logger.addHandler(handler)
     logger.setLevel(level)
     logger.propagate = False

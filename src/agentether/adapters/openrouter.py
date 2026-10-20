@@ -4,7 +4,7 @@ Talks to the OpenRouter OpenAI compatible endpoint with ``urllib``.  No third
 party dependency is needed.
 
 .. warning::
-   Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+   Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
 
 **Secrets.**  The API key is read from the environment only.  It is never
 written to a file, never passed on a command line, never logged and never
@@ -233,7 +233,7 @@ def openrouter_worker(
         A worker that can be used with ``@orch.guard_step("name")``.
 
     .. warning::
-       Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+       Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
     """
 
     async def worker(ctx: StepContext) -> WorkerOutput:
@@ -275,7 +275,7 @@ async def openrouter_complete(
     """Send one prompt to OpenRouter and return the answer.
 
     This is the low level entry point; :func:`openrouter_worker` builds the
-    prompt from a :class:`~context_guard.models.StepContext` and calls it.
+    prompt from a :class:`~agentether.models.StepContext` and calls it.
 
     Args:
         prompt: The user prompt.

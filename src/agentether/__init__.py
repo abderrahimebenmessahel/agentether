@@ -1,13 +1,13 @@
-"""ContextGuard - a supervisor wrapper around a single LLM worker call.
+"""AgenTether - a supervisor wrapper around a single LLM worker call.
 
-ContextGuard keeps the *control path* (roadmap, state, limits, validation) in
+AgenTether keeps the *control path* (roadmap, state, limits, validation) in
 deterministic code and on disk, and treats the LLM's text as an untrusted
 *data path*.  It is not a multi-agent framework: it supervises one worker
 function, one step at a time.
 
 Typical use::
 
-    from context_guard import AutoOrchestrator, artifacts_exist
+    from agentether import AutoOrchestrator, artifacts_exist
 
     orch = AutoOrchestrator(
         roadmap=["research", "write"],
@@ -29,13 +29,13 @@ from __future__ import annotations
 from .budget import BudgetTracker
 from .events import EVENT_NAMES, EventBus, EventLog
 from .exceptions import (
+    AgenTetherError,
     AgentExecutionError,
     AgentTimeoutError,
     BudgetExceededError,
     CircuitBreakerOpenError,
     ConfigurationError,
     ContextDriftError,
-    ContextGuardError,
     FailureKind,
     LoopDetectedError,
     StateCorruptionError,
@@ -83,6 +83,7 @@ __version__ = "0.2.0"
 __all__ = [
     "ALLOWED_STATUSES",
     "EVENT_NAMES",
+    "AgenTetherError",
     "AgentExecutionError",
     "AgentTimeoutError",
     "AutoOrchestrator",
@@ -94,7 +95,6 @@ __all__ = [
     "ColorFormatter",
     "ConfigurationError",
     "ContextDriftError",
-    "ContextGuardError",
     "EventBus",
     "EventLog",
     "FailureKind",

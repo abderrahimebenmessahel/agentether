@@ -1,6 +1,6 @@
-# ContextGuard
+# AgenTether
 
-[![PyPI](https://img.shields.io/badge/pypi-context--guard-blue)](https://pypi.org/project/context-guard/)
+[![PyPI](https://img.shields.io/badge/pypi-context--guard-blue)](https://pypi.org/project/agentether/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](CHANGELOG.md)
@@ -9,7 +9,7 @@
 
 **A tiny supervisor for LLM agent steps.**
 
-ContextGuard wraps **one** function -- your LLM call -- and keeps the control
+AgenTether wraps **one** function -- your LLM call -- and keeps the control
 path (the plan, the state, the limits, the validation) in deterministic code
 and in a Markdown file you can read.  It is **not** a multi-agent framework, a
 workflow engine or an orchestration platform, and it does not try to be.
@@ -45,7 +45,7 @@ disappears.  When the model misunderstands the task, it says "completed" and
 the supervisor believes it.  When it gets stuck, it produces slightly
 different nonsense every time, and a retry counter happily burns the budget.
 
-ContextGuard moves the plan out of the context window and into a file, and it
+AgenTether moves the plan out of the context window and into a file, and it
 stops believing the agent.
 
 ## Architecture
@@ -82,24 +82,24 @@ More in [`docs/architecture.md`](docs/architecture.md).
 ## Install
 
 ```bash
-pip install context-guard              # from a package index
+pip install agentether              # from a package index
 pip install -e ".[dev]"                # from a checkout, with the dev tooling
-pip install "context-guard[anthropic]"  # optional provider adapter
+pip install "agentether[anthropic]"  # optional provider adapter
 ```
 
-ContextGuard is **standard library only** and requires Python 3.10 or newer.
+AgenTether is **standard library only** and requires Python 3.10 or newer.
 The core package never imports a provider SDK.
 
-> **Distribution name.**  The package is published as `context-guard`; the
-> import name stays `context_guard` and the command is available as both
-> `contextguard` and `context-guard`.  The shorter name `contextguard` is
+> **Distribution name.**  The package is published as `agentether`; the
+> import name stays `agentether` and the command is available as both
+> `agentether` and `agentether`.  The shorter name `agentether` is
 > **taken** on PyPI by an unrelated project, so it is not used for the
 > distribution.
 
 ## Quickstart
 
 ```python
-from context_guard import AutoOrchestrator
+from agentether import AutoOrchestrator
 
 orch = AutoOrchestrator(
     roadmap=["research", "write"], memory_dir="./memory", timeout_seconds=60, max_retries=3
@@ -154,7 +154,7 @@ Full details: [`docs/telemetry-contract.md`](docs/telemetry-contract.md).
 ## Verification: trust, but check
 
 ```python
-from context_guard import artifacts_exist, file_contains, json_file_valid
+from agentether import artifacts_exist, file_contains, json_file_valid
 
 
 @orch.guard_step(
@@ -277,9 +277,9 @@ heuristic -- an approximation, not a tokenizer).
 `PROJECT_MEMORY.md` has a section that belongs to you:
 
 ```markdown
-<!-- contextguard:human:start -->
+<!-- agentether:human:start -->
 The customer wants bullet points, no more than five.
-<!-- contextguard:human:end -->
+<!-- agentether:human:end -->
 ```
 
 The library never rewrites it.  It is injected into the agent's context with
@@ -304,11 +304,11 @@ monotonic sequence number and an ISO-8601 UTC timestamp.
 ## The command line
 
 ```bash
-contextguard status ./memory            # roadmap progress, breaker, last error
-contextguard doctor ./memory            # validate the state file, exit non-zero on problems
-contextguard verify ./memory            # re-check the recorded artifacts
-contextguard reset-breaker ./memory     # close an open breaker
-contextguard benchmark --trials 1000 --seed 0
+agentether status ./memory            # roadmap progress, breaker, last error
+agentether doctor ./memory            # validate the state file, exit non-zero on problems
+agentether verify ./memory            # re-check the recorded artifacts
+agentether reset-breaker ./memory     # close an open breaker
+agentether benchmark --trials 1000 --seed 0
 ```
 
 Every command supports `--json`.
@@ -320,10 +320,10 @@ Every command supports `--json`.
 > JSON, wrong step name, "completed" without the artifact, near-identical
 > output, partial progress) and two runners are compared over the very same
 > schedules: a **naive** runner (retry blindly, trust the claim) and a
-> **guarded** runner (ContextGuard with verifiers, loop detection and the
+> **guarded** runner (AgenTether with verifiers, loop detection and the
 > breaker).  A fake clock makes the runs take a minute instead of a day.
 
-Reproduce with `python -m context_guard benchmark --trials 1000 --seed 0`
+Reproduce with `python -m agentether benchmark --trials 1000 --seed 0`
 (the committed result is in [`benchmarks/results/seed-0.json`](benchmarks/results/seed-0.json)).
 
 | Metric | naive | guarded |
@@ -375,7 +375,7 @@ from repeating forever; it does not make the agent smarter.
 The harness gives the model a tiny protocol (it returns file contents in
 `FILE: path` blocks, the harness writes them into a sandbox) and runs the
 same tasks twice: once **unguarded** (one call per step, the claim is
-trusted) and once **guarded** (ContextGuard with the artifact and content
+trusted) and once **guarded** (AgenTether with the artifact and content
 verifiers, the loop detector and a budget).  The raw result is in
 [`benchmarks/results/`](benchmarks/results/).
 
@@ -407,27 +407,27 @@ boring work.
 
 ## How this differs from
 
-ContextGuard is not the only tool in this space, and it is not the best
+AgenTether is not the only tool in this space, and it is not the best
 tool for every job.  What the alternatives do **better**:
 
 * **[tenacity](https://github.com/jd/tenacity)** is the reference for retrying
   a call: more stop strategies, better composability, a bigger community.
-  ContextGuard adds the plan, the memory, the contract, the verifiers and the
+  AgenTether adds the plan, the memory, the contract, the verifiers and the
   semantic loop detection.
 * **[Temporal](https://temporal.io/), Restate, Airflow, Prefect** are durable
   execution engines.  They are much better at **scale and durability**: they
   persist every step, replay after a crash, run thousands of workers across
-  a cluster, and give you operational tooling.  ContextGuard is one process,
+  a cluster, and give you operational tooling.  AgenTether is one process,
   one directory, no server, no database, no daemon -- and its state is a
   Markdown file you can read and edit.
 * **[LangGraph](https://github.com/langchain-ai/langgraph), CrewAI, AutoGen,
   Semantic Kernel** are frameworks.  They are much better at **multi-agent
   topologies**, tool registries, streaming into their own UI and integration
-  ecosystems.  ContextGuard wraps **one function** and adds no abstraction
+  ecosystems.  AgenTether wraps **one function** and adds no abstraction
   you have to adopt; you can put a `guard_step` inside a LangGraph node.
 * **Other agent-reliability libraries** (guardrails-style output checkers,
   LLM judges, evaluation harnesses) check the *content* of an answer.
-  ContextGuard checks the *claim* against the filesystem and the roadmap, and
+  AgenTether checks the *claim* against the filesystem and the roadmap, and
   it is dependency free.
 
 More in [`docs/faq.md`](docs/faq.md).
@@ -447,7 +447,7 @@ Honest list of what this library does **not** do:
 * **Parsing is best effort.**  The extractor is forgiving about prose and
   strict about JSON.  It cannot repair invalid JSON and it takes the last
   valid object when there are several.
-* **The model can still lie.**  ContextGuard validates the *shape* and the
+* **The model can still lie.**  AgenTether validates the *shape* and the
   *consistency* of the telemetry and can check the claim against the
   filesystem.  It cannot tell whether the work is any good.
 * **The memory file is protected against marker injection, not against a
@@ -460,7 +460,7 @@ Honest list of what this library does **not** do:
   work directory (the default rejects an executable inside it).
 * **The benchmark is simulated.**  It compares policies, not real models.
 * **The provider adapters are untested against live APIs** unless you set
-  `CONTEXTGUARD_LIVE_TESTS=1` and run the opt-in test.
+  `AGENTETHER_LIVE_TESTS=1` and run the opt-in test.
 
 ## Development
 
@@ -470,7 +470,7 @@ limited independent human code review).
 
 ```bash
 pip install -e ".[dev]"
-pytest --cov=src/context_guard --cov-report=term-missing
+pytest --cov=src/agentether --cov-report=term-missing
 ruff check .
 ruff format --check .
 mypy .
@@ -482,13 +482,13 @@ The CI matrix runs Python 3.10 to 3.13 on Linux and Windows.
 
 ## Provider adapters
 
-`context_guard.adapters` contains `anthropic_worker`, `openai_worker`,
+`agentether.adapters` contains `anthropic_worker`, `openai_worker`,
 `ollama_worker` and `openrouter_worker`.  They turn a provider call into a
 worker that returns a `WorkerOutput` with usage information, so the token and
 cost budgets work with real providers.
 
 ```python
-from context_guard.adapters import anthropic_worker
+from agentether.adapters import anthropic_worker
 
 worker = anthropic_worker(model="claude-3-5-sonnet-latest")
 ```
@@ -496,7 +496,7 @@ worker = anthropic_worker(model="claude-3-5-sonnet-latest")
 The OpenRouter adapter needs no third party package at all:
 
 ```python
-from context_guard.adapters import openrouter_worker
+from agentether.adapters import openrouter_worker
 
 worker = openrouter_worker(model="minimax/minimax-m3.1-flash:free")
 ```
@@ -508,7 +508,7 @@ and never retries a rejected key.
 
 The SDKs are optional extras and are imported lazily; the core package never
 imports them.  **These adapters are untested against live APIs** unless
-`CONTEXTGUARD_LIVE_TESTS=1` is set and the opt-in live test is run.  API
+`AGENTETHER_LIVE_TESTS=1` is set and the opt-in live test is run.  API
 keys are read from the environment only, and never logged.
 
 ## Documentation
@@ -532,10 +532,10 @@ keys are read from the environment only, and never logged.
 * [x] Budgets for seconds, attempts, tokens and cost
 * [x] Human in the loop
 * [x] Event hooks and an append-only event log
-* [x] A `contextguard` command line interface
+* [x] A `agentether` command line interface
 * [ ] Pluggable storage backends behind the `StateManager` API
 * [ ] Token accurate memory budgeting (a real tokenizer)
-* [ ] A `contextguard doctor --repair` that rebuilds the file from the backup
+* [ ] A `agentether doctor --repair` that rebuilds the file from the backup
 
 ## License
 

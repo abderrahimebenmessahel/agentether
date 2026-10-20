@@ -2,8 +2,8 @@
 
 ``AutoOrchestrator`` owns the roadmap, the limits, the validation and the
 persistence.  The developer's LLM function is the *data path*: it is called
-with a :class:`~context_guard.models.StepContext` and it returns the agent's
-text (or a :class:`~context_guard.models.WorkerOutput` with usage data).
+with a :class:`~agentether.models.StepContext` and it returns the agent's
+text (or a :class:`~agentether.models.WorkerOutput` with usage data).
 
 Only one step is executed per decorated call.  The orchestrator is not a
 multi-agent framework and does not spawn agents of its own.
@@ -69,7 +69,7 @@ R = TypeVar("R", bound=str)
 
 #: A worker function: it receives the step context as its first argument and
 #: returns either the raw agent text (or a
-#: :class:`~context_guard.models.WorkerOutput`) or an awaitable producing it.
+#: :class:`~agentether.models.WorkerOutput`) or an awaitable producing it.
 StepFunction: TypeAlias = Callable[
     Concatenate[StepContext, P], "Awaitable[R | WorkerOutput] | R | WorkerOutput"
 ]
@@ -156,7 +156,7 @@ class AutoOrchestrator:
         strict_order: When true (default) a step may only run once all
             previous roadmap steps are completed.
         strict_next_step: When true a mismatching ``next_step`` raises
-            :class:`~context_guard.exceptions.ContextDriftError` instead of
+            :class:`~agentether.exceptions.ContextDriftError` instead of
             only logging a warning.
         backoff_base: Base of the exponential backoff between attempts.
         backoff_max: Upper bound for a single backoff delay.
@@ -427,7 +427,7 @@ class AutoOrchestrator:
 
         Args:
             event: One of the event names in
-                :data:`context_guard.events.EVENT_NAMES`.
+                :data:`agentether.events.EVENT_NAMES`.
             callback: A synchronous or asynchronous callable that receives the
                 event payload.  Exceptions raised by a callback are logged and
                 never break the run.
@@ -450,7 +450,7 @@ class AutoOrchestrator:
 
         The decorated function receives a :class:`StepContext` as its first
         argument and returns the agent's raw text (or a
-        :class:`~context_guard.models.WorkerOutput`).  The decorated callable
+        :class:`~agentether.models.WorkerOutput`).  The decorated callable
         is always asynchronous, even when the wrapped function is a plain
         ``def`` -- such functions are executed in a worker thread.
 

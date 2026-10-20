@@ -17,9 +17,9 @@ from typing import Any
 
 import pytest
 
-from context_guard import ConfigurationError, StepContext, WorkerOutput
-from context_guard.adapters import openrouter_worker
-from context_guard.adapters.openrouter import (
+from agentether import ConfigurationError, StepContext, WorkerOutput
+from agentether.adapters import openrouter_worker
+from agentether.adapters.openrouter import (
     OpenRouterError,
     OpenRouterTransientError,
     resolve_api_key,
@@ -129,9 +129,9 @@ def test_a_missing_key_names_the_variables_and_never_a_value(
 
 
 def test_a_named_variable_that_is_empty_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("CONTEXTGUARD_TEST_KEY", raising=False)
+    monkeypatch.delenv("AGENTETHER_TEST_KEY", raising=False)
     with pytest.raises(ConfigurationError):
-        resolve_api_key("CONTEXTGUARD_TEST_KEY")
+        resolve_api_key("AGENTETHER_TEST_KEY")
 
 
 async def test_a_successful_call(monkeypatch: pytest.MonkeyPatch, fake_key: str) -> None:
@@ -172,10 +172,10 @@ async def test_the_optional_headers_are_sent(
         return FakeResponse(ok_payload())
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-    worker = openrouter_worker(referer="https://example.invalid", title="ContextGuard")
+    worker = openrouter_worker(referer="https://example.invalid", title="AgenTether")
     await worker(make_context())
     assert captured["headers"]["http-referer"] == "https://example.invalid"
-    assert captured["headers"]["x-title"] == "ContextGuard"
+    assert captured["headers"]["x-title"] == "AgenTether"
 
 
 async def test_missing_usage_is_tolerated(monkeypatch: pytest.MonkeyPatch, fake_key: str) -> None:
@@ -294,7 +294,7 @@ async def test_the_key_never_appears_in_an_exception_or_a_log(
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     worker = openrouter_worker()
     with (
-        caplog.at_level(logging.DEBUG, logger="context_guard"),
+        caplog.at_level(logging.DEBUG, logger="agentether"),
         pytest.raises(OpenRouterError) as excinfo,
     ):
         await worker(make_context())
@@ -318,8 +318,8 @@ async def test_a_huge_response_is_refused(monkeypatch: pytest.MonkeyPatch, fake_
 
 
 @pytest.mark.skipif(
-    os.environ.get("CONTEXTGUARD_LIVE_TESTS") != "1",
-    reason="live provider tests need CONTEXTGUARD_LIVE_TESTS=1",
+    os.environ.get("AGENTETHER_LIVE_TESTS") != "1",
+    reason="live provider tests need AGENTETHER_LIVE_TESTS=1",
 )
 async def test_live_openrouter() -> None:  # pragma: no cover - opt-in
     worker = openrouter_worker()

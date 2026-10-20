@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from context_guard import TelemetryParseError, extract_json_telemetry, parse_telemetry
+from agentether import TelemetryParseError, extract_json_telemetry, parse_telemetry
 
 
 def test_plain_json_object() -> None:

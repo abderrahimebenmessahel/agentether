@@ -1,19 +1,19 @@
 """Optional provider adapters.
 
 These helpers turn a provider call into a worker function that returns a
-:class:`~context_guard.models.WorkerOutput` with usage information, so that
+:class:`~agentether.models.WorkerOutput` with usage information, so that
 token and cost budgets work with real providers.
 
 **The core package never imports a provider SDK.**  Every adapter imports its
 dependency lazily, when the adapter is created, and raises a clear
 ``ImportError`` when the optional extra is missing::
 
-    pip install "contextguard[anthropic]"
-    pip install "contextguard[openai]"
+    pip install "agentether[anthropic]"
+    pip install "agentether[openai]"
 
 .. warning::
    These adapters are thin and **untested against live APIs** unless you set
-   ``CONTEXTGUARD_LIVE_TESTS=1`` and run the opt-in live tests.  They have
+   ``AGENTETHER_LIVE_TESTS=1`` and run the opt-in live tests.  They have
    only been exercised against fakes.
 """
 
@@ -33,7 +33,7 @@ def _require(module: str, extra: str) -> Any:
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise ImportError(
             f"the {module!r} package is required for this adapter; "
-            f"install it with: pip install 'contextguard[{extra}]'"
+            f"install it with: pip install 'agentether[{extra}]'"
         ) from exc
 
 
@@ -44,7 +44,7 @@ def anthropic_worker(**kwargs: Any) -> Any:
     (``model``, ``max_tokens``, ``system``, ...).
 
     .. warning::
-       Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+       Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
        The API key is read from the environment by the SDK; never pass it in
        the source code and never log it.
     """
@@ -62,7 +62,7 @@ def openrouter_worker(**kwargs: Any) -> Any:
     appears in an error message.
 
     .. warning::
-       Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+       Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
     """
     from .openrouter import openrouter_worker as _worker
 
@@ -76,7 +76,7 @@ def openai_worker(**kwargs: Any) -> Any:
     (``model``, ``max_tokens``, ...).
 
     .. warning::
-       Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+       Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
        The API key is read from the environment by the SDK.
     """
     from .openai import openai_worker as _worker
@@ -91,7 +91,7 @@ def ollama_worker(**kwargs: Any) -> Any:
     ``http://127.0.0.1:11434``.
 
     .. warning::
-       Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+       Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
     """
     from .ollama import ollama_worker as _worker
 

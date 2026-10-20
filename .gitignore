@@ -29,7 +29,7 @@ htmlcov/
 *.pem
 *.key
 
-# ContextGuard project memories (they are runtime data, not source)
+# AgenTether project memories (they are runtime data, not source)
 memory/
 memory*/
 project-memory/

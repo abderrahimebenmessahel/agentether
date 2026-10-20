@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest.  ContextGuard is small on purpose; most changes are
+Thanks for your interest.  AgenTether is small on purpose; most changes are
 welcome as long as they keep the core **standard library only** and Python
 3.10+.
 
@@ -8,7 +8,7 @@ welcome as long as they keep the core **standard library only** and Python
 
 ```bash
 git clone <your fork>
-cd ContextGuard
+cd AgenTether
 python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
@@ -16,7 +16,7 @@ pip install -e ".[dev]"
 ## The checks that must pass
 
 ```bash
-pytest --cov=src/context_guard --cov-report=term-missing
+pytest --cov=src/agentether --cov-report=term-missing
 ruff check .
 ruff format --check .
 mypy .
@@ -27,7 +27,7 @@ All four are run in CI for Python 3.10 to 3.13 on Linux and Windows.
 ## Guidelines
 
 * **Keep the core dependency free.**  Provider SDKs belong in
-  `context_guard.adapters` behind an optional extra, and they must be imported
+  `agentether.adapters` behind an optional extra, and they must be imported
   lazily.
 * **Type everything.**  The project runs `mypy --strict`; `type: ignore` needs
   a comment explaining why.
@@ -47,7 +47,7 @@ best reproduction.
 
 ## Releasing
 
-1. Update the version in `pyproject.toml` and `context_guard/__init__.py`.
+1. Update the version in `pyproject.toml` and `agentether/__init__.py`.
 2. Add a `CHANGELOG.md` entry.
 3. Check that the PyPI name is still available and free.
 4. `python -m build && twine upload dist/*`.

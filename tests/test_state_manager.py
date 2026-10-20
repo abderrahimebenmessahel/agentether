@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from context_guard import StateCorruptionError, StateManager, Telemetry
+from agentether import StateCorruptionError, StateManager, Telemetry
 
 
 def make_telemetry(step: str = "research", summary: str = "did the work") -> Telemetry:
@@ -44,7 +44,7 @@ def write_v1_file(memory_dir: Path) -> Path:
     }
     path.write_text(
         "# Project Memory\n\n"
-        "<!-- contextguard:state -->\n```json\n" + json.dumps(state, indent=2) + "\n```\n",
+        "<!-- agentether:state -->\n```json\n" + json.dumps(state, indent=2) + "\n```\n",
         encoding="utf-8",
     )
     return path
@@ -142,7 +142,7 @@ async def test_other_directory_fsync_errors_are_logged(
         return real_open(path, *args, **kwargs)
 
     monkeypatch.setattr(os, "open", fake_open)
-    with caplog.at_level("WARNING", logger="context_guard"):
+    with caplog.at_level("WARNING", logger="agentether"):
         manager = StateManager(memory_dir)
         await manager.record_step("research", make_telemetry(), "output")
     assert any("fsync" in record.getMessage() for record in caplog.records)
@@ -165,7 +165,7 @@ async def test_stale_temp_files_are_removed_but_fresh_ones_survive(
 
 async def test_corrupted_state_raises(memory_dir: Path) -> None:
     (memory_dir / "PROJECT_MEMORY.md").write_text(
-        "# Project Memory\n\n<!-- contextguard:state -->\n```json\n{not json}\n```\n",
+        "# Project Memory\n\n<!-- agentether:state -->\n```json\n{not json}\n```\n",
         encoding="utf-8",
     )
     manager = StateManager(memory_dir)
@@ -185,7 +185,7 @@ async def test_missing_state_block_raises(memory_dir: Path) -> None:
 
 async def test_unsupported_schema_version_raises(memory_dir: Path) -> None:
     (memory_dir / "PROJECT_MEMORY.md").write_text(
-        "# Project Memory\n\n<!-- contextguard:state -->\n```json\n"
+        "# Project Memory\n\n<!-- agentether:state -->\n```json\n"
         + json.dumps({"schema_version": 999})
         + "\n```\n",
         encoding="utf-8",
@@ -307,8 +307,8 @@ async def test_human_section_is_preserved_byte_for_byte(memory_dir: Path) -> Non
     text = path.read_text(encoding="utf-8")
     human = "Use the tone of the CEO.\n\nDo not mention the budget."
     text = text.replace(
-        "<!-- contextguard:human:start -->\n\n<!-- contextguard:human:end -->",
-        f"<!-- contextguard:human:start -->\n{human}\n<!-- contextguard:human:end -->",
+        "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
+        f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
     )
     path.write_text(text, encoding="utf-8")
 
@@ -325,8 +325,8 @@ async def test_human_section_is_injected_into_the_context(memory_dir: Path) -> N
     text = path.read_text(encoding="utf-8")
     human = "Prefer bullet points."
     text = text.replace(
-        "<!-- contextguard:human:start -->\n\n<!-- contextguard:human:end -->",
-        f"<!-- contextguard:human:start -->\n{human}\n<!-- contextguard:human:end -->",
+        "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
+        f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
     )
     path.write_text(text, encoding="utf-8")
 
@@ -354,9 +354,9 @@ async def test_migration_keeps_the_human_section(memory_dir: Path) -> None:
     path = write_v1_file(memory_dir)
     text = path.read_text(encoding="utf-8")
     text = text.replace(
-        "<!-- contextguard:state -->",
-        "<!-- contextguard:human:start -->\nkeep me\n<!-- contextguard:human:end -->\n"
-        "<!-- contextguard:state -->",
+        "<!-- agentether:state -->",
+        "<!-- agentether:human:start -->\nkeep me\n<!-- agentether:human:end -->\n"
+        "<!-- agentether:state -->",
     )
     path.write_text(text, encoding="utf-8")
 

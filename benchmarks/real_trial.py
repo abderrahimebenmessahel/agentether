@@ -4,7 +4,7 @@
    This is a **tiny sample from a single free model**.  It is not a
    benchmark, it is not a claim about the library's effectiveness, and it must
    not be generalised.  The point is to see what happens when a real model is
-   supervised by ContextGuard and when it is not.
+   supervised by AgenTether and when it is not.
 
 The protocol
 ------------
@@ -20,7 +20,7 @@ the model returns the file contents in fenced blocks that start with
 
 The harness writes those files into a per-run sandbox directory (path
 confined, size capped).  The model also has to end its answer with the
-ContextGuard telemetry JSON.  A model that claims ``completed`` without
+AgenTether telemetry JSON.  A model that claims ``completed`` without
 emitting the file **lies**, and that is exactly what the guarded arm is
 supposed to notice.
 
@@ -28,7 +28,7 @@ The two arms
 ------------
 
 * **unguarded** -- one call per step, the claim is trusted.
-* **guarded**  -- the same worker behind ContextGuard, with the artifact and
+* **guarded**  -- the same worker behind AgenTether, with the artifact and
   content verifiers, the semantic loop detector and a budget.
 
 Free tier realism
@@ -61,20 +61,20 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from context_guard import (
+from agentether import (
+    AgenTetherError,
     AutoOrchestrator,
-    ContextGuardError,
     StepContext,
     VerificationFailedError,
     artifacts_exist,
     parse_telemetry,
 )
-from context_guard.adapters.openrouter import (
+from agentether.adapters.openrouter import (
     OpenRouterError,
     OpenRouterTransientError,
     openrouter_complete,
 )
-from context_guard.verifier import PathNotAllowedError, resolve_within
+from agentether.verifier import PathNotAllowedError, resolve_within
 
 #: The model that is used for the trial.
 MODEL = "minimax/minimax-m3.1-flash:free"
@@ -441,7 +441,7 @@ async def run_unguarded(
             text, in_tokens, out_tokens = await call_model(prompt, limiter, budget, result)
         except TrialHalt:
             raise
-        except (OpenRouterError, ContextGuardError) as exc:
+        except (OpenRouterError, AgenTetherError) as exc:
             result.notes.append(f"{step.name}: {type(exc).__name__}")
             reported = False
             break
@@ -451,7 +451,7 @@ async def run_unguarded(
         write_answer_files(text, sandbox)
         try:
             telemetry = parse_telemetry(text, step.name)
-        except ContextGuardError:
+        except AgenTetherError:
             result.notes.append(f"{step.name}: no telemetry")
             reported = False
             break
@@ -475,14 +475,14 @@ def _verifiers_for(step: StepSpec) -> list[Any]:
 
 def _contains(path: str, needle: str) -> Any:
     """A verifier that checks that a file contains a string."""
-    from context_guard import file_contains
+    from agentether import file_contains
 
     return file_contains(path, re.escape(needle))
 
 
 def _json_keys(path: str, keys: tuple[str, ...]) -> Any:
     """A verifier that checks the keys of a JSON file."""
-    from context_guard import json_file_valid
+    from agentether import json_file_valid
 
     return json_file_valid(path, required_keys=keys)
 
@@ -495,7 +495,7 @@ async def run_guarded(
     budget: RequestBudget,
     result: ArmResult,
 ) -> bool:
-    """The same worker behind ContextGuard.
+    """The same worker behind AgenTether.
 
     Returns:
         True when the runner reported the task as complete.
@@ -544,7 +544,7 @@ async def run_guarded(
             result.notes.append(f"{step.name}: verification failed: {exc.reason}")
             reported = False
             break
-        except ContextGuardError as exc:
+        except AgenTetherError as exc:
             cause = exc.__cause__
             detail = f"{type(exc).__name__}"
             if cause is not None:
@@ -718,13 +718,13 @@ async def main_async(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point of the trial."""
-    parser = argparse.ArgumentParser(description="Run the real ContextGuard trial.")
+    parser = argparse.ArgumentParser(description="Run the real AgenTether trial.")
     parser.add_argument("--tasks", type=int, default=10, help="how many tasks to run")
     parser.add_argument("--rate-limit", type=int, default=15, help="requests per minute")
     parser.add_argument("--max-requests", type=int, default=150, help="hard request cap")
     parser.add_argument(
         "--workdir",
-        default=str(Path(tempfile.gettempdir()) / "contextguard-real-trial"),
+        default=str(Path(tempfile.gettempdir()) / "agentether-real-trial"),
         help="where the sandboxes are created",
     )
     args = parser.parse_args(argv)

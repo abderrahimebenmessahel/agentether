@@ -1,4 +1,4 @@
-"""Allow ``python -m context_guard ...``."""
+"""Allow ``python -m agentether ...``."""
 
 from __future__ import annotations
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from context_guard import (
+from agentether import (
     Telemetry,
     VerifyContext,
     VerifyResult,
@@ -19,7 +19,7 @@ from context_guard import (
     json_file_valid,
     llm_judge,
 )
-from context_guard.verifier import PathNotAllowedError, resolve_within
+from agentether.verifier import PathNotAllowedError, resolve_within
 
 
 def make_context(

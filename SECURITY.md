@@ -12,7 +12,7 @@
 Please report security issues **privately** through GitHub's private
 vulnerability reporting, which is enabled for this repository:
 
-<https://github.com/abderrahimebenmessahel/context-guard/security/advisories/new>
+<https://github.com/abderrahimebenmessahel/agentether/security/advisories/new>
 
 Use that form instead of a public issue.  Include a description, the affected
 version and a reproduction if you have one.  You can expect an
@@ -23,7 +23,7 @@ private advisory channel is the only one that is monitored.
 
 ## Threat model
 
-ContextGuard runs **untrusted model output** and, optionally, **commands you
+AgenTether runs **untrusted model output** and, optionally, **commands you
 choose to verify**.  The following properties are deliberate:
 
 * **No `eval`, no `exec`, no unpickling, no `shell=True`.**  The
@@ -47,7 +47,7 @@ choose to verify**.  The following properties are deliberate:
 
 ## Single process assumption
 
-ContextGuard serialises its writers with an `asyncio.Lock` **inside one
+AgenTether serialises its writers with an `asyncio.Lock` **inside one
 process**.  There is no cross-process locking.  Two orchestrators must not
 share a memory directory: give each one its own directory.  Running the same
 memory directory from two processes can corrupt the state file.

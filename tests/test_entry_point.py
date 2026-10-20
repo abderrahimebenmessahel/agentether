@@ -8,7 +8,7 @@ import sys
 
 def test_the_module_can_be_run() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "context_guard", "--version"],
+        [sys.executable, "-m", "agentether", "--version"],
         capture_output=True,
         text=True,
         check=False,

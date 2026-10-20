@@ -1,0 +1,23 @@
+# Run `pre-commit install` once to enable these hooks.
+# The secret check is the repository's own scanner: it never prints a secret,
+# only the file name and the length of the match.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: no-secrets
+        name: no secrets in the working tree
+        entry: python scan_secrets.py
+        language: system
+        pass_filenames: false
+      - id: mypy
+        name: mypy (strict)
+        entry: python -m mypy
+        language: system
+        pass_filenames: false
+        types: [python]

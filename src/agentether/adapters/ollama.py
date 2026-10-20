@@ -4,7 +4,7 @@ Talks to a local Ollama server over HTTP using ``urllib`` -- no third party
 dependency is needed.
 
 .. warning::
-   Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+   Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
 """
 
 from __future__ import annotations

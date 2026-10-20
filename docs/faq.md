@@ -1,6 +1,6 @@
 # FAQ: "Why not X?"
 
-ContextGuard is small on purpose.  This page says what the alternatives do
+AgenTether is small on purpose.  This page says what the alternatives do
 **better**, so that you can pick the right tool.
 
 ## Why not tenacity?
@@ -13,14 +13,14 @@ excellent at what it does.
 (`stop_after_delay`, `stop_after_attempt`, `wait_exponential_jitter`, ...),
 it composes with any callable, and it has a bigger community.
 
-**What ContextGuard adds:** tenacity retries a *call*.  ContextGuard
+**What AgenTether adds:** tenacity retries a *call*.  AgenTether
 supervises a *step of a plan*: it knows the roadmap, it re-reads the project
 memory before every attempt, it validates the structured answer, it checks
 the completion claim against reality with verifiers, it detects a loop
 semantically, and it persists a circuit breaker that survives a restart.
 
 Use tenacity when you want "retry this function until it works".  Use
-ContextGuard when you want "run this plan, and do not believe the agent when
+AgenTether when you want "run this plan, and do not believe the agent when
 it says it is done".
 
 ## Why not Temporal, Airflow, Prefect or another durable execution engine?
@@ -34,15 +34,15 @@ signals.
 **What they do better:** durability at scale, distributed workers, scheduling,
 retries over hours and days, operational tooling, and a much bigger
 ecosystem.  If you run workflows across a cluster, Temporal wins and
-ContextGuard is the wrong tool.
+AgenTether is the wrong tool.
 
-**What ContextGuard does differently:** it is a single process, in-process, in
+**What AgenTether does differently:** it is a single process, in-process, in
 one directory, with no server, no worker fleet, no database and no daemon.
 It is a few hundred lines of standard library that you can read in an
 afternoon.  Its state is a Markdown file you can open, read, edit and commit
 to git -- which is exactly what a durable engine is *not*.
 
-ContextGuard deliberately has **no cross-process locking**.  Two orchestrators
+AgenTether deliberately has **no cross-process locking**.  Two orchestrators
 must not share a memory directory.
 
 ## Why not LangGraph, CrewAI, AutoGen, Semantic Kernel or another agent framework?
@@ -55,9 +55,9 @@ abstractions for the whole application.
 events into their own UI, model-agnostic plumbing, and a lot of built-in
 integrations.
 
-**What ContextGuard does differently:** it wraps **one function**.  There is
+**What AgenTether does differently:** it wraps **one function**.  There is
 no graph, no role, no message bus, no runtime.  You keep your own code, your
-own models and your own structure; ContextGuard only adds a supervisor
+own models and your own structure; AgenTether only adds a supervisor
 around the step you already have.  It is also dependency free, so it does not
 conflict with the framework you already use -- you can put a
 `@orch.guard_step("x")` inside a LangGraph node.
@@ -69,7 +69,7 @@ trying again with a new strategy" and "the model is going in circles".  It
 retries the same way until the cap is reached, and it has no idea whether
 the agent's claim of success is true.
 
-ContextGuard's loop detector compares the *meaning* of the answers, and the
+AgenTether's loop detector compares the *meaning* of the answers, and the
 verifiers compare the *claim* with the filesystem.
 
 ## Why is the state a Markdown file instead of a database?
@@ -83,7 +83,7 @@ part of the contract.
 The price is honest: no concurrent access from several processes, and no
 querying.  If you need that, use a database (or a durable engine).
 
-## Does ContextGuard make my agent reliable?
+## Does AgenTether make my agent reliable?
 
 No.  It makes the *supervision* of your agent more honest:
 

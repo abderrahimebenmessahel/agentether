@@ -8,8 +8,8 @@ library and the human.
 ```markdown
 # Project Memory
 
-<!-- Managed by ContextGuard. Edit the code, not this file. -->
-<!-- The section between the human markers is never rewritten by ContextGuard. -->
+<!-- Managed by AgenTether. Edit the code, not this file. -->
+<!-- The section between the human markers is never rewritten by AgenTether. -->
 
 ## Roadmap
 
@@ -30,11 +30,11 @@ Found three sources and wrote them up.
 
 - `research`: passed
 
-<!-- contextguard:human:start -->
+<!-- agentether:human:start -->
 The customer wants bullet points, no more than five.
-<!-- contextguard:human:end -->
+<!-- agentether:human:end -->
 
-<!-- contextguard:state -->
+<!-- agentether:state -->
 ```json
 { "schema_version": 2, "...": "..." }
 ```
@@ -49,7 +49,7 @@ The customer wants bullet points, no more than five.
 | `## Needs human input` | library | Regenerated from the recorded blocked steps. |
 | `## Verification` | library | Regenerated from the last verification of each step. |
 | The section between the human markers | **human** | Preserved byte for byte. Never rewritten. |
-| The block after `<!-- contextguard:state -->` | library | The machine readable state. |
+| The block after `<!-- agentether:state -->` | library | The machine readable state. |
 
 If the human section does not fit into the memory budget, it is truncated
 with a visible marker and a warning is logged.  It is never dropped silently.

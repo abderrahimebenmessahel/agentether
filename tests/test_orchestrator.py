@@ -11,8 +11,7 @@ from typing import Any
 
 import pytest
 
-from conftest import telemetry_answer
-from context_guard import (
+from agentether import (
     AgentExecutionError,
     AgentTimeoutError,
     AutoOrchestrator,
@@ -33,6 +32,7 @@ from context_guard import (
     artifacts_exist,
     callable_verifier,
 )
+from conftest import telemetry_answer
 
 
 def assert_cause(excinfo: pytest.ExceptionInfo[BaseException], error: type[BaseException]) -> None:
@@ -361,7 +361,7 @@ async def test_next_step_mismatch_only_warns(
     async def research(ctx: StepContext) -> str:
         return telemetry_answer("research", next_step="something-else")
 
-    with caplog.at_level(logging.WARNING, logger="context_guard"):
+    with caplog.at_level(logging.WARNING, logger="agentether"):
         result = await research()
 
     assert result.telemetry.status == "completed"
@@ -389,7 +389,7 @@ async def test_missing_next_step_also_warns(memory_dir: Path, caplog) -> None:
     async def research(ctx: StepContext) -> str:
         return telemetry_answer("research", next_step=None)
 
-    with caplog.at_level(logging.WARNING, logger="context_guard"):
+    with caplog.at_level(logging.WARNING, logger="agentether"):
         await research()
 
     assert any("next_step" in record.getMessage() for record in caplog.records)
@@ -527,7 +527,7 @@ async def test_backoff_uses_the_injected_sleep(
     memory_dir: Path, recording_sleep, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     delays, sleep = recording_sleep
-    monkeypatch.setattr("context_guard.orchestrator.random.uniform", lambda a, b: b)
+    monkeypatch.setattr("agentether.orchestrator.random.uniform", lambda a, b: b)
     orch = make_orchestrator(
         memory_dir, max_retries=4, backoff_base=1.0, backoff_max=30.0, sleep=sleep
     )
@@ -545,7 +545,7 @@ async def test_backoff_uses_the_injected_sleep(
 
 async def test_backoff_is_capped(memory_dir: Path, recording_sleep, monkeypatch) -> None:
     delays, sleep = recording_sleep
-    monkeypatch.setattr("context_guard.orchestrator.random.uniform", lambda a, b: b)
+    monkeypatch.setattr("agentether.orchestrator.random.uniform", lambda a, b: b)
     orch = make_orchestrator(
         memory_dir, max_retries=4, backoff_base=10.0, backoff_max=15.0, sleep=sleep
     )
@@ -630,7 +630,7 @@ async def test_memory_is_reread_on_every_attempt(memory_dir: Path, recording_sle
 
 
 async def test_module_level_guard_step(memory_dir: Path) -> None:
-    from context_guard import guard_step
+    from agentether import guard_step
 
     orch = make_orchestrator(memory_dir)
 
@@ -643,7 +643,7 @@ async def test_module_level_guard_step(memory_dir: Path) -> None:
 
 
 async def test_configuration_errors(memory_dir: Path) -> None:
-    from context_guard import ConfigurationError
+    from agentether import ConfigurationError
 
     with pytest.raises(ConfigurationError):
         AutoOrchestrator([], str(memory_dir), 10, 1)
@@ -861,8 +861,8 @@ async def test_human_input_unblocks_a_blocked_step(memory_dir: Path) -> None:
     path = memory_dir / "PROJECT_MEMORY.md"
     text = path.read_text(encoding="utf-8")
     text = text.replace(
-        "<!-- contextguard:human:start -->\n\n<!-- contextguard:human:end -->",
-        "<!-- contextguard:human:start -->\nthe key is 12345\n<!-- contextguard:human:end -->",
+        "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
+        "<!-- agentether:human:start -->\nthe key is 12345\n<!-- agentether:human:end -->",
     )
     path.write_text(text, encoding="utf-8")
 

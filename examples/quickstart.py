@@ -1,4 +1,4 @@
-"""A runnable ContextGuard example.
+"""A runnable AgenTether example.
 
 The example uses a stub ``my_llm`` so it runs offline and deterministically.
 Replace ``my_llm`` with a call to your own model -- the contract stays the
@@ -15,7 +15,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from context_guard import AutoOrchestrator, StepContext, configure_logging
+from agentether import AutoOrchestrator, StepContext, configure_logging
 
 
 async def my_llm(prompt: str) -> str:

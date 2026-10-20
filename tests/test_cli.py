@@ -1,4 +1,4 @@
-"""Tests for the ``contextguard`` command line interface."""
+"""Tests for the ``agentether`` command line interface."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from context_guard import AutoOrchestrator, StateManager, Telemetry
-from context_guard.cli import main
+from agentether import AutoOrchestrator, StateManager, Telemetry
+from agentether.cli import main
 
 
 def read_json(capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
@@ -140,7 +140,7 @@ def test_doctor_reports_a_missing_file(tmp_path: Path, capsys: pytest.CaptureFix
 
 def test_doctor_reports_broken_json(memory_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (memory_dir / "PROJECT_MEMORY.md").write_text(
-        "# Project Memory\n\n<!-- contextguard:state -->\n```json\n{not json}\n```\n",
+        "# Project Memory\n\n<!-- agentether:state -->\n```json\n{not json}\n```\n",
         encoding="utf-8",
     )
     code = main(["doctor", str(memory_dir), "--json"])
@@ -154,8 +154,8 @@ def test_doctor_reports_a_missing_human_end_marker(
     memory_dir: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     (memory_dir / "PROJECT_MEMORY.md").write_text(
-        "# Project Memory\n\n<!-- contextguard:human:start -->\ntext\n"
-        "<!-- contextguard:state -->\n```json\n{}\n```\n",
+        "# Project Memory\n\n<!-- agentether:human:start -->\ntext\n"
+        "<!-- agentether:state -->\n```json\n{}\n```\n",
         encoding="utf-8",
     )
     code = main(["doctor", str(memory_dir), "--json"])

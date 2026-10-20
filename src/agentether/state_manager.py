@@ -1,6 +1,6 @@
 """Durable project memory.
 
-The control path of ContextGuard lives on disk, not in the agent's context
+The control path of AgenTether lives on disk, not in the agent's context
 window.  ``PROJECT_MEMORY.md`` is a human readable Markdown file that also
 carries a machine readable JSON block, so a human can read the plan while the
 supervisor can read the state.
@@ -11,7 +11,7 @@ The file has two owners:
   summaries, the "needs human input" notes, the verification summary and the
   machine readable state block;
 * the **human** owns everything between
-  ``<!-- contextguard:human:start -->`` and ``<!-- contextguard:human:end -->``.
+  ``<!-- agentether:human:start -->`` and ``<!-- agentether:human:end -->``.
   That text is preserved byte for byte across every write and every
   migration, and it is injected into the agent's context with the highest
   priority.
@@ -65,11 +65,18 @@ MEMORY_FILENAME = "PROJECT_MEMORY.md"
 SCHEMA_VERSION = 2
 
 #: Marker that introduces the machine readable block in the memory file.
-STATE_MARKER = "<!-- contextguard:state -->"
+STATE_MARKER = "<!-- agentether:state -->"
 
 #: Markers that delimit the human owned section.
-HUMAN_START_MARKER = "<!-- contextguard:human:start -->"
-HUMAN_END_MARKER = "<!-- contextguard:human:end -->"
+HUMAN_START_MARKER = "<!-- agentether:human:start -->"
+HUMAN_END_MARKER = "<!-- agentether:human:end -->"
+
+#: The markers of the previous name.  They are still *read*, so a memory
+#: file written by ContextGuard 0.2 keeps working; they are never written
+#: again.
+LEGACY_STATE_MARKER = "<!-- contextguard:state -->"
+LEGACY_HUMAN_START_MARKER = "<!-- contextguard:human:start -->"
+LEGACY_HUMAN_END_MARKER = "<!-- contextguard:human:end -->"
 
 #: Sub directory that holds the raw output of each step.
 STEPS_DIRNAME = "steps"
@@ -84,8 +91,7 @@ MAX_ATTEMPTS_IN_STATE = 20
 #: The machine block is located by the *last* marker that stands on its own
 #: line, so a marker smuggled into a JSON string cannot be mistaken for it.
 _STATE_MARKER_RE = re.compile(r"(?m)^" + re.escape(STATE_MARKER) + r"[ \t]*$")
-_HUMAN_START_RE = re.compile(r"(?m)^" + re.escape(HUMAN_START_MARKER) + r"[ \t]*$")
-_HUMAN_END_RE = re.compile(r"(?m)^" + re.escape(HUMAN_END_MARKER) + r"[ \t]*$")
+_LEGACY_STATE_MARKER_RE = re.compile(r"(?m)^" + re.escape(LEGACY_STATE_MARKER) + r"[ \t]*$")
 _FENCE_OPEN = "```json"
 
 
@@ -527,11 +533,18 @@ class StateManager:
         The marker must stand on its own line, and the last one wins: the
         library writes the machine block last, so a marker that a model
         managed to smuggle into a summary can never be mistaken for it.
+
+        The marker of the previous name is accepted as well, so a memory
+        file written by ContextGuard 0.2 can still be read; it is rewritten
+        with the current markers on the next save.
         """
         matches = list(_STATE_MARKER_RE.finditer(text))
-        if not matches:
-            return -1
-        return matches[-1].start()
+        if matches:
+            return matches[-1].start()
+        legacy = list(_LEGACY_STATE_MARKER_RE.finditer(text))
+        if legacy:
+            return legacy[-1].start()
+        return -1
 
     def _extract_human(self, text: str, state_pos: int) -> str:
         """Return the human owned text, byte for byte.
@@ -548,12 +561,18 @@ class StateManager:
         if state_pos < 0:
             return ""
         end_pos = text.rfind(HUMAN_END_MARKER, 0, state_pos)
-        if end_pos < 0:
-            return ""
         start_pos = text.rfind(HUMAN_START_MARKER, 0, end_pos)
-        if start_pos < 0:
-            return ""
-        content = text[start_pos + len(HUMAN_START_MARKER) : end_pos]
+        start_len = len(HUMAN_START_MARKER)
+        if end_pos < 0 or start_pos < 0:
+            # The file may still use the markers of the previous name.
+            end_pos = text.rfind(LEGACY_HUMAN_END_MARKER, 0, state_pos)
+            if end_pos < 0:
+                return ""
+            start_pos = text.rfind(LEGACY_HUMAN_START_MARKER, 0, end_pos)
+            start_len = len(LEGACY_HUMAN_START_MARKER)
+            if start_pos < 0:
+                return ""
+        content = text[start_pos + start_len : end_pos]
         if content.startswith(chr(10)):
             content = content[1:]
         if content.endswith(chr(10)):
@@ -575,9 +594,9 @@ class StateManager:
         marker_index = state_pos
         if marker_index == -1:
             raise StateCorruptionError(
-                f"{self.memory_path} does not contain the ContextGuard state marker "
+                f"{self.memory_path} does not contain the AgenTether state marker "
                 f"{STATE_MARKER!r}; refusing to silently reset the project memory. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
                 f"{self._corruption_hint()}"
             )
         # The block is the first fence after the marker up to the *last*
@@ -586,41 +605,41 @@ class StateManager:
         if open_pos < 0:
             raise StateCorruptionError(
                 f"{self.memory_path} contains the state marker but no JSON block; "
-                "the project memory is corrupted. Run 'contextguard doctor' to "
+                "the project memory is corrupted. Run 'agentether doctor' to "
                 f"inspect the file.{self._corruption_hint()}"
             )
         newline = text.find(chr(10), open_pos)
         if newline < 0:
             raise StateCorruptionError(
                 f"{self.memory_path} contains a truncated state block. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
             )
         content_start = newline + 1
         close_pos = text.rfind("```", content_start)
         if close_pos < 0:
             raise StateCorruptionError(
                 f"{self.memory_path} contains an unterminated state block. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
             )
         try:
             data = json.loads(text[content_start:close_pos])
         except json.JSONDecodeError as exc:
             raise StateCorruptionError(
                 f"{self.memory_path} contains a malformed state block: {exc}. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
                 f"{self._corruption_hint()}"
             ) from exc
         if not isinstance(data, dict):
             raise StateCorruptionError(
                 f"{self.memory_path} contains a state block that is not a JSON object. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
             )
         version = data.get("schema_version")
         if version not in (1, SCHEMA_VERSION):
             raise StateCorruptionError(
                 f"{self.memory_path} uses unsupported schema_version {version!r}; "
                 f"this build understands {version} and {SCHEMA_VERSION}. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
                 f"{self._corruption_hint()}"
             )
         state = self._fresh_state()
@@ -636,19 +655,19 @@ class StateManager:
             if not isinstance(state.get(key), type(default)):
                 raise StateCorruptionError(
                     f"{self.memory_path} contains an invalid {key!r} section. "
-                    "Run 'contextguard doctor' to inspect the file."
+                    "Run 'agentether doctor' to inspect the file."
                 )
         breaker = state.get("breaker")
         if not isinstance(breaker, dict):
             raise StateCorruptionError(
                 f"{self.memory_path} contains an invalid 'breaker' section. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
             )
         budget = state.get("budget")
         if budget is not None and not isinstance(budget, dict):
             raise StateCorruptionError(
                 f"{self.memory_path} contains an invalid 'budget' section. "
-                "Run 'contextguard doctor' to inspect the file."
+                "Run 'agentether doctor' to inspect the file."
             )
         # The untrusted strings are escaped on write; undo that so the state
         # that is read back is the state that was written.
@@ -970,8 +989,8 @@ class StateManager:
         lines = [
             "# Project Memory",
             "",
-            "<!-- Managed by ContextGuard. Edit the code, not this file. -->",
-            "<!-- The section between the human markers is never rewritten by ContextGuard. -->",
+            "<!-- Managed by AgenTether. Edit the code, not this file. -->",
+            "<!-- The section between the human markers is never rewritten by AgenTether. -->",
             "",
             "## Roadmap",
             "",

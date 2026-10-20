@@ -5,7 +5,7 @@ A verifier checks what the agent *claimed*.  The agent says
 and decides whether the claim is true.
 
 ```python
-from context_guard import AutoOrchestrator, artifacts_exist, file_contains
+from agentether import AutoOrchestrator, artifacts_exist, file_contains
 
 orch = AutoOrchestrator(
     roadmap=["research"],

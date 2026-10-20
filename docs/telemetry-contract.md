@@ -1,7 +1,7 @@
 # The telemetry contract
 
 The worker answers with **text**.  The text must end with a single JSON
-object that describes what the worker did.  ContextGuard parses it, validates
+object that describes what the worker did.  AgenTether parses it, validates
 it and refuses the step when it does not make sense.
 
 ## The object
@@ -28,7 +28,7 @@ it and refuses the step when it does not make sense.
 
 Unknown fields are ignored, so the contract can grow.
 
-## What ContextGuard checks
+## What AgenTether checks
 
 * `step` must equal the step that was requested.  A mismatch is a
   `ContextDriftError` and is retried.
@@ -62,7 +62,7 @@ refused before any parsing happens.
 
 ## How the status is handled
 
-| Status | What ContextGuard does |
+| Status | What AgenTether does |
 | --- | --- |
 | `completed` | The verifiers run, the step is persisted, the result is returned. |
 | `in_progress` | The attempt failed.  The step is retried with the hint "step not completed, continue". |

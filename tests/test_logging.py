@@ -7,8 +7,8 @@ import os
 
 import pytest
 
-from context_guard import ColorFormatter, configure_logging
-from context_guard.logging_utils import LOGGER_NAME, logger
+from agentether import ColorFormatter, configure_logging
+from agentether.logging_utils import LOGGER_NAME, logger
 
 
 def make_record(message: str, level: int = logging.INFO) -> logging.LogRecord:
@@ -60,7 +60,7 @@ def test_configure_logging_adds_one_handler() -> None:
         assert logger.level == logging.DEBUG
     finally:
         for handler in list(logger.handlers):
-            if getattr(handler, "_context_guard_handler", False):
+            if getattr(handler, "_agentether_handler", False):
                 logger.removeHandler(handler)
         logger.setLevel(logging.NOTSET)
 

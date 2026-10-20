@@ -2,11 +2,11 @@
 
 The adapter is an optional extra::
 
-    pip install "contextguard[anthropic]"
+    pip install "agentether[anthropic]"
     export ANTHROPIC_API_KEY=...      # the SDK reads it from the environment
 
 The core package never imports a provider SDK, and this example has **not
-been tested against live APIs** unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set
+been tested against live APIs** unless ``AGENTETHER_LIVE_TESTS=1`` is set
 and the live test in ``tests/test_adapters.py`` was run.
 
     python examples/anthropic_agent.py
@@ -18,16 +18,16 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from context_guard import AutoOrchestrator, StepContext, configure_logging
+from agentether import AutoOrchestrator, StepContext, configure_logging
 
 
 async def main() -> None:
     configure_logging()
     try:
-        from context_guard.adapters import anthropic_worker
+        from agentether.adapters import anthropic_worker
     except ImportError as exc:  # pragma: no cover - depends on the environment
         print(exc)
-        print('install it with: pip install "contextguard[anthropic]"')
+        print('install it with: pip install "agentether[anthropic]"')
         return
 
     try:

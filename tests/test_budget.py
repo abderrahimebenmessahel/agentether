@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from context_guard import BudgetExceededError, BudgetPolicy, BudgetTracker, Usage
-from context_guard.policy import approximate_token_count
+from agentether import BudgetExceededError, BudgetPolicy, BudgetTracker, Usage
+from agentether.policy import approximate_token_count
 
 
 def test_approximate_token_count_is_documented_as_an_approximation() -> None:

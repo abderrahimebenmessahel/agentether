@@ -8,7 +8,7 @@
 
    1. the **naive** runner calls the worker, retries blindly up to a fixed
       cap and trusts whatever the worker claims;
-   2. the **guarded** runner is ContextGuard with verifiers, semantic loop
+   2. the **guarded** runner is AgenTether with verifiers, semantic loop
       detection and a circuit breaker.
 
    The numbers say something about *the policies*, not about how well the
@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .exceptions import ContextGuardError
+from .exceptions import AgenTetherError
 from .loop_detector import fingerprint, jaccard
 from .models import StepContext
 from .orchestrator import AutoOrchestrator
@@ -479,7 +479,7 @@ async def _guarded_runner(
     clock: FakeClock,
     config: BenchmarkConfig,
 ) -> tuple[bool, int, dict[str, int]]:
-    """The guarded runner: ContextGuard with verifiers and a breaker.
+    """The guarded runner: AgenTether with verifiers and a breaker.
 
     Returns:
         ``(reported_complete, attempts, attempts_per_step)``.
@@ -504,7 +504,7 @@ async def _guarded_runner(
 
         try:
             result = await _worker()
-        except ContextGuardError:
+        except AgenTetherError:
             reported = False
             break
         except Exception:
@@ -556,7 +556,7 @@ async def _run_trial(
     """Run one simulated task with both runners."""
     steps = [f"step{index + 1}" for index in range(config.steps)]
     schedule = _make_schedule(rng, config, steps)
-    root = Path(tempfile.mkdtemp(prefix="contextguard-bench-"))
+    root = Path(tempfile.mkdtemp(prefix="agentether-bench-"))
     try:
         naive_work = root / "naive"
         guarded_work = root / "guarded"

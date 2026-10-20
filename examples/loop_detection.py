@@ -2,7 +2,7 @@
 
 An agent that keeps producing *different looking but equivalent* output is
 the dangerous case: every answer looks new, but the agent is going in
-circles.  ContextGuard normalises the answer (numbers, ids and timestamps are
+circles.  AgenTether normalises the answer (numbers, ids and timestamps are
 masked), hashes it into shingles and compares the answers with the Jaccard
 similarity.  When three consecutive answers are alike, the loop is detected.
 
@@ -15,7 +15,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from context_guard import (
+from agentether import (
     AutoOrchestrator,
     CircuitBreakerOpenError,
     LoopDetector,
@@ -23,7 +23,7 @@ from context_guard import (
     StepContext,
     configure_logging,
 )
-from context_guard.loop_detector import fingerprint, jaccard
+from agentether.loop_detector import fingerprint, jaccard
 
 
 def show_the_fingerprints() -> None:

@@ -2,7 +2,7 @@
 
 Agent output is *data*, not code.  It is never ``eval``-ed, never used as a
 file path and always size-bounded.  This module contains the only piece of
-ContextGuard that has to cope with arbitrary text, so it is deliberately
+AgenTether that has to cope with arbitrary text, so it is deliberately
 forgiving about prose and deliberately strict about structure.
 """
 
