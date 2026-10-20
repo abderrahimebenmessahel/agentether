@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import random
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -27,6 +28,7 @@ from tasks import Check, TaskSpec
 
 from agentether import (
     AutoOrchestrator,
+    Expectation,
     StepContext,
     TelemetryParseError,
     WorkerOutput,
@@ -58,8 +60,27 @@ ATTEMPT_CAP = 3
 #: The probability that a fault is injected into an attempt.
 FAULT_RATE = 0.20
 
-#: The seed of the fault schedule.
+#: The seed of the fault schedule of the trial v2.
 FAULT_SEED = 20261020
+
+#: The seed of the fault schedule of the trial v3.
+FAULT_SEED_V3 = 20261021
+
+#: The six faults of the trial v2.
+FAULTS: tuple[str, ...] = (
+    "drop_file_block",
+    "truncate_file",
+    "corrupt_telemetry",
+    "wrong_step",
+    "replay_previous",
+    "lie",
+)
+
+#: The seven faults of the trial v3: the six of the v2 and ``hide_file``,
+#: the fault of the mechanism that the v2 could not measure (the model
+#: never produces a file and the claim mentions only the files it did
+#: produce).
+FAULTS_V3: tuple[str, ...] = FAULTS + ("hide_file",)
 
 #: The prompt of a step.  It is the **same** for the three arms.
 #:
@@ -330,10 +351,57 @@ def inject_fault(answer: str, fault: str, previous: str | None) -> str:
     if fault == "lie":
         # The claim stays, the file block goes.
         return _drop_the_blocks(answer)
+    if fault == "hide_file":
+        return _hide_a_file(answer)
     return answer
 
 
-def fault_for(task_index: int, step_index: int, attempt: int) -> str | None:
+def _hide_a_file(answer: str) -> str:
+    """Remove a file of the answer **and** its name from the claim.
+
+    The claim stays "completed" and it mentions only the files the model
+    really produced: a verifier that checks the claimed files sees nothing
+    wrong, and only a declaration of what the step owes can see the missing
+    file.  This is the mechanism the trial v2 could not measure.
+    """
+    blocks = fenced_blocks(answer)
+    if not blocks:
+        return answer
+    target: tuple[int, int, str] | None = None
+    for start, end, body in blocks:
+        lines = body.splitlines()
+        if not lines:
+            continue
+        head = _FILE_HEAD.match(lines[0])
+        if head is not None:
+            target = (start, end, head.group("path").strip())
+            break
+    if target is None:
+        return answer
+    start, end, path = target
+    without = answer[:start] + answer[end:]
+    telemetry, head = _telemetry_of(without)
+    if not telemetry:
+        return without
+    try:
+        data = json.loads(telemetry)
+    except json.JSONDecodeError:
+        return without
+    if not isinstance(data, dict):
+        return without
+    artifacts = data.get("artifacts")
+    if isinstance(artifacts, list):
+        data["artifacts"] = [item for item in artifacts if item != path]
+    return head + chr(10) + json.dumps(data)
+
+
+def fault_for(
+    task_index: int,
+    step_index: int,
+    attempt: int,
+    seed: int | None = None,
+    faults: Sequence[str] = FAULTS,
+) -> str | None:
     """The fault of one attempt (or ``None``).
 
     The schedule is a **function** of the task, the step and the attempt
@@ -347,20 +415,14 @@ def fault_for(task_index: int, step_index: int, attempt: int) -> str | None:
         task_index: The index of the task.
         step_index: The index of the step inside the task.
         attempt: The attempt number inside the step, starting at 1.
+        seed: The seed of the schedule.  The default is the seed of the
+            trial v2; the trial v3 uses another one.
+        faults: The faults of the schedule.
     """
-    rng = random.Random(f"{FAULT_SEED}:{task_index}:{step_index}:{attempt}")
+    rng = random.Random(f"{seed if seed is not None else FAULT_SEED}:{task_index}:{step_index}:{attempt}")
     if rng.random() >= FAULT_RATE:
         return None
-    return rng.choice(
-        [
-            "drop_file_block",
-            "truncate_file",
-            "corrupt_telemetry",
-            "wrong_step",
-            "replay_previous",
-            "lie",
-        ]
-    )
+    return rng.choice(list(faults))
 
 
 # ----------------------------------------------------------------------
@@ -493,6 +555,9 @@ async def run_arm_naive(
     caller: Caller,
     condition: str,
     task_index: int,
+    *,
+    fault_seed: int | None = None,
+    faults: Sequence[str] = FAULTS,
 ) -> ArmResult:
     """Arm A: one call per step, the claim is trusted.
 
@@ -517,7 +582,7 @@ async def run_arm_naive(
         attempts += 1
         answer = output.text
         if condition == "injected":
-            fault = fault_for(task_index, step_index, 1)
+            fault = fault_for(task_index, step_index, 1, fault_seed, faults)
             if fault is not None:
                 answer = inject_fault(answer, fault, previous)
         previous = answer
@@ -540,6 +605,9 @@ async def run_arm_simple_retry(
     caller: Caller,
     condition: str,
     task_index: int,
+    *,
+    fault_seed: int | None = None,
+    faults: Sequence[str] = FAULTS,
 ) -> ArmResult:
     """Arm B: retry on a contract failure, an exception or a timeout.
 
@@ -568,7 +636,7 @@ async def run_arm_simple_retry(
             attempts += 1
             answer = output.text
             if condition == "injected":
-                fault = fault_for(task_index, step_index, attempt)
+                fault = fault_for(task_index, step_index, attempt, fault_seed, faults)
                 if fault is not None:
                     answer = inject_fault(answer, fault, previous)
             previous = answer
@@ -594,6 +662,10 @@ async def run_arm_agentether(
     caller: Caller,
     condition: str,
     task_index: int,
+    *,
+    expectations: Sequence[Sequence[Expectation]] | None = None,
+    fault_seed: int | None = None,
+    faults: Sequence[str] = FAULTS,
 ) -> ArmResult:
     """Arm C: the full library.
 
@@ -659,7 +731,11 @@ async def run_arm_agentether(
         # Every step starts with a closed breaker (see the docstring).
         await orchestrator.reset_breaker()
 
-        @orchestrator.guard_step(step.name, verify=[artifacts_exist()])
+        declared = list(expectations[step_index]) if expectations else []
+
+        @orchestrator.guard_step(
+            step.name, verify=[artifacts_exist()], expects=declared or None
+        )
         async def _worker(
             ctx: StepContext, _task: str = task_text, _index: int = step_index
         ) -> str:
@@ -670,7 +746,7 @@ async def run_arm_agentether(
             if condition == "injected":
                 # ``ctx.attempt`` is the attempt number inside the step, so
                 # the arm walks the same fault schedule as the others.
-                fault = fault_for(task_index, _index, ctx.attempt)
+                fault = fault_for(task_index, _index, ctx.attempt, fault_seed, faults)
                 if fault is not None:
                     answer = inject_fault(answer, fault, previous)
             previous = answer

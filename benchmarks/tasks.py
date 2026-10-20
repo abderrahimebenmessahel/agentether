@@ -15,9 +15,21 @@ name, a report that must repeat the number of the data file.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
-__all__ = ["TASKS", "Check", "StepSpec", "TaskSpec", "build_tasks"]
+from agentether import Expectation
+
+__all__ = [
+    "TASKS",
+    "Check",
+    "FileSpec",
+    "StepSpec",
+    "TaskSpec",
+    "build_task",
+    "build_tasks",
+    "expectations_of",
+]
 
 
 @dataclass(frozen=True)
@@ -77,7 +89,7 @@ class TaskSpec:
         return tuple(seen)
 
 
-def _task(
+def build_task(
     index: int,
     subject: str,
     number: int,
@@ -89,6 +101,12 @@ def _task(
     The steps are always the same shape, but the content differs: a different
     subject, a different number, a different function name.  That keeps the
     twenty tasks comparable while still being twenty distinct tasks.
+
+    The **visible** specification of a step is the list of its
+    :class:`FileSpec`; the **hidden** ground truth is the list of the
+    :class:`Check` of the task.  The arms never see the ground truth, and
+    the expectations of a step are built from the visible specification
+    only (see :func:`expectations_of`).
     """
     notes = FileSpec(
         path="notes.md",
@@ -171,6 +189,10 @@ def _task(
     return TaskSpec(name=f"task{index:02d}-{subject}", steps=tuple(steps), checks=tuple(checks))
 
 
+#: The old name of :func:`build_task` (the tasks of the trial v2).
+_task = build_task
+
+
 def build_tasks() -> list[TaskSpec]:
     """The twenty tasks of the trial."""
     subjects = [
@@ -199,6 +221,41 @@ def build_tasks() -> list[TaskSpec]:
         _task(index, subject, number, function, with_report=index % 2 == 0)
         for index, (subject, number, function) in enumerate(subjects, start=1)
     ]
+
+
+def expectations_of(step: StepSpec) -> list[Expectation]:
+    """The expectations of a step, built from its **visible** specification.
+
+    The expectation of a file says that the file must exist, must not be
+    empty, and must hold what the step asked for: the content, the keys of
+    the JSON, the values of the JSON, the headings of the Markdown or a
+    valid Python syntax.  The hidden ground truth of the task is never used
+    here: the expectations are the *declaration of the developer*, and they
+    are built from the same text the step gives to the agent.
+
+    Args:
+        step: The step of a task.
+
+    Returns:
+        One expectation per file of the step.
+    """
+    expectations: list[Expectation] = []
+    for spec in step.files:
+        contains = list(spec.contains)
+        for key, value in spec.json_values:
+            # The value of a key of a JSON file, as a pattern of the text.
+            contains.append(rf'"{key}"\s*:\s*"?{re.escape(value)}"?')
+        expectations.append(
+            Expectation(
+                path=spec.path,
+                contains=tuple(contains),
+                json_keys=spec.json_keys,
+                json_valid=bool(spec.json_keys or spec.json_values),
+                python_valid=spec.python_valid,
+                markdown_headings=spec.headings,
+            )
+        )
+    return expectations
 
 
 #: The task set of the trial.

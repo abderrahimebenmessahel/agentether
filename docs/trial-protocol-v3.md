@@ -86,6 +86,12 @@ claim.
 | **C: agentether-claims-only** | The full library with the verifier `artifacts_exist()`: the files the agent **claims** must exist.  This is the configuration of the trial v2, kept unchanged so that the contribution of the expectations is measured on its own. |
 | **D: agentether** | The full library **with the declarative expectations** of the step: the files the step must produce must exist and must satisfy the declaration. |
 
+**The name of the third arm of the trial v2.**  The data of the trial v2
+and the document of the trial v2 call it `agentether`; it is the
+configuration `agentether-claims-only` of this protocol.  The name in the
+runner changed, the configuration did not: re-running the trial v2 now
+needs the arm name `agentether-claims-only` to get the same arms.
+
 **What the expectations of arm D are built from.**  They are built from the
 **visible step specification** of the task (the `FileSpec` of the step: the
 paths, the required content, the required keys and values, the required
