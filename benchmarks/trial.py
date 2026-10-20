@@ -144,7 +144,10 @@ class ModelCaller:
                 spec=self.spec,
                 model=self.model,
                 api_key_resolver=lambda: resolve_provider_key(self.spec),
-                max_retries=0,
+                # The transport retries a rate limit and a server error:
+                # a refusal of the provider is not a failure of the model
+                # and must not be measured as one.
+                max_retries=3,
                 limiter=self.limiter,
                 counter=self.counter,
             )
@@ -416,6 +419,7 @@ async def run_trial(
                         "seconds": round(time.monotonic() - step_started, 3),
                         "verifier_rejections": outcome.verifier_rejections,
                         "loop_detections": outcome.loop_detections,
+                        "failures": list(outcome.failures),
                         "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     }
                     record["false_completion"] = (
