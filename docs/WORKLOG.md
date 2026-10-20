@@ -753,3 +753,65 @@ the WSL password.  Nothing of that was done.
 
 
 
+
+## 2026-10-21 — session 3: the extension of the grid, the common set and the third model
+
+The brief of the maintainer has five phases.  The state of the tree when
+this session started: `git log --oneline` ends at `f4211d5`, the working
+tree is clean, the branch is `main`, the remote is private.
+
+### Phase 1 — the grid of 60 tasks per cell is now reachable
+
+**The problem.**  The protocol of the trial v3 planned **60 tasks per
+cell** and the task set had **20** (`benchmarks/tasks_v3.py`); the resume
+command of the worklog used `--tasks 20`.  The grid was therefore not
+reachable, and the MDE of a paired comparison at N = 20 (0.313) is larger
+than any effect the trial could see besides the complete removal of a
+class of false completions.
+
+**The addendum is committed before any new data** (`60b3bf0`):
+`docs/trial-protocol-v3-addendum.md`.  It declares the extension, the
+**seed of the generator (20261022)**, the arms, the faults and the
+statistics that do **not** change, the stopping rule (fixed order of the
+tasks, stop at the cap of the day, no peeking, the final analysis at
+N = 60 or at the quota limit), the rule of the common set of tasks, the
+separation of the mechanism and of the natural frequency, the third model
+and the MDE of every N.
+
+**The generator** (`benchmarks/tasks_v3_gen.py`, commit `cccf809`):
+
+* the subjects, the numbers and the verbs are drawn from fixed pools
+  that are **shuffled with the seed and cut at the requested length**, so
+  the first *n* tasks do not depend on *n* and a task keeps its subject
+  when the grid grows;
+* the template of a task and its headings are drawn from the seed of the
+  task itself, so a task does not depend on the tasks before it;
+* three **equivalent** templates (the same number of steps, of files and
+  of checks; only the names of the files and of the headings differ);
+* the twenty hand-written tasks are **untouched**: they are the first
+  twenty of the combined set, in the same order, and the fault schedule
+  is a function of the index of the task, so their schedule is unchanged
+  and the data of the first session of the trial v3 stay valid.
+
+**The shape of the set** (checked, not assumed): 60 tasks, 60 distinct
+names, 60 distinct subjects, 30 tasks of 3 steps and 30 of 4, 13 or 16
+checks, and no subject of the trial v2 or of the trial v3.
+
+**The tests** (`tests/test_task_generator.py`, 21 tests): the generator is
+deterministic, another seed builds other tasks, the tasks are distinct,
+the hand-written tasks are untouched, the ground truth **passes on a
+correct solution and fails on a broken one** (a missing file, a wrong
+content, a script that does not compile), and the expectations of the
+guarded arm fail on the same broken solution.
+
+**The runner** takes `--task-set v3` (the sixty tasks), `--task-set
+v3-20` (the twenty hand-written ones) and `--task-set v2`.
+
+### NEXT ACTION
+
+Phase 2: the generator of `docs/evidence.md` must compute every headline
+rate on the **common set of the tasks that every arm of a model and of a
+condition completed**, keep the paired analysis on that set, show how
+many tasks were dropped, and a test must fail when a table mixes two
+different numbers of tasks.  The document is then regenerated from the raw
+cells only.
