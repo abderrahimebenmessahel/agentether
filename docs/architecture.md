@@ -47,7 +47,7 @@ platform: there is no scheduler, no graph, no queue and no cluster.
 | `events.py` | The event bus and the append-only event log. |
 | `cli.py` | The `contextguard` command. |
 | `benchmark.py` | The simulated benchmark. |
-| `adapters/` | Optional provider helpers (lazy imports, never in the core path). |
+| `adapters/` | Optional provider helpers (lazy imports, never in the core path).  The OpenRouter one is standard library only. |
 
 ## The life of one step
 

@@ -1,6 +1,6 @@
 # ContextGuard
 
-[![PyPI](https://img.shields.io/badge/pypi-contextguard-blue)](https://pypi.org/project/contextguard/)
+[![PyPI](https://img.shields.io/badge/pypi-context--guard-blue)](https://pypi.org/project/context-guard/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](CHANGELOG.md)
@@ -82,20 +82,19 @@ More in [`docs/architecture.md`](docs/architecture.md).
 ## Install
 
 ```bash
-pip install contextguard            # from a package index
-pip install -e ".[dev]"             # from a checkout, with the dev tooling
-pip install "contextguard[anthropic]"   # optional provider adapter
+pip install context-guard              # from a package index
+pip install -e ".[dev]"                # from a checkout, with the dev tooling
+pip install "context-guard[anthropic]"  # optional provider adapter
 ```
 
 ContextGuard is **standard library only** and requires Python 3.10 or newer.
 The core package never imports a provider SDK.
 
-> **PyPI name check (required before publishing).**  The distribution name
-> `contextguard` was chosen by the author and its availability on PyPI has
-> **not** been verified.  Check <https://pypi.org/project/contextguard/> and
-> the simple index before publishing, and pick another name if it is taken.
-> The name lives in one place: `pyproject.toml` (see the `NAME_CHECK_REQUIRED`
-> comment there).
+> **Distribution name.**  The package is published as `context-guard`; the
+> import name stays `context_guard` and the command is available as both
+> `contextguard` and `context-guard`.  The shorter name `contextguard` is
+> **taken** on PyPI by an unrelated project, so it is not used for the
+> distribution.
 
 ## Quickstart
 
@@ -364,6 +363,48 @@ from repeating forever; it does not make the agent smarter.
   with a 15% chance that a step can never be completed.  Change them and the
   numbers change.
 
+## Real trial (tiny sample, one model)
+
+> **This is a tiny sample from a single free model on a single day.**  It is
+> not a benchmark and it does not show that the library works in general.
+> The numbers below were observed once, with the model
+> `minimax/minimax-m3.1-flash:free` through OpenRouter, on ten synthetic
+> three-step tasks.  Nothing here generalises to other models, other tasks or
+> a real codebase.
+
+The harness gives the model a tiny protocol (it returns file contents in
+`FILE: path` blocks, the harness writes them into a sandbox) and runs the
+same tasks twice: once **unguarded** (one call per step, the claim is
+trusted) and once **guarded** (ContextGuard with the artifact and content
+verifiers, the loop detector and a budget).  The raw result is in
+[`benchmarks/results/`](benchmarks/results/).
+
+| Metric | unguarded | guarded |
+| --- | --- | --- |
+| tasks run | 10 | 10 |
+| correct completions (the files really exist and are valid) | 8 | 10 |
+| false completions (claimed, not done) | 1 | 0 |
+| model calls | 30 | 33 |
+| input tokens | 13,200 | 14,480 |
+| output tokens | 16,301 | 23,493 |
+| verifier rejections | 0 | 0 |
+| loop detections | 0 | 0 |
+| wall seconds | 243 | 320 |
+
+63 HTTP requests in total (the cap was 150, the rate limit 15/minute); the
+trial was not halted early.
+
+**Read this honestly.**  The guarded arm finished all ten tasks and the
+unguarded arm eight, and the unguarded arm once claimed a task was done
+while `README.md` did not mention the script it was supposed to.  But the
+verifiers *never fired* in this run (0 rejections): the guarded arm's
+advantage came from **retrying** a step whose answer had no parseable
+telemetry, not from catching a lie.  With ten easy tasks and a cooperative
+model, this says almost nothing about a real project.  The difference between
+the simulated benchmark above and this trial is that the simulation
+manufactures failures on purpose, while this trial asked a model to do
+boring work.
+
 ## How this differs from
 
 ContextGuard is not the only tool in this space, and it is not the best
@@ -423,6 +464,10 @@ Honest list of what this library does **not** do:
 
 ## Development
 
+Developed by Abderrahime BENMESSAHEL with substantial AI assistance
+(LLM-generated code, verified through automated tests and adversarial checks;
+limited independent human code review).
+
 ```bash
 pip install -e ".[dev]"
 pytest --cov=src/context_guard --cov-report=term-missing
@@ -433,19 +478,33 @@ mypy .
 
 The test suite is offline and deterministic: no network, no real model, and
 no test waits for real time (the clock and the backoff sleep are injectable).
+The CI matrix runs Python 3.10 to 3.13 on Linux and Windows.
 
 ## Provider adapters
 
-`context_guard.adapters` contains `anthropic_worker`, `openai_worker` and
-`ollama_worker`.  They turn a provider call into a worker that returns a
-`WorkerOutput` with usage information, so the token and cost budgets work
-with real providers.
+`context_guard.adapters` contains `anthropic_worker`, `openai_worker`,
+`ollama_worker` and `openrouter_worker`.  They turn a provider call into a
+worker that returns a `WorkerOutput` with usage information, so the token and
+cost budgets work with real providers.
 
 ```python
 from context_guard.adapters import anthropic_worker
 
 worker = anthropic_worker(model="claude-3-5-sonnet-latest")
 ```
+
+The OpenRouter adapter needs no third party package at all:
+
+```python
+from context_guard.adapters import openrouter_worker
+
+worker = openrouter_worker(model="minimax/minimax-m3.1-flash:free")
+```
+
+It reads the key from the environment (`minimax`, `MINIMAX`,
+`MINIMAX_API_KEY` or `OPENROUTER_API_KEY`, case insensitively), never logs
+it, never puts it in an error message, honours `Retry-After` on a rate limit
+and never retries a rejected key.
 
 The SDKs are optional extras and are imported lazily; the core package never
 imports them.  **These adapters are untested against live APIs** unless

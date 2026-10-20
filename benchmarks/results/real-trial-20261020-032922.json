@@ -1,0 +1,48 @@
+{
+  "arms": {
+    "guarded": {
+      "attempts": 33,
+      "correct_completions": 10,
+      "false_completions": 0,
+      "input_tokens": 14480,
+      "loop_detections": 0,
+      "model_calls": 33,
+      "name": "guarded",
+      "notes": [],
+      "output_tokens": 23493,
+      "reported_complete": 10,
+      "tasks": 10,
+      "verifier_rejections": 0,
+      "wall_seconds": 319.78
+    },
+    "unguarded": {
+      "attempts": 30,
+      "correct_completions": 8,
+      "false_completions": 1,
+      "input_tokens": 13200,
+      "loop_detections": 0,
+      "model_calls": 30,
+      "name": "unguarded",
+      "notes": [
+        "script: no telemetry",
+        "task07-tramways: not completed",
+        "task10-windmills: reported done but [\"README.md does not contain 'build.py'\"]"
+      ],
+      "output_tokens": 16301,
+      "reported_complete": 9,
+      "tasks": 10,
+      "verifier_rejections": 0,
+      "wall_seconds": 243.03
+    }
+  },
+  "generated_at": "2026-10-20T03:29:22Z",
+  "halt_reason": "",
+  "halted": false,
+  "model": "minimax/minimax-m3.1-flash:free",
+  "note": "No API key, prompt or model output is stored in this file.",
+  "rate_limit_per_minute": 15,
+  "request_cap": 150,
+  "requests": 63,
+  "tasks": 10,
+  "wall_seconds": 562.89
+}

@@ -9,13 +9,17 @@
 
 ## Reporting a vulnerability
 
-Please report security issues privately to the maintainers instead of opening
-a public issue.  Include a description, the affected version and a
-reproduction if you have one.  You can expect an acknowledgement within a few
-working days.
+Please report security issues **privately** through GitHub's private
+vulnerability reporting, which is enabled for this repository:
 
-*(TODO for the maintainer: replace this paragraph with a real contact address
-before publishing.)*
+<https://github.com/abderrahimebenmessahel/context-guard/security/advisories/new>
+
+Use that form instead of a public issue.  Include a description, the affected
+version and a reproduction if you have one.  You can expect an
+acknowledgement within a few working days.
+
+There is deliberately no public email address for security reports: the
+private advisory channel is the only one that is monitored.
 
 ## Threat model
 

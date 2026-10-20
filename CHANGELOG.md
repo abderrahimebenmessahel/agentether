@@ -88,8 +88,16 @@ breaking changes. They are listed below.
   `doctor`, `verify` and `benchmark`, all with `--json`.
 - **A simulated benchmark** (`contextguard benchmark --trials N --seed S`).
   It is a simulation: no LLM is called.
-- **Optional provider adapters** (`anthropic`, `openai`, `ollama`) in
-  `context_guard.adapters`.  The core package never imports a provider SDK.
+- **Optional provider adapters** (`anthropic`, `openai`, `ollama`,
+  `openrouter`) in `context_guard.adapters`.  The core package never imports
+  a provider SDK.  The OpenRouter adapter is standard library only: it reads
+  the key from the environment, never logs it, never puts it in an error
+  message, retries a rate limit with `Retry-After` and jittered backoff and
+  never retries a rejected key.
+- **The distribution is published as `context-guard`.**  The shorter name
+  `contextguard` is taken on PyPI by an unrelated project.  The import name
+  stays `context_guard`; the command is installed as `contextguard` and
+  `context-guard`.
 - `GuardPolicy` with `loop`, `stall`, `budget`, `retry` and `breaker`
   sub-policies.  The flat constructor arguments of 0.1 still work and are
   mapped onto the policy.
