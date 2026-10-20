@@ -80,7 +80,9 @@ command_succeeds([sys.executable, "-m", "pytest", "-q"], timeout=60)
   globbing or injection happens: `["echo", "$HOME"]` prints the literal
   string `$HOME`.
 * The process gets a **minimal environment**: `PATH`, `LANG`, `LC_ALL`, `HOME`
-  and `TMPDIR` only.
+  and `TMPDIR` only.  On Windows the system variables (`SYSTEMROOT`, `WINDIR`,
+  `COMSPEC`, ...) are kept as well, because CPython does not start without
+  them; none of them carries a secret.
 * The process is killed after the timeout.
 * The output is truncated before it is stored as evidence.
 

@@ -31,7 +31,8 @@ choose to verify**.  The following properties are deliberate:
   shell.  The command still runs with the privileges of the current user, so
   only verify commands you trust; prefer commands that only read.
   `command_succeeds` runs the process with a minimal environment (PATH, LANG,
-  LC_ALL, HOME and TMPDIR only) and a hard timeout.
+  LC_ALL, HOME and TMPDIR only; on Windows the system variables are kept as
+  well because CPython does not start without them) and a hard timeout.
 * **Paths from the model are untrusted.**  Every path taken from telemetry is
   resolved inside the work directory.  Absolute paths, `..` components and
   symlinks that point outside are rejected.

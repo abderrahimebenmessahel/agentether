@@ -106,6 +106,47 @@ def executable_is_inside_workdir(executable: str, workdir: Path) -> bool:
     return resolved.is_relative_to(base)
 
 
+#: The variables that are kept on Windows.  CPython cannot start without
+#: them ("_HashRandomization_Init: failed to get random numbers"), and none
+#: of them carries a secret.
+_WINDOWS_ENVIRONMENT = (
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramData",
+)
+
+
+def _child_environment(base: Path) -> dict[str, str]:
+    """The environment a verifier command runs with.
+
+    It is deliberately small: only the variables a command needs to find its
+    tools and to write temporary files.  On Windows the system variables are
+    kept as well, because CPython does not even start without them.
+    """
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "HOME": str(base),
+        "TMPDIR": str(base),
+    }
+    if os.name == "nt":
+        for name in _WINDOWS_ENVIRONMENT:
+            value = os.environ.get(name)
+            if value:
+                env[name] = value
+    return env
+
+
 def kill_process_tree(process: asyncio.subprocess.Process) -> None:
     """Kill a verifier command *and every process it started*.
 
@@ -328,13 +369,7 @@ def command_succeeds(
                 "verifier commands must live outside it",
                 argv=command,
             )
-        env = {
-            "PATH": os.environ.get("PATH", ""),
-            "LANG": "C.UTF-8",
-            "LC_ALL": "C.UTF-8",
-            "HOME": str(base),
-            "TMPDIR": str(base),
-        }
+        env = _child_environment(base)
         spawn_kwargs: dict[str, Any] = {}
         if os.name == "nt":
             spawn_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
