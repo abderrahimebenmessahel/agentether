@@ -39,6 +39,9 @@ from harness import (
     ATTEMPT_CAP,
     FAULT_RATE,
     FAULT_SEED,
+    FAULT_SEED_V3,
+    FAULTS,
+    FAULTS_V3,
     Caller,
     artifacts_present,
     run_arm_agentether,
@@ -46,7 +49,7 @@ from harness import (
     run_arm_simple_retry,
     task_is_correct,
 )
-from tasks import TASKS, TaskSpec
+from tasks import TASKS, TaskSpec, expectations_of
 
 from agentether.adapters.openai_compatible import (
     DailyCounter,
@@ -67,8 +70,19 @@ MODELS: tuple[str, ...] = (
     "nvidia/nemotron-3-super-120b-a12b:free",
 )
 
-#: The arms of the trial.
+#: The arms of the trial v2.
 ARMS: tuple[str, ...] = ("naive", "simple-retry", "agentether")
+
+#: The arms of the trial v3.  The third arm of the v2 is called
+#: ``agentether-claims-only`` here: it is the same configuration (the
+#: verifier ``artifacts_exist()``), and the new fourth arm declares what
+#: the step must produce.
+ARMS_V3: tuple[str, ...] = (
+    "naive",
+    "simple-retry",
+    "agentether-claims-only",
+    "agentether",
+)
 
 #: The conditions of the trial.
 CONDITIONS: tuple[str, ...] = ("natural", "injected")
@@ -137,6 +151,7 @@ class ModelCaller:
         stats: ModelStats,
         cap: int,
         counter: DailyCounter | None = None,
+        seed: int | None = None,
     ) -> None:
         self.model = model
         self.spec = spec
@@ -144,6 +159,7 @@ class ModelCaller:
         self.stats = stats
         self.cap = cap
         self.counter = counter
+        self.seed = seed
 
     async def call(self, prompt: str) -> Any:
         """One request.  Raises ``TrialHalt`` when the cap is reached."""
@@ -162,6 +178,7 @@ class ModelCaller:
                 max_retries=3,
                 limiter=self.limiter,
                 counter=self.counter,
+                seed=self.seed,
             )
         except OpenAICompatibleTransientError as exc:
             self.stats.consecutive_429 += 1
@@ -346,6 +363,10 @@ async def run_trial(
     progress_path: Path,
     provider: str = "openrouter",
     caller_factory: Callable[[str, Any, ModelStats, int], Caller] | None = None,
+    fault_seed: int | None = None,
+    faults: tuple[str, ...] = FAULTS,
+    model_seed: int | None = None,
+    daily_cap: int | None = None,
 ) -> dict[str, Any]:
     """Run the trial and return the result payload.
 
@@ -365,10 +386,19 @@ async def run_trial(
             the provider, and the daily count is kept on disk.
         caller_factory: Builds the caller of a model.  It is ``None`` in
             the trial (the live model) and a script in the tests.
+        fault_seed: The seed of the fault schedule.  ``None`` keeps the
+            seed of the trial v2.
+        faults: The faults of the schedule.
+        model_seed: The seed of the requests, when the provider takes one.
+        daily_cap: The number of requests of the day that the run may
+            make.  The default is **half** of the documented daily limit
+            of the provider: the rule of the maintainer is that a run
+            stays under half of the daily quota.
     """
     spec = provider_for(provider)
     limiter = TokenBucketLimiter(min(rate_limit, spec.requests_per_minute))
-    counter = DailyCounter(_usage_path(provider), spec.requests_per_day, spec.name)
+    limit = spec.requests_per_day if daily_cap is None else daily_cap
+    counter = DailyCounter(_usage_path(provider), limit, spec.name)
     stats = {model: ModelStats(model) for model in models}
     cells: list[dict[str, Any]] = []
     halted = ""
@@ -384,7 +414,9 @@ async def run_trial(
     selected = tasks[:per_cell]
     for model in models:
         if caller_factory is None:
-            caller: Caller = ModelCaller(model, spec, limiter, stats[model], model_cap, counter)
+            caller: Caller = ModelCaller(
+                model, spec, limiter, stats[model], model_cap, counter, model_seed
+            )
         else:
             caller = caller_factory(model, limiter, stats[model], model_cap)
         for condition in conditions:
@@ -405,14 +437,45 @@ async def run_trial(
                     step_started = time.monotonic()
                     try:
                         if arm == "naive":
-                            outcome = await run_arm_naive(task, sandbox, caller, condition, index)
+                            outcome = await run_arm_naive(
+                                task,
+                                sandbox,
+                                caller,
+                                condition,
+                                index,
+                                fault_seed=fault_seed,
+                                faults=faults,
+                            )
                         elif arm == "simple-retry":
                             outcome = await run_arm_simple_retry(
-                                task, sandbox, caller, condition, index
+                                task,
+                                sandbox,
+                                caller,
+                                condition,
+                                index,
+                                fault_seed=fault_seed,
+                                faults=faults,
                             )
                         else:
+                            # The arm that declares what the step must
+                            # produce is the one of the trial v3; the
+                            # claims-only arm is the configuration of the
+                            # trial v2.
+                            declared = (
+                                [expectations_of(step) for step in task.steps]
+                                if arm == "agentether"
+                                else None
+                            )
                             outcome = await run_arm_agentether(
-                                task, sandbox, memory, caller, condition, index
+                                task,
+                                sandbox,
+                                memory,
+                                caller,
+                                condition,
+                                index,
+                                expectations=declared,
+                                fault_seed=fault_seed,
+                                faults=faults,
                             )
                     except TrialHalt as exc:
                         halted = str(exc)
@@ -459,7 +522,9 @@ async def run_trial(
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "protocol": "docs/trial-protocol.md",
         "fault_rate": FAULT_RATE,
-        "fault_seed": FAULT_SEED,
+        "fault_seed": fault_seed if fault_seed is not None else FAULT_SEED,
+        "model_seed": model_seed,
+        "daily_cap": limit,
         "attempt_cap": ATTEMPT_CAP,
         "rate_limit_per_minute": rate_limit,
         "model_request_cap": model_cap,
@@ -492,6 +557,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rate-limit", type=int, default=DEFAULT_RATE_LIMIT)
     parser.add_argument("--model-cap", type=int, default=DEFAULT_MODEL_CAP)
     parser.add_argument(
+        "--task-set",
+        choices=("v2", "v3"),
+        default="v2",
+        help="the task set: the tasks of the trial v2 or the new ones of the trial v3",
+    )
+    parser.add_argument(
+        "--fault-seed",
+        type=int,
+        default=None,
+        help="the seed of the fault schedule (the default is the seed of the trial v2)",
+    )
+    parser.add_argument(
+        "--model-seed",
+        type=int,
+        default=None,
+        help="the seed of the requests, when the provider takes one",
+    )
+    parser.add_argument(
+        "--daily-cap",
+        type=int,
+        default=None,
+        help=(
+            "the requests of the day that the run may make; the default is "
+            "half of the documented daily limit of the provider"
+        ),
+    )
+    parser.add_argument(
         "--workdir",
         default=str(Path(tempfile.gettempdir()) / "agentether-trial"),
     )
@@ -517,6 +609,17 @@ def main(argv: list[str] | None = None) -> int:
             print(str(exc), file=sys.stderr)
             return 2
 
+    if args.task_set == "v3":
+        from tasks_v3 import TASKS_V3
+
+        tasks = TASKS_V3
+        fault_seed = args.fault_seed if args.fault_seed is not None else FAULT_SEED_V3
+        faults = FAULTS_V3
+    else:
+        tasks = TASKS
+        fault_seed = args.fault_seed
+        faults = FAULTS
+
     workdir = Path(args.workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     progress = workdir / "progress.jsonl"
@@ -525,13 +628,17 @@ def main(argv: list[str] | None = None) -> int:
             models=tuple(args.models),
             arms=tuple(args.arms),
             conditions=tuple(args.conditions),
-            tasks=TASKS,
+            tasks=tasks,
             per_cell=args.tasks,
             rate_limit=args.rate_limit,
             model_cap=args.model_cap,
             workdir=workdir,
             progress_path=progress,
             provider=args.provider,
+            fault_seed=fault_seed,
+            faults=faults,
+            model_seed=args.model_seed,
+            daily_cap=args.daily_cap,
         )
     )
     output = Path(args.output)

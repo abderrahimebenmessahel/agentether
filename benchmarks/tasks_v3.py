@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from tasks import Check, FileSpec, StepSpec, TaskSpec
 
-__all__ = ["TASKS_V3", "build_tasks_v3", "build_task_v3"]
+__all__ = ["TASKS_V3", "build_task_v3", "build_tasks_v3"]
 
 #: The subjects of the trial v3: new ones, with a new number and a new
 #: function name each.

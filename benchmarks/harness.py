@@ -80,7 +80,7 @@ FAULTS: tuple[str, ...] = (
 #: the fault of the mechanism that the v2 could not measure (the model
 #: never produces a file and the claim mentions only the files it did
 #: produce).
-FAULTS_V3: tuple[str, ...] = FAULTS + ("hide_file",)
+FAULTS_V3: tuple[str, ...] = (*FAULTS, "hide_file")
 
 #: The prompt of a step.  It is the **same** for the three arms.
 #:
@@ -372,15 +372,15 @@ def _hide_a_file(answer: str) -> str:
         lines = body.splitlines()
         if not lines:
             continue
-        head = _FILE_HEAD.match(lines[0])
-        if head is not None:
-            target = (start, end, head.group("path").strip())
+        match = _FILE_HEAD.match(lines[0])
+        if match is not None:
+            target = (start, end, match.group("path").strip())
             break
     if target is None:
         return answer
     start, end, path = target
     without = answer[:start] + answer[end:]
-    telemetry, head = _telemetry_of(without)
+    telemetry, prefix = _telemetry_of(without)
     if not telemetry:
         return without
     try:
@@ -392,7 +392,7 @@ def _hide_a_file(answer: str) -> str:
     artifacts = data.get("artifacts")
     if isinstance(artifacts, list):
         data["artifacts"] = [item for item in artifacts if item != path]
-    return head + chr(10) + json.dumps(data)
+    return prefix + chr(10) + json.dumps(data)
 
 
 def fault_for(
@@ -419,7 +419,8 @@ def fault_for(
             trial v2; the trial v3 uses another one.
         faults: The faults of the schedule.
     """
-    rng = random.Random(f"{seed if seed is not None else FAULT_SEED}:{task_index}:{step_index}:{attempt}")
+    schedule_seed = FAULT_SEED if seed is None else seed
+    rng = random.Random(f"{schedule_seed}:{task_index}:{step_index}:{attempt}")
     if rng.random() >= FAULT_RATE:
         return None
     return rng.choice(list(faults))
@@ -733,9 +734,7 @@ async def run_arm_agentether(
 
         declared = list(expectations[step_index]) if expectations else []
 
-        @orchestrator.guard_step(
-            step.name, verify=[artifacts_exist()], expects=declared or None
-        )
+        @orchestrator.guard_step(step.name, verify=[artifacts_exist()], expects=declared or None)
         async def _worker(
             ctx: StepContext, _task: str = task_text, _index: int = step_index
         ) -> str:
