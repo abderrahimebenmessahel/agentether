@@ -65,10 +65,15 @@ there, the agent was told why, and the second attempt did the work.
 ```python
 from agentether import AutoOrchestrator
 
-orch = AutoOrchestrator(roadmap=["research", "write"], memory_dir="./memory", timeout_seconds=60, max_retries=3)
+orch = AutoOrchestrator(
+    roadmap=["research", "write"], memory_dir="./memory", timeout_seconds=60, max_retries=3
+)
+
 
 @orch.guard_step("research")
-async def research(ctx): return await my_llm(ctx.build_prompt("Research X"))
+async def research(ctx):
+    return await my_llm(ctx.build_prompt("Research X"))
+
 
 result = await research()  # StepResult with validated telemetry
 ```
@@ -136,9 +141,15 @@ The full contract (draft, for other implementations) is in
 ```python
 from agentether import artifacts_exist, file_contains, json_file_valid
 
-@orch.guard_step("research", verify=[file_contains("notes.md", "## Findings"),
-                                     json_file_valid("notes.json", required_keys=["sources"]),
-                                     artifacts_exist()])
+
+@orch.guard_step(
+    "research",
+    verify=[
+        file_contains("notes.md", "## Findings"),
+        json_file_valid("notes.json", required_keys=["sources"]),
+        artifacts_exist(),
+    ],
+)
 async def research(ctx): ...
 ```
 

@@ -312,7 +312,7 @@ class ClaimsLedger:
         self._last_hash = GENESIS_HASH
         if self.path.exists():
             try:
-                with self.path.open("r", encoding="utf-8") as handle:
+                with self.path.open("r", encoding="utf-8", errors="replace") as handle:
                     for raw in handle:
                         line = raw.rstrip("\n")
                         if line.strip():
