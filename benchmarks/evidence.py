@@ -31,7 +31,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from trial import paired_difference, summarise
+from trial import common_task_set, paired_difference, summarise, wilson_interval
 
 #: What every arm of the trial does.  The table is built from this map, so
 #: an arm that is added to the trial appears in the document without a
@@ -74,6 +74,21 @@ class Run:
 
 def _rate(value: float) -> str:
     return f"{value:.3f}"
+
+
+def mde_for(n: int) -> float:
+    """The minimum detectable effect of a paired comparison of ``n`` pairs.
+
+    The rule of the pre-registration is ``1.4 / sqrt(N)``: alpha = 0.05
+    (two sided), power = 80 % and the conservative assumption that half of
+    the pairs are discordant.  The MDE is computed from the **achieved**
+    number of the pairs and not from a number that was written down
+    before the run, so a cell that stopped early carries the MDE of the
+    sample it really has.
+    """
+    if n <= 0:
+        return 0.0
+    return 1.4 / math.sqrt(n)
 
 
 def _plural(count: int, word: str) -> str:
@@ -153,7 +168,16 @@ def _totals_section(run: Run, level: int) -> list[str]:
 
 
 def _condition_tables(run: Run, level: int) -> list[str]:
-    """One table per condition."""
+    """One table per condition.
+
+    Every rate of a row is computed on the **common set of the tasks of
+    the cell**: the tasks that every arm of that model and of that
+    condition completed.  A run that stops in the middle of a task can
+    leave the arms with a different number of tasks, and a rate computed
+    on two different sets of tasks is not comparable.  The column
+    "Dropped" says how many tasks the arm had beyond the common set, so
+    the price of the rule is visible.
+    """
     cells = run.cells
     summary = summarise(cells)
     models = sorted({str(cell.get("model", "")) for cell in cells})
@@ -165,10 +189,15 @@ def _condition_tables(run: Run, level: int) -> list[str]:
             [
                 f"{head} Condition: {condition}",
                 "",
-                "| Model | Arm | N | Correct completion rate (95% CI) |"
+                "Every rate below is computed on the **common set** of the tasks of the",
+                "cell: the tasks that **every** arm of that model and of that condition",
+                'completed.  The column "Dropped" is the number of tasks the arm had',
+                "beyond that set.",
+                "",
+                "| Model | Arm | N | Dropped | Correct completion rate (95% CI) |"
                 " False completion rate (95% CI) | Believed done | Requests | Wall s |"
                 " Rejections | Loops |",
-                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for model in models:
@@ -178,11 +207,13 @@ def _condition_tables(run: Run, level: int) -> list[str]:
                 if not row:
                     continue
                 lines.append(
-                    "| {model} | {arm} | {n} | {rate} {ci} | {false} {false_ci} |"
-                    " {reported} | {requests} | {seconds} | {rejections} | {loops} |".format(
+                    "| {model} | {arm} | {n} | {dropped} | {rate} {ci} |"
+                    " {false} {false_ci} | {reported} | {requests} | {seconds} |"
+                    " {rejections} | {loops} |".format(
                         model=model,
                         arm=arm,
                         n=row["n"],
+                        dropped=row.get("n_dropped", 0),
                         rate=_rate(row["correct_rate"]),
                         ci=_ci(*row["correct_ci"]),
                         false=_rate(row["false_rate"]),
@@ -242,7 +273,11 @@ def _convention_section() -> list[str]:
 
 
 def _paired_tables(run: Run, level: int) -> list[str]:
-    """The paired differences between the arms."""
+    """The paired differences between the arms.
+
+    The comparison is made on the **common set of the tasks of the cell**,
+    the same set the headline rates are computed on.
+    """
     cells = run.cells
     models = sorted({str(cell.get("model", "")) for cell in cells})
     head = "#" * level
@@ -252,10 +287,11 @@ def _paired_tables(run: Run, level: int) -> list[str]:
         "Every arm saw the same tasks and the same fault schedule, so the",
         "comparison is paired.  The difference is the share of the tasks where",
         "one arm was right and the other was not, with the sign convention of",
-        "the section above (A minus B).",
+        "the section above (A minus B).  The comparison is made on the common",
+        "set of the tasks of the cell, the same set the rates above use.",
         "",
-        "| Model | Condition | Comparison | Only A | Only B | Both | Neither | Difference |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Model | Condition | Comparison | N | Only A | Only B | Both | Neither | Difference |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     conditions = sorted({str(cell.get("condition", "")) for cell in cells})
     for model in models:
@@ -270,7 +306,7 @@ def _paired_tables(run: Run, level: int) -> list[str]:
                     if not diff["n"]:
                         continue
                     lines.append(
-                        "| {model} | {condition} | {label} ({a} vs {b}) |"
+                        "| {model} | {condition} | {label} ({a} vs {b}) | {n} |"
                         " {only_a} | {only_b} | {both} | {neither} |"
                         " {difference} |".format(
                             model=model,
@@ -278,6 +314,7 @@ def _paired_tables(run: Run, level: int) -> list[str]:
                             label=label,
                             a=arm_a,
                             b=arm_b,
+                            n=diff["n"],
                             only_a=diff[f"only_{arm_a}"],
                             only_b=diff[f"only_{arm_b}"],
                             both=diff["both"],
@@ -345,7 +382,12 @@ def _hypotheses(run: Run, level: int) -> list[str]:
 
 
 def _runs_section(run: Run, level: int) -> list[str]:
-    """The models of the run, with the pilot and the size of the sample."""
+    """The models of the run, with the pilot and the size of the sample.
+
+    The N and the MDE are the **achieved** ones: they are computed from
+    the common set of the tasks of the cells of the model, and not from a
+    number that was written down before the run.
+    """
     runs = list(run.meta.get("runs") or [])
     if not runs:
         return []
@@ -359,6 +401,7 @@ def _runs_section(run: Run, level: int) -> list[str]:
     ]
     for item in runs:
         pilot = item.get("pilot") or {}
+        achieved = _achieved_sizes(run.cells, str(item.get("model", "")))
         lines.append(
             "| {provider} | {model} | {pilot} | {qualifies} | {n} | {mde} |".format(
                 provider=item.get("provider", "?"),
@@ -370,8 +413,8 @@ def _runs_section(run: Run, level: int) -> list[str]:
                     else "not run"
                 ),
                 qualifies=item.get("qualification", "?"),
-                n=item.get("n", "?"),
-                mde=item.get("mde", "?"),
+                n=achieved["n"],
+                mde=achieved["mde"],
             )
         )
     lines.append("")
@@ -382,6 +425,24 @@ def _runs_section(run: Run, level: int) -> list[str]:
     if any(item.get("note") for item in runs):
         lines.append("")
     return lines
+
+
+def _achieved_sizes(cells: list[dict[str, Any]], model: str) -> dict[str, Any]:
+    """The achieved N and the MDE of a model.
+
+    The N is the **smallest** common set of the cells of the model: it is
+    the number of tasks every arm of every condition completed, and it is
+    the number the MDE is computed from.
+    """
+    sizes = []
+    for key in sorted(
+        {str(cell.get("key", "")) for cell in cells if str(cell.get("model", "")) == model}
+    ):
+        sizes.append(len(common_task_set(cells, key)))
+    if not sizes:
+        return {"n": "0", "mde": "not measured"}
+    n = min(sizes)
+    return {"n": str(n), "mde": f"{mde_for(n):.3f}"}
 
 
 def _mcnemar(discordant: int, favours_a: int) -> float:
@@ -431,16 +492,15 @@ def _verdict(difference: float, p_value: float, mde: float, expected: int = 1) -
 
 
 def _verdicts_section(run: Run, level: int) -> list[str]:
-    """The verdict of H1, H2 and H3, per model."""
+    """The verdict of H1, H2 and H3, per model.
+
+    The MDE is the one of the **achieved** sample: it is computed from the
+    common set of the tasks of the cell, so a cell that stopped early
+    carries the MDE of the sample it really has.
+    """
     cells = run.cells
     summary = summarise(cells)
     models = sorted({str(cell.get("model", "")) for cell in cells})
-    mdes: dict[str, float] = {}
-    for item in list(run.meta.get("runs") or []):
-        try:
-            mdes[str(item.get("model"))] = float(item.get("mde", 0.0) or 0.0)
-        except (TypeError, ValueError):
-            mdes[str(item.get("model"))] = 0.0
     head = "#" * level
     lines = [
         f"{head} The verdicts",
@@ -455,15 +515,20 @@ def _verdicts_section(run: Run, level: int) -> list[str]:
         'effect".  The p value is the exact two sided McNemar test of the',
         "discordant pairs.",
         "",
-        "| Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |",
-        "| --- | --- | --- | --- |",
+        "The MDE of a cell is `1.4 / sqrt(N)` with the **achieved** N: the",
+        "number of the tasks that every arm of the cell completed.",
+        "",
+        "| Model | N | MDE | H1: correct completion | H2: false completion (primary) |"
+        " H3: the overhead |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
     conditions = sorted({str(cell.get("condition", "")) for cell in cells})
     for model in models:
-        mde = mdes.get(model, 0.0)
         h1_text = "no data"
         h2_text = "no data"
         h3_text = "no data"
+        achieved_n = 0
+        mde = 0.0
         for condition in conditions:
             if condition != "injected":
                 continue
@@ -471,6 +536,8 @@ def _verdicts_section(run: Run, level: int) -> list[str]:
             a = summary.get(f"{key}|agentether")
             b = summary.get(f"{key}|simple-retry")
             if a and b:
+                achieved_n = a["n"]
+                mde = mde_for(achieved_n)
                 h1 = paired_difference(cells, key, "agentether", "simple-retry", "correct")
                 h2 = paired_difference(cells, key, "agentether", "simple-retry", "false_completion")
                 p1 = _mcnemar(h1["discordant"], h1["only_agentether"])
@@ -499,7 +566,7 @@ def _verdicts_section(run: Run, level: int) -> list[str]:
                         f"{a['tokens']} against {b['tokens']} tokens: "
                         f"{'SUPPORTED' if more else 'NOT SUPPORTED'}"
                     )
-        lines.append(f"| {model} | {h1_text} | {h2_text} | {h3_text} |")
+        lines.append(f"| {model} | {achieved_n} | {mde:.3f} | {h1_text} | {h2_text} | {h3_text} |")
     lines.append("")
     lines.extend(_expectations_section(run, level))
     return lines
@@ -518,12 +585,6 @@ def _expectations_section(run: Run, level: int) -> list[str]:
     arms = {str(cell.get("arm", "")) for cell in cells}
     if "agentether-claims-only" not in arms:
         return []
-    mdes: dict[str, float] = {}
-    for item in list(run.meta.get("runs") or []):
-        try:
-            mdes[str(item.get("model"))] = float(item.get("mde", 0.0) or 0.0)
-        except (TypeError, ValueError):
-            mdes[str(item.get("model"))] = 0.0
     head = "#" * level
     lines = [
         f"{head} The contribution of the declarative expectations (H4)",
@@ -551,7 +612,7 @@ def _expectations_section(run: Run, level: int) -> list[str]:
             if not diff["n"]:
                 continue
             p_value = _mcnemar(diff["discordant"], diff["only_agentether"])
-            verdict = _verdict(diff["difference"], p_value, mdes.get(model, 0.0), -1)
+            verdict = _verdict(diff["difference"], p_value, mde_for(diff["n"]), -1)
             lines.append(
                 "| {model} | {condition} | {difference:+.3f} (in {n} tasks only the "
                 "guarded arm falsely completed, in {other} only the claims-only arm; "
@@ -565,6 +626,91 @@ def _expectations_section(run: Run, level: int) -> list[str]:
                     verdict=verdict,
                 )
             )
+    lines.append("")
+    return lines
+
+
+def _honesty_section(run: Run, level: int) -> list[str]:
+    """The cost of honesty: what the guard does with a false "done".
+
+    The guard of AgenTether does not make a task succeed: it makes a false
+    "done" visible.  A task that the model cannot finish is a failure
+    either way, but the naive arm reports it as a success and the guarded
+    arm reports it as a failure.  That difference has a price, and the
+    price is not shown by the correct-completion rate alone.
+
+    The table gives, for every arm:
+
+    * the **honest "not completed"**: the tasks the arm did **not** claim
+      to have finished while the ground truth says they were not finished
+      (a visible failure);
+    * the number of those that were a **false completion of the
+      comparator**: the task the comparator wrongly reported as done and
+      that this arm turned into a visible failure.
+
+    Every number is computed on the common set of the tasks of the cell.
+    """
+    cells = run.cells
+    models = sorted({str(cell.get("model", "")) for cell in cells})
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
+    head = "#" * level
+    lines = [
+        f"{head} The cost of honesty",
+        "",
+        "The guard of AgenTether prevents false claims; it does not by",
+        "itself make a task succeed.  A task the model cannot finish is a",
+        "failure either way, but the naive arm reports it as a success and",
+        "the guarded arm reports it as a failure: the difference is honest,",
+        "and it has a price.",
+        "",
+        'The **honest "not completed"** are the tasks the arm did not claim',
+        "to have finished while the ground truth says they were not finished.",
+        "The column **converted** counts the ones that were a false",
+        'completion of the simple-retry baseline: a false "done" turned into',
+        "a visible failure.",
+        "",
+        "| Model | Condition | Arm | N | Correct | False completion |"
+        ' Honest "not completed" | Converted | Rate of the honest failures (95% CI) |',
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for model in models:
+        for condition in conditions:
+            key = f"{model}|{condition}"
+            common = set(common_task_set(cells, key))
+            arms = sorted({str(row.get("arm", "")) for row in cells if row.get("key") == key})
+            baseline = {
+                str(row.get("task", "")): row
+                for row in cells
+                if row.get("key") == key and row.get("arm") == "simple-retry"
+            }
+            for arm in arms:
+                rows = [
+                    row
+                    for row in cells
+                    if row.get("key") == key
+                    and row.get("arm") == arm
+                    and str(row.get("task", "")) in common
+                ]
+                if not rows:
+                    continue
+                total = len(rows)
+                correct = sum(1 for row in rows if row.get("correct"))
+                false = sum(1 for row in rows if row.get("false_completion"))
+                honest = 0
+                converted = 0
+                for row in rows:
+                    believed = bool(row.get("reported_complete"))
+                    if believed or row.get("correct"):
+                        continue
+                    honest += 1
+                    other = baseline.get(str(row.get("task", "")))
+                    if other is not None and other.get("false_completion"):
+                        converted += 1
+                low, high = wilson_interval(honest, total)
+                lines.append(
+                    f"| {model} | {condition} | {arm} | {total} | {correct} | {false} |"
+                    f" {honest} | {converted} | {_rate(honest / total)} {_ci(low, high)} |"
+                )
     lines.append("")
     return lines
 
@@ -631,6 +777,7 @@ def build_run_section(run: Run, level: int = 2) -> list[str]:
     lines.extend(_paired_tables(run, level + 1))
     lines.extend(_hypotheses(run, level + 1))
     lines.extend(_verdicts_section(run, level + 1))
+    lines.extend(_honesty_section(run, level + 1))
     lines.extend(_defects_section(run, level + 1))
     return lines
 

@@ -40,8 +40,8 @@ tables of the report.
 
 | Provider | Model | Pilot (naive, natural) | Qualifies | N per cell | MDE of the paired difference |
 | --- | --- | --- | --- | --- | --- |
-| cerebras | gpt-oss-120b | 19/20 = 0.950 | passes the capability probe; no band (the rule of the v3) | 6 | 0.571 |
-| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 6 | 0.571 |
+| cerebras | gpt-oss-120b | 19/20 = 0.950 | passes the capability probe; no band (the rule of the v3) | 6 | 0.572 |
+| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 6 | 0.572 |
 
 - **gpt-oss-120b**: the free tier of the provider: 1 000 requests and 1 000 000 tokens per day; the rule of the maintainer is half of it, and the probe, the pilots and the trial v2 had already spent 404 requests and 362 494 tokens of the day
 - **gemini-3.5-flash-lite**: the free tier of the provider: 1 500 requests per day; the token limit is NOT published (UNVERIFIED in docs/providers.md) and the provider refused the calls of the afternoon with HTTP 429 (quota exceeded)
@@ -65,38 +65,44 @@ tables of the report.
 
 ### Condition: injected
 
-| Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | agentether | 6 | 1.000 [0.610, 1.000] | 0.000 [0.000, 0.390] | 6 | 23 | 319.96 | 1 | 0 |
-| gemini-3.5-flash-lite | agentether-claims-only | 6 | 0.833 [0.436, 0.970] | 0.167 [0.030, 0.564] | 6 | 22 | 231.29 | 0 | 0 |
-| gemini-3.5-flash-lite | naive | 7 | 0.286 [0.082, 0.641] | 0.571 [0.250, 0.842] | 6 | 24 | 374.78 | 0 | 0 |
-| gemini-3.5-flash-lite | simple-retry | 7 | 0.714 [0.359, 0.918] | 0.143 [0.026, 0.513] | 6 | 29 | 293.64 | 0 | 0 |
-| gpt-oss-120b | agentether | 6 | 0.500 [0.188, 0.812] | 0.000 [0.000, 0.390] | 3 | 27 | 328.96 | 9 | 0 |
-| gpt-oss-120b | agentether-claims-only | 6 | 0.667 [0.300, 0.903] | 0.167 [0.030, 0.564] | 5 | 26 | 333.93 | 5 | 0 |
-| gpt-oss-120b | naive | 6 | 0.500 [0.188, 0.812] | 0.500 [0.188, 0.812] | 5 | 21 | 282.95 | 0 | 0 |
-| gpt-oss-120b | simple-retry | 6 | 0.500 [0.188, 0.812] | 0.500 [0.188, 0.812] | 6 | 22 | 322.33 | 0 | 0 |
+Every rate below is computed on the **common set** of the tasks of the
+cell: the tasks that **every** arm of that model and of that condition
+completed.  The column "Dropped" is the number of tasks the arm had
+beyond that set.
+
+| Model | Arm | N | Dropped | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | agentether | 6 | 0 | 1.000 [0.610, 1.000] | 0.000 [0.000, 0.390] | 6 | 23 | 319.96 | 1 | 0 |
+| gemini-3.5-flash-lite | agentether-claims-only | 6 | 0 | 0.833 [0.436, 0.970] | 0.167 [0.030, 0.564] | 6 | 22 | 231.29 | 0 | 0 |
+| gemini-3.5-flash-lite | naive | 6 | 1 | 0.333 [0.097, 0.700] | 0.500 [0.188, 0.812] | 5 | 21 | 346.29 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 6 | 1 | 0.833 [0.436, 0.970] | 0.167 [0.030, 0.564] | 6 | 22 | 232.48 | 0 | 0 |
+| gpt-oss-120b | agentether | 6 | 0 | 0.500 [0.188, 0.812] | 0.000 [0.000, 0.390] | 3 | 27 | 328.96 | 9 | 0 |
+| gpt-oss-120b | agentether-claims-only | 6 | 0 | 0.667 [0.300, 0.903] | 0.167 [0.030, 0.564] | 5 | 26 | 333.93 | 5 | 0 |
+| gpt-oss-120b | naive | 6 | 0 | 0.500 [0.188, 0.812] | 0.500 [0.188, 0.812] | 5 | 21 | 282.95 | 0 | 0 |
+| gpt-oss-120b | simple-retry | 6 | 0 | 0.500 [0.188, 0.812] | 0.500 [0.188, 0.812] | 6 | 22 | 322.33 | 0 | 0 |
 
 ### The paired differences
 
 Every arm saw the same tasks and the same fault schedule, so the
 comparison is paired.  The difference is the share of the tasks where
 one arm was right and the other was not, with the sign convention of
-the section above (A minus B).
+the section above (A minus B).  The comparison is made on the common
+set of the tasks of the cell, the same set the rates above use.
 
-| Model | Condition | Comparison | Only A | Only B | Both | Neither | Difference |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs agentether-claims-only) | 1 | 0 | 5 | 0 | +0.167 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs agentether-claims-only) | 0 | 1 | 0 | 5 | -0.167 |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 4 | 0 | 2 | 0 | +0.667 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 0 | 3 | 0 | 3 | -0.500 |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 1 | 0 | 5 | 0 | +0.167 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 0 | 1 | 0 | 5 | -0.167 |
-| gpt-oss-120b | injected | correct completion (agentether vs agentether-claims-only) | 2 | 3 | 1 | 0 | -0.167 |
-| gpt-oss-120b | injected | false completion (agentether vs agentether-claims-only) | 0 | 1 | 0 | 5 | -0.167 |
-| gpt-oss-120b | injected | correct completion (agentether vs naive) | 2 | 2 | 1 | 1 | +0.000 |
-| gpt-oss-120b | injected | false completion (agentether vs naive) | 0 | 3 | 0 | 3 | -0.500 |
-| gpt-oss-120b | injected | correct completion (agentether vs simple-retry) | 2 | 2 | 1 | 1 | +0.000 |
-| gpt-oss-120b | injected | false completion (agentether vs simple-retry) | 0 | 3 | 0 | 3 | -0.500 |
+| Model | Condition | Comparison | N | Only A | Only B | Both | Neither | Difference |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs agentether-claims-only) | 6 | 1 | 0 | 5 | 0 | +0.167 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs agentether-claims-only) | 6 | 0 | 1 | 0 | 5 | -0.167 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 6 | 4 | 0 | 2 | 0 | +0.667 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 6 | 0 | 3 | 0 | 3 | -0.500 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 6 | 1 | 0 | 5 | 0 | +0.167 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 6 | 0 | 1 | 0 | 5 | -0.167 |
+| gpt-oss-120b | injected | correct completion (agentether vs agentether-claims-only) | 6 | 2 | 3 | 1 | 0 | -0.167 |
+| gpt-oss-120b | injected | false completion (agentether vs agentether-claims-only) | 6 | 0 | 1 | 0 | 5 | -0.167 |
+| gpt-oss-120b | injected | correct completion (agentether vs naive) | 6 | 2 | 2 | 1 | 1 | +0.000 |
+| gpt-oss-120b | injected | false completion (agentether vs naive) | 6 | 0 | 3 | 0 | 3 | -0.500 |
+| gpt-oss-120b | injected | correct completion (agentether vs simple-retry) | 6 | 2 | 2 | 1 | 1 | +0.000 |
+| gpt-oss-120b | injected | false completion (agentether vs simple-retry) | 6 | 0 | 3 | 0 | 3 | -0.500 |
 
 ### The hypotheses
 
@@ -108,7 +114,7 @@ and a **negative** H2 is an improvement.
 
 | Model | Condition | agentether | naive | H1 (paired) | H2 (paired) |
 | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | 1.000 | 0.286 | +0.667 | -0.500 |
+| gemini-3.5-flash-lite | injected | 1.000 | 0.333 | +0.667 | -0.500 |
 | gpt-oss-120b | injected | 0.500 | 0.500 | +0.000 | -0.500 |
 
 ### The verdicts
@@ -123,10 +129,13 @@ is then too small to say anything, which is not the same as "no
 effect".  The p value is the exact two sided McNemar test of the
 discordant pairs.
 
-| Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |
-| --- | --- | --- | --- |
-| gemini-3.5-flash-lite | +0.167 (in 1 task only the guarded arm completed, in 0 tasks only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | 23 against 29 requests, 22438 against 15187 tokens: SUPPORTED |
-| gpt-oss-120b | +0.000 (in 2 tasks only the guarded arm completed, in 2 tasks only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | -0.500 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 27 against 22 requests, 34976 against 21872 tokens: SUPPORTED |
+The MDE of a cell is `1.4 / sqrt(N)` with the **achieved** N: the
+number of the tasks that every arm of the cell completed.
+
+| Model | N | MDE | H1: correct completion | H2: false completion (primary) | H3: the overhead |
+| --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 6 | 0.572 | +0.167 (in 1 task only the guarded arm completed, in 0 tasks only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | 23 against 22 requests, 22438 against 14503 tokens: SUPPORTED |
+| gpt-oss-120b | 6 | 0.572 | +0.000 (in 2 tasks only the guarded arm completed, in 2 tasks only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | -0.500 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 27 against 22 requests, 34976 against 21872 tokens: SUPPORTED |
 
 ### The contribution of the declarative expectations (H4)
 
@@ -140,6 +149,31 @@ improvement.
 | --- | --- | --- | --- |
 | gemini-3.5-flash-lite | injected | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 only the claims-only arm; p = 1.000) | INCONCLUSIVE (the sample is too small) |
 | gpt-oss-120b | injected | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 only the claims-only arm; p = 1.000) | INCONCLUSIVE (the sample is too small) |
+
+### The cost of honesty
+
+The guard of AgenTether prevents false claims; it does not by
+itself make a task succeed.  A task the model cannot finish is a
+failure either way, but the naive arm reports it as a success and
+the guarded arm reports it as a failure: the difference is honest,
+and it has a price.
+
+The **honest "not completed"** are the tasks the arm did not claim
+to have finished while the ground truth says they were not finished.
+The column **converted** counts the ones that were a false
+completion of the simple-retry baseline: a false "done" turned into
+a visible failure.
+
+| Model | Condition | Arm | N | Correct | False completion | Honest "not completed" | Converted | Rate of the honest failures (95% CI) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | agentether | 6 | 6 | 0 | 0 | 0 | 0.000 [0.000, 0.390] |
+| gemini-3.5-flash-lite | injected | agentether-claims-only | 6 | 5 | 1 | 0 | 0 | 0.000 [0.000, 0.390] |
+| gemini-3.5-flash-lite | injected | naive | 6 | 2 | 3 | 1 | 0 | 0.167 [0.030, 0.564] |
+| gemini-3.5-flash-lite | injected | simple-retry | 6 | 5 | 1 | 0 | 0 | 0.000 [0.000, 0.390] |
+| gpt-oss-120b | injected | agentether | 6 | 3 | 0 | 3 | 1 | 0.500 [0.188, 0.812] |
+| gpt-oss-120b | injected | agentether-claims-only | 6 | 4 | 1 | 1 | 0 | 0.167 [0.030, 0.564] |
+| gpt-oss-120b | injected | naive | 6 | 3 | 3 | 0 | 0 | 0.000 [0.000, 0.390] |
+| gpt-oss-120b | injected | simple-retry | 6 | 3 | 3 | 0 | 0 | 0.000 [0.000, 0.390] |
 
 ## Trial v2 (2026-10-20)
 
@@ -186,51 +220,62 @@ improvement.
 
 ### Condition: injected
 
-| Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | agentether | 12 | 0.833 [0.552, 0.953] | 0.167 [0.047, 0.448] | 12 | 47 | 1679.36 | 3 | 0 |
-| gemini-3.5-flash-lite | naive | 12 | 0.583 [0.320, 0.807] | 0.167 [0.047, 0.448] | 9 | 42 | 1166.01 | 0 | 0 |
-| gemini-3.5-flash-lite | simple-retry | 12 | 0.833 [0.552, 0.953] | 0.167 [0.047, 0.448] | 12 | 46 | 1611.07 | 0 | 0 |
-| gpt-oss-120b | agentether | 12 | 0.667 [0.391, 0.862] | 0.083 [0.015, 0.354] | 9 | 34 | 458.93 | 2 | 0 |
-| gpt-oss-120b | naive | 12 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 420.83 | 0 | 0 |
-| gpt-oss-120b | simple-retry | 12 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 449.62 | 0 | 0 |
+Every rate below is computed on the **common set** of the tasks of the
+cell: the tasks that **every** arm of that model and of that condition
+completed.  The column "Dropped" is the number of tasks the arm had
+beyond that set.
+
+| Model | Arm | N | Dropped | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | agentether | 12 | 0 | 0.833 [0.552, 0.953] | 0.167 [0.047, 0.448] | 12 | 47 | 1679.36 | 3 | 0 |
+| gemini-3.5-flash-lite | naive | 12 | 0 | 0.583 [0.320, 0.807] | 0.167 [0.047, 0.448] | 9 | 42 | 1166.01 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 12 | 0 | 0.833 [0.552, 0.953] | 0.167 [0.047, 0.448] | 12 | 46 | 1611.07 | 0 | 0 |
+| gpt-oss-120b | agentether | 12 | 0 | 0.667 [0.391, 0.862] | 0.083 [0.015, 0.354] | 9 | 34 | 458.93 | 2 | 0 |
+| gpt-oss-120b | naive | 12 | 0 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 420.83 | 0 | 0 |
+| gpt-oss-120b | simple-retry | 12 | 0 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 449.62 | 0 | 0 |
 
 ### Condition: natural
 
-| Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | agentether | 12 | 0.917 [0.646, 0.985] | 0.083 [0.015, 0.354] | 12 | 42 | 1325.62 | 0 | 0 |
-| gemini-3.5-flash-lite | naive | 12 | 1.000 [0.757, 1.000] | 0.000 [0.000, 0.243] | 12 | 42 | 963.31 | 0 | 0 |
-| gemini-3.5-flash-lite | simple-retry | 12 | 0.917 [0.646, 0.985] | 0.083 [0.015, 0.354] | 12 | 42 | 1184.75 | 0 | 0 |
-| gpt-oss-120b | agentether | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 446.57 | 0 | 0 |
-| gpt-oss-120b | naive | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 371.3 | 0 | 0 |
-| gpt-oss-120b | simple-retry | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 449.75 | 0 | 0 |
+Every rate below is computed on the **common set** of the tasks of the
+cell: the tasks that **every** arm of that model and of that condition
+completed.  The column "Dropped" is the number of tasks the arm had
+beyond that set.
+
+| Model | Arm | N | Dropped | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | agentether | 12 | 0 | 0.917 [0.646, 0.985] | 0.083 [0.015, 0.354] | 12 | 42 | 1325.62 | 0 | 0 |
+| gemini-3.5-flash-lite | naive | 12 | 0 | 1.000 [0.757, 1.000] | 0.000 [0.000, 0.243] | 12 | 42 | 963.31 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 12 | 0 | 0.917 [0.646, 0.985] | 0.083 [0.015, 0.354] | 12 | 42 | 1184.75 | 0 | 0 |
+| gpt-oss-120b | agentether | 12 | 0 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 446.57 | 0 | 0 |
+| gpt-oss-120b | naive | 12 | 0 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 371.3 | 0 | 0 |
+| gpt-oss-120b | simple-retry | 12 | 0 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 449.75 | 0 | 0 |
 
 ### The paired differences
 
 Every arm saw the same tasks and the same fault schedule, so the
 comparison is paired.  The difference is the share of the tasks where
 one arm was right and the other was not, with the sign convention of
-the section above (A minus B).
+the section above (A minus B).  The comparison is made on the common
+set of the tasks of the cell, the same set the rates above use.
 
-| Model | Condition | Comparison | Only A | Only B | Both | Neither | Difference |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 4 | 1 | 6 | 1 | +0.250 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 1 | 1 | 1 | 9 | +0.000 |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 1 | 1 | 9 | 1 | +0.000 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 1 | 1 | 1 | 9 | +0.000 |
-| gemini-3.5-flash-lite | natural | correct completion (agentether vs naive) | 0 | 1 | 11 | 0 | -0.083 |
-| gemini-3.5-flash-lite | natural | false completion (agentether vs naive) | 1 | 0 | 0 | 11 | +0.083 |
-| gemini-3.5-flash-lite | natural | correct completion (agentether vs simple-retry) | 0 | 0 | 11 | 1 | +0.000 |
-| gemini-3.5-flash-lite | natural | false completion (agentether vs simple-retry) | 0 | 0 | 1 | 11 | +0.000 |
-| gpt-oss-120b | injected | correct completion (agentether vs naive) | 3 | 0 | 5 | 4 | +0.250 |
-| gpt-oss-120b | injected | false completion (agentether vs naive) | 0 | 3 | 1 | 8 | -0.250 |
-| gpt-oss-120b | injected | correct completion (agentether vs simple-retry) | 3 | 0 | 5 | 4 | +0.250 |
-| gpt-oss-120b | injected | false completion (agentether vs simple-retry) | 0 | 3 | 1 | 8 | -0.250 |
-| gpt-oss-120b | natural | correct completion (agentether vs naive) | 0 | 0 | 9 | 3 | +0.000 |
-| gpt-oss-120b | natural | false completion (agentether vs naive) | 0 | 0 | 0 | 12 | +0.000 |
-| gpt-oss-120b | natural | correct completion (agentether vs simple-retry) | 0 | 0 | 9 | 3 | +0.000 |
-| gpt-oss-120b | natural | false completion (agentether vs simple-retry) | 0 | 0 | 0 | 12 | +0.000 |
+| Model | Condition | Comparison | N | Only A | Only B | Both | Neither | Difference |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 12 | 4 | 1 | 6 | 1 | +0.250 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 12 | 1 | 1 | 1 | 9 | +0.000 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 12 | 1 | 1 | 9 | 1 | +0.000 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 12 | 1 | 1 | 1 | 9 | +0.000 |
+| gemini-3.5-flash-lite | natural | correct completion (agentether vs naive) | 12 | 0 | 1 | 11 | 0 | -0.083 |
+| gemini-3.5-flash-lite | natural | false completion (agentether vs naive) | 12 | 1 | 0 | 0 | 11 | +0.083 |
+| gemini-3.5-flash-lite | natural | correct completion (agentether vs simple-retry) | 12 | 0 | 0 | 11 | 1 | +0.000 |
+| gemini-3.5-flash-lite | natural | false completion (agentether vs simple-retry) | 12 | 0 | 0 | 1 | 11 | +0.000 |
+| gpt-oss-120b | injected | correct completion (agentether vs naive) | 12 | 3 | 0 | 5 | 4 | +0.250 |
+| gpt-oss-120b | injected | false completion (agentether vs naive) | 12 | 0 | 3 | 1 | 8 | -0.250 |
+| gpt-oss-120b | injected | correct completion (agentether vs simple-retry) | 12 | 3 | 0 | 5 | 4 | +0.250 |
+| gpt-oss-120b | injected | false completion (agentether vs simple-retry) | 12 | 0 | 3 | 1 | 8 | -0.250 |
+| gpt-oss-120b | natural | correct completion (agentether vs naive) | 12 | 0 | 0 | 9 | 3 | +0.000 |
+| gpt-oss-120b | natural | false completion (agentether vs naive) | 12 | 0 | 0 | 0 | 12 | +0.000 |
+| gpt-oss-120b | natural | correct completion (agentether vs simple-retry) | 12 | 0 | 0 | 9 | 3 | +0.000 |
+| gpt-oss-120b | natural | false completion (agentether vs simple-retry) | 12 | 0 | 0 | 0 | 12 | +0.000 |
 
 ### The hypotheses
 
@@ -259,10 +304,42 @@ is then too small to say anything, which is not the same as "no
 effect".  The p value is the exact two sided McNemar test of the
 discordant pairs.
 
-| Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |
-| --- | --- | --- | --- |
-| gemini-3.5-flash-lite | +0.000 (in 1 task only the guarded arm completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | +0.000 (in 1 task only the guarded arm falsely completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | 47 against 46 requests, 43905 against 28041 tokens: SUPPORTED |
-| gpt-oss-120b | +0.250 (in 3 tasks only the guarded arm completed, in 0 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | -0.250 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 34 against 31 requests, 42408 against 31324 tokens: SUPPORTED |
+The MDE of a cell is `1.4 / sqrt(N)` with the **achieved** N: the
+number of the tasks that every arm of the cell completed.
+
+| Model | N | MDE | H1: correct completion | H2: false completion (primary) | H3: the overhead |
+| --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 12 | 0.404 | +0.000 (in 1 task only the guarded arm completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | +0.000 (in 1 task only the guarded arm falsely completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | 47 against 46 requests, 43905 against 28041 tokens: SUPPORTED |
+| gpt-oss-120b | 12 | 0.404 | +0.250 (in 3 tasks only the guarded arm completed, in 0 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | -0.250 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 34 against 31 requests, 42408 against 31324 tokens: SUPPORTED |
+
+### The cost of honesty
+
+The guard of AgenTether prevents false claims; it does not by
+itself make a task succeed.  A task the model cannot finish is a
+failure either way, but the naive arm reports it as a success and
+the guarded arm reports it as a failure: the difference is honest,
+and it has a price.
+
+The **honest "not completed"** are the tasks the arm did not claim
+to have finished while the ground truth says they were not finished.
+The column **converted** counts the ones that were a false
+completion of the simple-retry baseline: a false "done" turned into
+a visible failure.
+
+| Model | Condition | Arm | N | Correct | False completion | Honest "not completed" | Converted | Rate of the honest failures (95% CI) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | agentether | 12 | 10 | 2 | 0 | 0 | 0.000 [0.000, 0.243] |
+| gemini-3.5-flash-lite | injected | naive | 12 | 7 | 2 | 3 | 0 | 0.250 [0.089, 0.532] |
+| gemini-3.5-flash-lite | injected | simple-retry | 12 | 10 | 2 | 0 | 0 | 0.000 [0.000, 0.243] |
+| gemini-3.5-flash-lite | natural | agentether | 12 | 11 | 1 | 0 | 0 | 0.000 [0.000, 0.243] |
+| gemini-3.5-flash-lite | natural | naive | 12 | 12 | 0 | 0 | 0 | 0.000 [0.000, 0.243] |
+| gemini-3.5-flash-lite | natural | simple-retry | 12 | 11 | 1 | 0 | 0 | 0.000 [0.000, 0.243] |
+| gpt-oss-120b | injected | agentether | 12 | 8 | 1 | 3 | 0 | 0.250 [0.089, 0.532] |
+| gpt-oss-120b | injected | naive | 12 | 5 | 4 | 3 | 0 | 0.250 [0.089, 0.532] |
+| gpt-oss-120b | injected | simple-retry | 12 | 5 | 4 | 3 | 0 | 0.250 [0.089, 0.532] |
+| gpt-oss-120b | natural | agentether | 12 | 9 | 0 | 3 | 0 | 0.250 [0.089, 0.532] |
+| gpt-oss-120b | natural | naive | 12 | 9 | 0 | 3 | 0 | 0.250 [0.089, 0.532] |
+| gpt-oss-120b | natural | simple-retry | 12 | 9 | 0 | 3 | 0 | 0.250 [0.089, 0.532] |
 
 ## What this shows and what it does not
 

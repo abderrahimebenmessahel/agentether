@@ -236,12 +236,50 @@ def wilson_interval(successes: int, total: int, z: float = 1.96) -> tuple[float,
     return (max(0.0, (centre - margin) / denominator), min(1.0, (centre + margin) / denominator))
 
 
+def common_task_set(cells: list[dict[str, Any]], key: str) -> tuple[str, ...]:
+    """The tasks that **every** arm of a cell completed.
+
+    A run that stops in the middle of a task can leave the arms of a cell
+    with a different number of tasks: the first session of the trial v3
+    left two arms of the Google model with seven tasks and two with six.
+    A rate computed on two different sets of tasks is not comparable, and
+    a table that mixes them looks better than it is.
+
+    Every headline rate of a cell is therefore computed on this common
+    set, and the tasks that were dropped for that reason are reported.
+
+    Args:
+        cells: The cells of the run.
+        key: The cell key (the model and the condition).
+
+    Returns:
+        The names of the common tasks, sorted.
+    """
+    arms = sorted({str(row.get("arm", "")) for row in cells if row.get("key") == key})
+    if not arms:
+        return ()
+    common: set[str] | None = None
+    for arm in arms:
+        names = {
+            str(row.get("task", ""))
+            for row in cells
+            if row.get("key") == key and row.get("arm") == arm
+        }
+        common = names if common is None else (common & names)
+    return tuple(sorted(common or ()))
+
+
 def summarise(cells: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate the cells into the tables of the report.
 
     The models and the conditions are taken from the cells themselves and
     not from a fixed list, so a trial with the models of several providers
     is summarised like any other.
+
+    **Every rate of a cell is computed on the common set of its tasks**
+    (see :func:`common_task_set`), so that two arms are always compared
+    on the same tasks.  The number of tasks that an arm had beyond the
+    common set is reported as ``n_dropped``.
     """
     out: dict[str, Any] = {}
     models = sorted({str(cell.get("model", "")) for cell in cells})
@@ -252,25 +290,31 @@ def summarise(cells: list[dict[str, Any]]) -> dict[str, Any]:
             rows = [cell for cell in cells if cell["key"] == key]
             if not rows:
                 continue
+            common = set(common_task_set(cells, key))
             for arm in sorted({str(row.get("arm", "")) for row in rows}):
                 arm_rows = [row for row in rows if row["arm"] == arm]
                 if not arm_rows:
                     continue
-                total = len(arm_rows)
-                correct = sum(1 for row in arm_rows if row["correct"])
-                false = sum(1 for row in arm_rows if row["false_completion"])
-                reported = sum(1 for row in arm_rows if row["reported_complete"])
-                requests = sum(row.get("requests", 0) for row in arm_rows)
-                tokens = sum(row.get("tokens", 0) for row in arm_rows)
+                kept = [row for row in arm_rows if str(row.get("task", "")) in common]
+                total = len(kept)
+                if not total:
+                    continue
+                correct = sum(1 for row in kept if row["correct"])
+                false = sum(1 for row in kept if row["false_completion"])
+                reported = sum(1 for row in kept if row["reported_complete"])
+                requests = sum(row.get("requests", 0) for row in kept)
+                tokens = sum(row.get("tokens", 0) for row in kept)
                 # ``math.fsum`` and not ``sum``: Python 3.12 changed the
                 # summation of the floats, and the tables of the evidence
                 # document must be the same on every version.
-                seconds = math.fsum(row.get("seconds", 0.0) for row in arm_rows)
-                rejections = sum(row.get("verifier_rejections", 0) for row in arm_rows)
-                loops = sum(row.get("loop_detections", 0) for row in arm_rows)
-                retries = sum(max(0, row.get("attempts", 1) - 1) for row in arm_rows)
+                seconds = math.fsum(row.get("seconds", 0.0) for row in kept)
+                rejections = sum(row.get("verifier_rejections", 0) for row in kept)
+                loops = sum(row.get("loop_detections", 0) for row in kept)
+                retries = sum(max(0, row.get("attempts", 1) - 1) for row in kept)
                 out[f"{key}|{arm}"] = {
                     "n": total,
+                    "n_dropped": len(arm_rows) - total,
+                    "n_arm": len(arm_rows),
                     "correct": correct,
                     "correct_rate": correct / total,
                     "correct_ci": wilson_interval(correct, total),
@@ -289,9 +333,18 @@ def summarise(cells: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def paired_difference(
-    cells: list[dict[str, Any]], key: str, arm_a: str, arm_b: str, field_name: str
+    cells: list[dict[str, Any]],
+    key: str,
+    arm_a: str,
+    arm_b: str,
+    field_name: str,
+    tasks: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """The paired difference of two arms over the same tasks.
+
+    The comparison is made on the **common set of the tasks of the cell**
+    (see :func:`common_task_set`), so that the paired analysis and the
+    headline rates of the cell are made on the same tasks.
 
     Args:
         cells: The cells of the run.
@@ -299,13 +352,16 @@ def paired_difference(
         arm_a: The first arm.
         arm_b: The second arm.
         field_name: The boolean field to compare.
+        tasks: The tasks of the comparison.  The common set of the cell is
+            used when it is ``None``.
 
     Returns:
         The counts and the interval of the difference.
     """
     rows_a = {row["task"]: row for row in cells if row["key"] == key and row["arm"] == arm_a}
     rows_b = {row["task"]: row for row in cells if row["key"] == key and row["arm"] == arm_b}
-    shared = sorted(set(rows_a) & set(rows_b))
+    selected = set(common_task_set(cells, key)) if tasks is None else set(tasks)
+    shared = sorted((set(rows_a) & set(rows_b)) & selected)
     only_a = sum(1 for task in shared if rows_a[task][field_name] and not rows_b[task][field_name])
     only_b = sum(1 for task in shared if rows_b[task][field_name] and not rows_a[task][field_name])
     both = sum(1 for task in shared if rows_a[task][field_name] and rows_b[task][field_name])

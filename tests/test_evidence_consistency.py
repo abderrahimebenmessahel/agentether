@@ -14,6 +14,13 @@ These tests are that comparison.  They fail when:
 * a total of the final report is not the sum of the raw cells;
 * a wrong total of the report is still there.
 
+**The common set of the tasks.**  A run that stops in the middle of a task
+can leave the arms of a cell with a different number of tasks.  A rate
+computed on two different sets of tasks is not comparable, so every rate of
+a cell is computed on the tasks that **every** arm of the cell completed,
+and the tasks that were dropped are reported.  The tests of the section
+below fail when a table mixes two different numbers of tasks.
+
 .. versionadded:: 0.3.0a1
 """
 
@@ -28,7 +35,13 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "benchmarks" / "results" / "evidence-manifest.json"
 EVIDENCE = ROOT / "docs" / "evidence.md"
-REPORT = ROOT / "docs" / "final-report-2026-10-20.md"
+
+#: Every report of the audit, the oldest first.  A report is a snapshot of
+#: the state of its day, and a run that continues after a report was
+#: written has more cells than the report could know: the report that is
+#: checked against the raw cells is the **newest** one.
+REPORTS: list[Path] = sorted((ROOT / "docs").glob("final-report-*.md"))
+REPORT = REPORTS[-1]
 
 sys_path = str(ROOT / "benchmarks")
 if sys_path not in __import__("sys").path:
@@ -156,6 +169,10 @@ def test_the_report_totals_are_the_totals_of_the_raw_cells() -> None:
 
     The report states the requests and the tokens of every run and of the
     two runs together; the numbers of the raw cells must be among them.
+
+    The report that is checked is the **newest** one: a report is a
+    snapshot of the state of its day, and a run that continues after a
+    report was written has more cells than the report could know.
     """
     report = REPORT.read_text(encoding="utf-8")
     cells: list[dict[str, Any]] = []
@@ -183,15 +200,16 @@ def test_the_wrong_totals_of_the_first_report_are_only_quoted_in_the_erratum() -
     erratum), but a line that quotes them must carry the corrected number
     next to them.
     """
-    report = REPORT.read_text(encoding="utf-8")
-    assert "Erratum" in report or "erratum" in report
-    for line in report.splitlines():
-        if "450 000 tokens" in line or "450000 tokens" in line:
-            assert "394 951" in line, f"the old total is asserted without the new one: {line}"
-    # The old claim about the Google model is gone, and its correction is
-    # in the report.
-    assert "token count of the Google model of\n  this report is therefore **0**" not in report
-    assert "188 346" in report
+    for path in REPORTS:
+        report = path.read_text(encoding="utf-8")
+        assert "Erratum" in report or "erratum" in report
+        for line in report.splitlines():
+            if "450 000 tokens" in line or "450000 tokens" in line:
+                assert "394 951" in line, f"the old total is asserted without the new one: {line}"
+        # The old claim about the Google model is gone, and its correction
+        # is in the report.
+        assert "token count of the Google model of\n  this report is therefore **0**" not in report
+        assert "188 346" in report
 
 
 @pytest.mark.parametrize("name", ["evidence.md", "final-report-2026-10-20.md"])
@@ -200,3 +218,173 @@ def test_the_documents_state_the_sign_convention(name: str) -> None:
     text = (ROOT / "docs" / name).read_text(encoding="utf-8")
     assert "sign convention" in text.lower()
     assert "agentether minus" in text.lower() or "guarded arm minus" in text.lower()
+
+
+# ----------------------------------------------------------------------
+# the common set of the tasks
+# ----------------------------------------------------------------------
+def _cell(
+    model: str,
+    condition: str,
+    arm: str,
+    task: str,
+    *,
+    correct: bool = True,
+    reported: bool = True,
+    requests: int = 1,
+    tokens: int = 10,
+) -> dict[str, Any]:
+    """One synthetic cell."""
+    return {
+        "key": f"{model}|{condition}",
+        "model": model,
+        "condition": condition,
+        "arm": arm,
+        "task": task,
+        "correct": correct,
+        "reported_complete": reported,
+        "false_completion": reported and not correct,
+        "requests": requests,
+        "tokens": tokens,
+        "seconds": 1.0,
+        "verifier_rejections": 0,
+        "loop_detections": 0,
+        "attempts": 1,
+    }
+
+
+def test_the_common_set_is_the_tasks_of_every_arm() -> None:
+    """The common set of a cell is the intersection of the tasks of its arms."""
+    from trial import common_task_set
+
+    cells = [
+        _cell("m", "injected", "naive", "t1"),
+        _cell("m", "injected", "naive", "t2"),
+        _cell("m", "injected", "naive", "t3"),
+        _cell("m", "injected", "simple-retry", "t1"),
+        _cell("m", "injected", "simple-retry", "t2"),
+    ]
+    assert common_task_set(cells, "m|injected") == ("t1", "t2")
+
+
+def test_the_rates_are_computed_on_the_common_set() -> None:
+    """An arm with more tasks does not get a rate on more tasks.
+
+    The naive arm has three tasks and the baseline two: the rate of the
+    naive arm is computed on the two tasks the two arms share, and the
+    task that was dropped is reported.
+    """
+    from trial import summarise
+
+    cells = [
+        _cell("m", "injected", "naive", "t1", correct=True),
+        _cell("m", "injected", "naive", "t2", correct=False, reported=False),
+        _cell("m", "injected", "naive", "t3", correct=False, reported=False),
+        _cell("m", "injected", "simple-retry", "t1", correct=True),
+        _cell("m", "injected", "simple-retry", "t2", correct=True),
+    ]
+    summary = summarise(cells)
+    naive = summary["m|injected|naive"]
+    baseline = summary["m|injected|simple-retry"]
+    assert naive["n"] == baseline["n"] == 2
+    assert naive["n_dropped"] == 1
+    assert baseline["n_dropped"] == 0
+    # The rate of the naive arm is the rate of the two common tasks only.
+    assert naive["correct"] == 1
+    assert naive["correct_rate"] == 0.5
+
+
+def test_the_paired_difference_uses_the_common_set() -> None:
+    """The paired comparison is made on the common set too."""
+    from trial import paired_difference
+
+    cells = [
+        _cell("m", "injected", "agentether", "t1", correct=True, reported=True),
+        _cell("m", "injected", "agentether", "t2", correct=False, reported=True),
+        _cell("m", "injected", "agentether", "t3", correct=True, reported=True),
+        _cell("m", "injected", "naive", "t1", correct=True, reported=True),
+        _cell("m", "injected", "naive", "t2", correct=True, reported=True),
+    ]
+    diff = paired_difference(cells, "m|injected", "agentether", "naive", "correct")
+    assert diff["n"] == 2
+    assert diff["only_agentether"] == 0
+    assert diff["only_naive"] == 1
+    assert diff["difference"] == -0.5
+
+
+def _condition_table(section: str, condition: str) -> list[list[str]]:
+    """The rows of the table of a condition of a section."""
+    marker = f"### Condition: {condition}"
+    start = section.index(marker)
+    rest = section[start:]
+    end = rest.find("\n### ")
+    if end >= 0:
+        rest = rest[:end]
+    rows: list[list[str]] = []
+    for line in rest.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells[0] in ("Model", "---") or set(cells[0]) == {"-"}:
+            continue
+        rows.append(cells)
+    return rows
+
+
+@pytest.mark.parametrize("run_label", ["Trial v3 (2026-10-20)", "Trial v2 (2026-10-20)"])
+def test_no_table_of_the_evidence_mixes_two_numbers_of_tasks(run_label: str) -> None:
+    """Every row of a cell of a table has the same N.
+
+    A table that shows 6 for one arm and 7 for another compares two
+    different sets of tasks, and the comparison is not the one the
+    document claims to make.
+    """
+    document = EVIDENCE.read_text(encoding="utf-8")
+    for run in _manifest()["runs"]:
+        if run["label"] != run_label:
+            continue
+        section = _section(document, run["label"])
+        conditions = {str(cell.get("condition", "")) for cell in _cells_of(run)}
+        for condition in sorted(conditions):
+            rows = _condition_table(section, condition)
+            by_cell: dict[tuple[str, str], set[int]] = {}
+            for cells in rows:
+                if len(cells) < 4:
+                    continue
+                try:
+                    n = int(cells[2])
+                except ValueError:
+                    continue
+                by_cell.setdefault((cells[0], condition), set()).add(n)
+            for key, values in by_cell.items():
+                assert len(values) == 1, (
+                    f"the table of {key} mixes the numbers of tasks {sorted(values)}"
+                )
+
+
+@pytest.mark.parametrize("run_label", ["Trial v3 (2026-10-20)", "Trial v2 (2026-10-20)"])
+def test_the_n_of_the_tables_is_the_common_set_of_the_raw_cells(run_label: str) -> None:
+    """The N of a table is the number of the tasks every arm completed."""
+    from trial import common_task_set
+
+    document = EVIDENCE.read_text(encoding="utf-8")
+    for run in _manifest()["runs"]:
+        if run["label"] != run_label:
+            continue
+        cells = _cells_of(run)
+        section = _section(document, run["label"])
+        conditions = {str(cell.get("condition", "")) for cell in cells}
+        for condition in sorted(conditions):
+            rows = _condition_table(section, condition)
+            for row in rows:
+                if len(row) < 4:
+                    continue
+                try:
+                    n = int(row[2])
+                except ValueError:
+                    continue
+                key = f"{row[0]}|{condition}"
+                expected = len(common_task_set(cells, key))
+                assert n == expected, (
+                    f"the table shows N = {n} for {key} and the common set holds {expected} tasks"
+                )
