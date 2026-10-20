@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-10-20T23:33:04Z",
+  "provider": "ollama",
+  "requests_per_model": 12,
+  "results": [
+    {
+      "artifacts_rate": 0.9166666666666666,
+      "deterministic": false,
+      "errors": 0,
+      "file_block_rate": 1.0,
+      "input_tokens": 5676,
+      "model": "qwen2.5:1.5b-instruct",
+      "notes": [
+        {
+          "telemetry_error": "no JSON object found in the response"
+        }
+      ],
+      "output_tokens": 3465,
+      "progress_100_rate": 0.9166666666666666,
+      "provider": "ollama",
+      "requests_ok": 12,
+      "requests_sent": 12,
+      "seconds": 132.4,
+      "step_exact_rate": 0.9166666666666666,
+      "telemetry_rate": 0.9166666666666666,
+      "tokens_per_request": 761.8
+    }
+  ]
+}

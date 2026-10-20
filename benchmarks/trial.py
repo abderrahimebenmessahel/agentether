@@ -383,7 +383,15 @@ def paired_difference(
 # the runner
 # ----------------------------------------------------------------------
 def _read_progress(progress_path: Path) -> list[dict[str, Any]]:
-    """The cells of the previous runs of this work directory."""
+    """The cells of the previous runs of this work directory.
+
+    **A cell without a request is not a measurement.**  The first run of
+    the trial v3 swallowed the stop of the daily cap and wrote 136 empty
+    cells; a resumed run that took them for done would skip them for
+    ever, and the natural condition of the Cerebras model (80 cells) would
+    never have been run.  The empty cells are therefore dropped here, and
+    the run does them again.
+    """
     cells: list[dict[str, Any]] = []
     if not progress_path.exists():
         return cells
@@ -396,6 +404,12 @@ def _read_progress(progress_path: Path) -> list[dict[str, Any]]:
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            try:
+                requests = int(record.get("requests", 0) or 0)
+            except (TypeError, ValueError):
+                requests = 0
+            if requests <= 0:
                 continue
             key = (record["model"], record["arm"], record["condition"], record["task"])
             if key in seen:
@@ -442,6 +456,7 @@ async def run_trial(
     model_seed: int | None = None,
     daily_cap: int | None = None,
     token_cap: int | None = None,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """Run the trial and return the result payload.
 
@@ -451,6 +466,11 @@ async def run_trial(
         conditions: The conditions to run.
         tasks: The task set.
         per_cell: The number of tasks per cell.
+        offset: The index of the first task of the cell.  A run that is
+            split in shards (a local model, a slow provider) uses it to
+            take a **slice** of the task set; the index of the task in
+            the fault schedule stays the **global** one, so the shards
+            meet the same schedule as a single run.
         rate_limit: The requests per minute.
         model_cap: The hard cap of requests per model.
         workdir: The directory of the sandboxes.
@@ -491,7 +511,7 @@ async def run_trial(
         cells.append(record)
     _seed_stats(stats, cells)
 
-    selected = tasks[:per_cell]
+    selected = tasks[offset : offset + per_cell]
     for model in models:
         if caller_factory is None:
             caller: Caller = ModelCaller(
@@ -511,7 +531,10 @@ async def run_trial(
             # of the day leaves the tasks that are done complete (every arm
             # of them), and the paired comparison keeps the same tasks for
             # every arm.
-            for index, task in enumerate(selected):
+            # The index of the task is the **global** one (the offset
+            # included), so the fault schedule of a sharded run is the
+            # schedule of a single run.
+            for index, task in enumerate(selected, start=offset):
                 for arm in arms:
                     key = (model, arm, condition, task.name)
                     if key in done:
@@ -624,6 +647,7 @@ async def run_trial(
         "arms": list(arms),
         "conditions": list(conditions),
         "tasks_per_cell": per_cell,
+        "task_offset": offset,
         "halted": halted,
         # The wall clock of this session, and the time the calls took in
         # total (which also covers the cells of the previous sessions of a
@@ -645,6 +669,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--arms", nargs="*", default=list(ARMS))
     parser.add_argument("--conditions", nargs="*", default=list(CONDITIONS))
     parser.add_argument("--tasks", type=int, default=10, help="tasks per cell")
+    parser.add_argument(
+        "--task-offset",
+        type=int,
+        default=0,
+        help=(
+            "the index of the first task of the cell; a run that is split in "
+            "shards takes a slice of the task set with it"
+        ),
+    )
     parser.add_argument("--rate-limit", type=int, default=DEFAULT_RATE_LIMIT)
     parser.add_argument("--model-cap", type=int, default=DEFAULT_MODEL_CAP)
     parser.add_argument(
@@ -741,6 +774,7 @@ def main(argv: list[str] | None = None) -> int:
             conditions=tuple(args.conditions),
             tasks=tasks,
             per_cell=args.tasks,
+            offset=args.task_offset,
             rate_limit=args.rate_limit,
             model_cap=args.model_cap,
             workdir=workdir,

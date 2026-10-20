@@ -376,3 +376,41 @@ async def test_a_stop_is_not_swallowed_by_the_arms(tmp_path: Path) -> None:
         await run_arm_naive(task, sandbox, StoppingCaller(), "natural", 0)
     with pytest.raises(TrialHalt):
         await run_arm_simple_retry(task, sandbox, StoppingCaller(), "natural", 0)
+
+
+async def test_a_sharded_run_keeps_the_global_index_of_the_task(tmp_path: Path) -> None:
+    """A run that is split in shards meets the schedule of a single run.
+
+    The fault schedule is a function of the index of the task, and the
+    index of a sharded run is the **global** one: the shards of a grid
+    meet the same faults as a run that does the whole grid in one go.
+    """
+    from tasks_v3_gen import TASKS_V3_FULL
+    from trial import run_trial
+
+    def factory(model: str, limiter: Any, stats: Any, cap: int) -> Any:
+        def _answer_for(step: str, attempt: int) -> str:
+            stats.requests += 1
+            return answer(step, content="x" + chr(10))
+
+        return ScriptedCaller(_answer_for)
+
+    payload = await run_trial(
+        models=("fake/model",),
+        arms=("naive",),
+        conditions=("injected",),
+        tasks=TASKS_V3_FULL,
+        per_cell=3,
+        offset=20,
+        rate_limit=1000,
+        model_cap=100,
+        workdir=tmp_path / "work",
+        progress_path=tmp_path / "progress.jsonl",
+        caller_factory=factory,
+        fault_seed=FAULT_SEED_V3,
+        faults=FAULTS_V3,
+    )
+    names = [cell["task"] for cell in payload["cells"]]
+    assert names == ["task21-factory", "task22-boatyard", "task23-elevator"]
+    assert [cell["task_index"] for cell in payload["cells"]] == [20, 21, 22]
+    assert payload["task_offset"] == 20

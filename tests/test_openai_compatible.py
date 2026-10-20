@@ -182,6 +182,36 @@ async def test_a_provider_without_a_key_sends_no_authorization(
     assert "Authorization" not in seen["headers"]
 
 
+async def test_a_provider_without_a_key_works_with_a_resolver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A local provider needs no key, even when a resolver is passed.
+
+    The runner of the trial passes a resolver to every provider; a
+    resolver that answers with an empty string must not turn a local
+    provider into an error.  The bug was found by the capability probe of
+    the local model.
+    """
+    seen: dict[str, Any] = {}
+
+    def fake_urlopen(request: Any, timeout: float = 0) -> FakeResponse:
+        seen["headers"] = dict(request.header_items())
+        return FakeResponse(ok_payload())
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    spec = ProviderSpec(name="local", base_url="http://localhost:11434/v1", api_key_env=None)
+
+    output = await openai_compatible_complete(
+        "hello",
+        spec=spec,
+        model="a-model",
+        api_key_resolver=lambda: "",
+    )
+
+    assert output.text
+    assert "Authorization" not in seen["headers"]
+
+
 async def test_a_missing_key_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """A missing key is named, its value is never printed."""
     monkeypatch.delenv("TEST_KEY", raising=False)

@@ -242,3 +242,39 @@ def test_the_task_set_of_the_trial_is_the_committed_one() -> None:
     assert len(TASKS) == 20
     assert all(len(task.checks) >= 10 for task in TASKS)
     assert all(3 <= len(task.steps) <= 4 for task in TASKS)
+
+
+def test_a_cell_without_a_request_is_not_a_measurement(tmp_path: Path) -> None:
+    """The empty cells of a run that swallowed a stop are done again.
+
+    The first run of the trial v3 wrote 136 cells without a request when
+    the arms swallowed the stop of the daily cap.  A resumed run that
+    took them for done would skip them for ever, and the natural
+    condition of the Cerebras model (80 cells) would never have been run.
+    """
+    progress = tmp_path / "progress.jsonl"
+    records = [
+        {
+            "model": "m",
+            "arm": "naive",
+            "condition": "injected",
+            "task": "t1",
+            "requests": 0,
+            "tokens": 0,
+        },
+        {
+            "model": "m",
+            "arm": "naive",
+            "condition": "injected",
+            "task": "t2",
+            "requests": 3,
+            "tokens": 100,
+        },
+    ]
+    progress.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+    )
+
+    cells = _read_progress(progress)
+
+    assert [cell["task"] for cell in cells] == ["t2"]

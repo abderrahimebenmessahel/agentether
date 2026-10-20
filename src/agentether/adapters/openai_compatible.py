@@ -577,9 +577,14 @@ async def openai_compatible_complete(
         secret = api_key_resolver()
     else:
         secret = resolve_api_key(spec.api_key_env)
-    if (spec.api_key_env or api_key_resolver is not None) and not secret:
+    # A **local** provider (Ollama) needs no key: the check must not
+    # refuse it because a resolver was passed and the resolver answered
+    # with an empty string.  Only a provider that names a variable may
+    # refuse the call.
+    if not secret and spec.key_variables():
+        names = ", ".join(spec.key_variables())
         raise ConfigurationError(
-            f"the environment variable {spec.api_key_env!r} is not set or empty"
+            f"no API key found for {spec.name}: set one of {names} in the environment"
         )
     headers = {"Content-Type": "application/json"}
     if secret:
