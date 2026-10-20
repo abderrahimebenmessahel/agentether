@@ -116,12 +116,34 @@ and is named here.  A test that only *partly* covers the claim says so.
 * **Performance.**  No claim is made about the speed of the library; the
   benchmark measures simulated policies, not throughput.
 
+## The property, crash and fuzz tests
+
+| Check | What it does | Test |
+| --- | --- | --- |
+| The parser only ever raises a parse error, on any text. | Hypothesis over arbitrary text. | `tests/test_properties.py::test_the_parser_only_ever_raises_a_telemetry_parse_error` |
+| The escaping of the memory file is lossless. | Hypothesis over arbitrary Unicode. | `tests/test_properties.py::test_escaping_round_trips` |
+| The escaped text can never contain a marker. | Hypothesis over arbitrary Unicode. | `tests/test_properties.py::test_escaping_never_leaves_a_marker` |
+| What is written is what is read back. | Hypothesis over arbitrary telemetry. | `tests/test_properties.py::test_the_state_round_trips` |
+| The compaction keeps the limit and the human section. | Hypothesis over telemetry, a limit and a human text. | `tests/test_properties.py::test_the_compaction_keeps_the_limit_and_the_human_section` |
+| The state survives a hard kill. | A subprocess writes the state and is killed (SIGKILL / TerminateProcess) at random moments. | `tests/test_crash_consistency.py::test_the_state_survives_a_hard_kill` |
+| A mutated state file only leads to a corruption error. | A bounded random mutation loop over a valid file. | `tests/test_fuzz_state.py::test_the_parser_survives_mutated_files` |
+
+## The bugs the property and fuzz tests found
+
+| Bug | Found by | Fix |
+| --- | --- | --- |
+| A memory file that is not valid UTF-8 raised `UnicodeDecodeError`. | The fuzzer. | `StateCorruptionError` with an actionable message. |
+| The universal newline mode translated a `` inside the human section, so it was **not** preserved byte for byte. | The property test (a hypothesis case with a carriage return). | The file is read with `newline=""`. |
+| A file that a Windows editor saved with CRLF line endings could not be read at all. | The same property test, after the read fix. | The marker regexes accept a trailing ``. |
+
 ## Bugs this audit found
 
 | Bug | How it was found | Fix |
 | --- | --- | --- |
 | A memory file that is not valid UTF-8 raised `UnicodeDecodeError` instead of `StateCorruptionError`. | The state file fuzzer (`test_fuzz_state.py`). | `StateManager._load_sync` now catches `UnicodeDecodeError` and raises an actionable `StateCorruptionError`. |
-| The universal newline mode translated a `` inside the human section, so the human text was **not** preserved byte for byte. | The property test `test_the_compaction_keeps_the_limit_and_the_human_section` (a hypothesis case with a carriage return). | The memory file is read with `newline=""`, so the bytes are kept as they are. |
-| A memory file that a human edited with an editor that writes CRLF line endings could not be read at all: the marker regex required a plain end of line. | The same property test, after the read fix. | The marker regexes accept a trailing ``.  `test_a_file_with_crlf_line_endings_is_still_readable` covers it. |
+| The universal newline mode translated a `
+` inside the human section, so the human text was **not** preserved byte for byte. | The property test `test_the_compaction_keeps_the_limit_and_the_human_section` (a hypothesis case with a carriage return). | The memory file is read with `newline=""`, so the bytes are kept as they are. |
+| A memory file that a human edited with an editor that writes CRLF line endings could not be read at all: the marker regex required a plain end of line. | The same property test, after the read fix. | The marker regexes accept a trailing `
+`.  `test_a_file_with_crlf_line_endings_is_still_readable` covers it. |
 | The escaping of the memory file was not injective: a summary that already contained `&lt;!--` came back as `<!--`. | The adversarial test (a) of the previous session. | The ampersand is escaped first. |
 | The corruption message mentioned a `.bak` file that might not exist. | Reading the messages of the audit. | The backup is mentioned only when it is really there. |
