@@ -197,11 +197,13 @@ what that shape means:
 | **equivalent** | The change cannot be seen: a keyword argument is replaced by ``None`` and the parameter of the callee really defaults to ``None``.  The verdict comes from the abstract syntax tree of the package, not from a guess. | 50 |
 | **cosmetic** | Only the wording of a message changes.  The behaviour of the library is the same, only what it says is different. | 211 |
 | **gap (record)** | The content of a record (an event, a line of the ledger, the attempt log) is wrong.  The behaviour is the same. | 16 |
-| **gap (format)** | A key of the state file, or the way the file is written, changes.  The format is described in `docs/spec/state-file-format-v2.md`: it is a public contract. | 9 |
-| **gap (behaviour)** | The behaviour changes and no test noticed. | 690 |
+| **gap (format)** | A key of the state file, or the way the file is written, changes.  The format is described in `docs/spec/state-file-format-v2.md`: it is a public contract. | 101 |
+| **gap (behaviour)** | The behaviour changes and no test noticed. | 598 |
 
-(The counts are the ones of the second run; the first run had 50, 226, 16,
-9 and 699.)
+(The counts are the ones of the second run.  The first run gave 50, 226, 16,
+9 and 699: the difference is the class "gap (format)", whose rule was
+broken by a mistyped regular expression and found the state file only nine
+times.)
 
 **What this says, and what it does not.**  The classification is
 **rule-based**, not a hand analysis of the 1 000 mutants one by one.  The
@@ -221,7 +223,7 @@ of the state file, the keys of the telemetry object, the fields of a line
 of the claims ledger, the fields of the breaker and the shape of the
 budget section.
 
-**What was left open.**  The class "gap (behaviour)" holds 690 survivors
+**What was left open.**  The class "gap (behaviour)" holds 598 survivors
 and was **not** triaged one by one.  They are mostly of three kinds:
 
 1. the value of a *recorded* field (the number of the attempts, the
@@ -233,7 +235,14 @@ and was **not** triaged one by one.  They are mostly of three kinds:
    direction (for example the half-open breaker when the cooldown comes
    from the policy and not from the argument).
 
-Closing them means writing one test per branch, which is a day of work
+The class "gap (format)" holds 101 survivors: they are the keys of the
+state file and the values that are read back from it.  A test that pins
+the keys of the file kills the mutants of the *writes*; the mutants of the
+*reads* (the key of a `state.get(...)` is changed) need a test that
+depends on what is read back, and that is what the round trip of
+`tests/test_state_manager.py` is for.
+
+Closing the rest means writing one test per branch, which is a day of work
 that the audit did not do.  **They are not bugs that are known to exist:
 they are places where the test suite does not look.**  The honest summary
 is: the mutation score of the two modules is **61 %** (1 667 of 2 713

@@ -103,7 +103,7 @@ target-version = "py310"
 src = ["src", "tests", "examples"]
 # Virtual environments live inside the checkout in some workflows; they are
 # not part of the project and must never be linted.
-exclude = [".venv*", "venv", "build", "dist", "*.egg-info", "mutants"]
+exclude = [".venv*", "venv", "build", "dist", "*.egg-info", "mutants", "agentether-packaging-*"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]

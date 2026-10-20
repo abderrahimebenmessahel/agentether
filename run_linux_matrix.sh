@@ -19,9 +19,11 @@ mkdir -p "$TARGET"
 rm -rf "$TARGET/src" "$TARGET/tests" "$TARGET/benchmarks" "$TARGET/docs" "$TARGET/examples"
 cp -r "$SOURCE/src" "$SOURCE/tests" "$SOURCE/benchmarks" "$SOURCE/docs" "$SOURCE/examples" "$TARGET/"
 cp "$SOURCE/pyproject.toml" "$SOURCE/CHANGELOG.md" "$SOURCE/README.md" "$TARGET/"
+cp "$SOURCE/scan_secrets.py" "$SOURCE/packaging_check.py" "$SOURCE/mutation_triage.py" "$TARGET/"
+cp "$SOURCE/.gitattributes" "$SOURCE/run_linux_matrix.sh" "$TARGET/"
 # The copy comes from a Windows checkout: the line endings are normalized
 # here, because ruff format --check expects the endings of the platform.
-find "$TARGET" -name "*.py" -o -name "*.md" -o -name "*.toml" | while read -r file; do
+find "$TARGET" \( -name "*.py" -o -name "*.md" -o -name "*.toml" -o -name "*.sh" \)   -print | while read -r file; do
   sed -i 's/$//' "$file"
 done
 cd "$TARGET" || exit 1

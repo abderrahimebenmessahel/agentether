@@ -108,9 +108,11 @@ def main() -> int:
         print(f"  {name} (length {length})")
 
     wheels = 0
+    problems_in_wheels = 0
     for path in sorted(root.glob("dist/*.whl")):
         print(f"=== the wheel {path.as_posix()} ===")
-        wheels += scan_wheel(path)
+        problems_in_wheels += scan_wheel(path)
+        wheels += 1
     if wheels == 0:
         print("=== the wheels ===")
         print("  no wheel in dist/")
@@ -129,7 +131,7 @@ def main() -> int:
         ):
             print(f"  {name}: present, length {len(value)} (never printed)")
 
-    return 1 if problems or history_hits or wheels else 0
+    return 1 if problems or history_hits or problems_in_wheels else 0
 
 
 if __name__ == "__main__":
