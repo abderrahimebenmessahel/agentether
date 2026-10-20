@@ -128,7 +128,9 @@ def _totals_section(run: Run, level: int) -> list[str]:
         rows = [cell for cell in cells if cell.get("model") == model]
         requests = sum(int(cell.get("requests", 0) or 0) for cell in rows)
         tokens = sum(int(cell.get("tokens", 0) or 0) for cell in rows)
-        seconds = round(sum(float(cell.get("seconds", 0.0) or 0.0) for cell in rows), 1)
+        # ``math.fsum`` and not ``sum``: Python 3.12 changed the summation
+        # of the floats, and the document must be the same on every version.
+        seconds = round(math.fsum(float(cell.get("seconds", 0.0) or 0.0) for cell in rows), 1)
         total_requests += requests
         total_tokens += tokens
         total_seconds += seconds
@@ -599,7 +601,7 @@ def build_run_section(run: Run, level: int = 2) -> list[str]:
     """The whole section of one run."""
     head = "#" * level
     cells = run.cells
-    measured = sum(float(cell.get("seconds", 0.0) or 0.0) for cell in cells)
+    measured = math.fsum(float(cell.get("seconds", 0.0) or 0.0) for cell in cells)
     requests = sum(int(cell.get("requests", 0) or 0) for cell in cells)
     lines: list[str] = [
         f"{head} {run.title}",

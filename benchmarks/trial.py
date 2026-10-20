@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import os
 import sys
 import tempfile
@@ -261,7 +262,10 @@ def summarise(cells: list[dict[str, Any]]) -> dict[str, Any]:
                 reported = sum(1 for row in arm_rows if row["reported_complete"])
                 requests = sum(row.get("requests", 0) for row in arm_rows)
                 tokens = sum(row.get("tokens", 0) for row in arm_rows)
-                seconds = sum(row.get("seconds", 0.0) for row in arm_rows)
+                # ``math.fsum`` and not ``sum``: Python 3.12 changed the
+                # summation of the floats, and the tables of the evidence
+                # document must be the same on every version.
+                seconds = math.fsum(row.get("seconds", 0.0) for row in arm_rows)
                 rejections = sum(row.get("verifier_rejections", 0) for row in arm_rows)
                 loops = sum(row.get("loop_detections", 0) for row in arm_rows)
                 retries = sum(max(0, row.get("attempts", 1) - 1) for row in arm_rows)

@@ -146,16 +146,34 @@ def test_the_evidence_document_is_generated_and_not_hand_edited() -> None:
     )
 
 
+def _spaced(number: int) -> str:
+    """The number with the thin spaces of the report (1 234 567)."""
+    return f"{number:,}".replace(",", " ")
+
+
 def test_the_report_totals_are_the_totals_of_the_raw_cells() -> None:
-    """The final report does not contradict the raw data."""
+    """The final report does not contradict the raw data.
+
+    The report states the requests and the tokens of every run and of the
+    two runs together; the numbers of the raw cells must be among them.
+    """
     report = REPORT.read_text(encoding="utf-8")
     cells: list[dict[str, Any]] = []
     for run in _manifest()["runs"]:
-        cells.extend(_cells_of(run))
+        run_cells = _cells_of(run)
+        cells.extend(run_cells)
+        requests = sum(int(cell.get("requests", 0) or 0) for cell in run_cells)
+        tokens = sum(int(cell.get("tokens", 0) or 0) for cell in run_cells)
+        assert _spaced(requests) in report or str(requests) in report, (
+            f"the report does not state the {requests} requests of the run"
+        )
+        assert _spaced(tokens) in report or str(tokens) in report, (
+            f"the report does not state the {tokens} tokens of the run"
+        )
     requests = sum(int(cell.get("requests", 0) or 0) for cell in cells)
     tokens = sum(int(cell.get("tokens", 0) or 0) for cell in cells)
-    assert f"{requests} model calls" in report or f"{requests} requests" in report
-    assert f"{tokens:,}".replace(",", " ") in report or str(tokens) in report
+    assert _spaced(requests) in report or str(requests) in report
+    assert _spaced(tokens) in report or str(tokens) in report
 
 
 def test_the_wrong_totals_of_the_first_report_are_only_quoted_in_the_erratum() -> None:

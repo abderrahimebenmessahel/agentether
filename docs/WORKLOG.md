@@ -656,6 +656,74 @@ the baseline; the arm that only checks the claimed files caught two of
 them.  The sample is too small for the verdict (the MDE of N = 6 is
 0.495): the run of Google is the one that can decide it.
 
+### Phase 4 — the run of the trial v3, and the gates
+
+**The run of the day** (2026-10-20, the budget of the free tier):
+
+| Provider | The run | The cells | The requests | The tokens |
+| --- | --- | --- | --- | --- |
+| cerebras gpt-oss-120b | the injected condition, 6 tasks per arm | 24 | 96 | 112 378 |
+| google gemini-3.5-flash-lite | the injected condition, 6 tasks per arm (7 for two arms) | 26 | 98 | 74 866 |
+
+The Cerebras run stopped at the cap of the day (96 requests: the counter
+of the provider held 404 of the 500 that the rule of the maintainer
+allows).  The Google run stopped because the **provider refused the
+calls**: `HTTP 429 - You exceeded your current quota` (the token limit of
+the free tier of Google is not published, and the run of the day found
+where it is).
+
+| Arm | N | correct | false completion | requests | tokens |
+| --- | --- | --- | --- | --- | --- |
+| naive | 6 | 3 | 3 | 21 | 20 936 |
+| simple-retry | 6 | 3 | 3 | 22 | 21 872 |
+| agentether-claims-only | 6 | 4 | 1 | 26 | 34 594 |
+| **agentether** (with the expectations) | 6 | 3 | **0** | 27 | 34 976 |
+
+(Cerebras; the Google model shows the same direction: 4, 1, 1 and 0
+false completions.)
+
+**The verdicts are INCONCLUSIVE** for H1, H2 and H4: the MDE of a sample
+of six tasks is 0.571 and the observed difference of the false completion
+rate is 0.500 (three discordant pairs, p = 0.250).  H3 (the overhead) is
+**SUPPORTED**.  The data show the **direction** -- the arm that declares
+what the step must produce caught every false completion of the baseline
+in the two models -- and the report says exactly that and no more.
+
+**The command to continue the trial** (the runner is resumable and the
+cells that are done are kept):
+
+```bash
+python benchmarks/trial.py --provider cerebras --models gpt-oss-120b \
+    --task-set v3 --arms naive simple-retry agentether-claims-only agentether \
+    --conditions injected natural --tasks 20 --rate-limit 5 --model-cap 400 \
+    --daily-cap 500 --token-cap 500000 --model-seed 20261021 \
+    --workdir logs/trial-v3-cerebras --output benchmarks/results/trial-v3-cerebras.json
+```
+
+**Two more defects, found by the run and by the CI.**
+
+* The arms of the harness caught the **stop** of the daily cap the same
+  way they catch the failure of a call, and the run wrote 136 empty
+  cells.  `TrialHalt` is a `BaseException` now, and
+  `benchmarks/collect_cells.py` drops the cells without an attempt and
+  prints how many it dropped.
+* The CI found that the document of the evidence was **not the same on
+  every Python version**: Python 3.12 changed the summation of the
+  floats, and the seconds of a cell were summed with `sum()`.  The
+  generator uses `math.fsum` now (the sum is exactly rounded), and the
+  document is the same on 3.10, 3.14 and Windows.
+
+**The gates.**
+
+| Check | Result |
+| --- | --- |
+| `pytest` on Windows (CPython 3.14.7) | 479 passed, 4 skipped |
+| `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | 481 passed, 2 skipped on each |
+| `mypy --strict` | clean, 65 files |
+| `ruff check` / `ruff format --check` | clean, 106 files |
+| `python -m build` + `twine check` | PASSED (the wheel and the sdist of `0.3.0a1`) |
+| `scan_secrets.py` | 0 in the tree, 0 in the history, the wheel is clean |
+
 ### NEXT ACTION
 
 The final report is written

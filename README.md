@@ -279,43 +279,57 @@ slightly.  That is the trade, stated plainly.  The result is reproducible
 
 ### The real model trial (tiny sample, one day)
 
-The trial v2 ran two free models of two providers, three arms (naive,
-simple-retry, agentether) and two conditions (natural and injected faults
-of 20 %), N = 12 tasks per cell.  The protocol was **pre-registered and
-committed before the first result file exists**
-([`docs/trial-protocol-v2.md`](docs/trial-protocol-v2.md)).
+Two trials were run on free models of two providers, with the protocol
+**pre-registered and committed before the first result file exists**
+([`docs/trial-protocol-v2.md`](docs/trial-protocol-v2.md),
+[`docs/trial-protocol-v3.md`](docs/trial-protocol-v3.md)).  The full
+tables, the Wilson intervals, the paired differences and the p values are
+in [`docs/evidence.md`](docs/evidence.md), which is **generated from the
+raw cells** and checked by a test.
 
-Under the injected faults, with the model `cerebras/gpt-oss-120b`:
+**The trial v3 (the confirmatory run).**  Four arms (naive, simple-retry,
+agentether-claims-only and agentether with the **declarative
+expectations**), the injected faults (20 % of the attempts), six tasks per
+cell for the model `cerebras/gpt-oss-120b`:
 
 | Arm | correct completion | false completion | requests | tokens |
 | --- | --- | --- | --- | --- |
-| naive | 0.417 | 0.333 | 31 | 30 999 |
-| simple-retry | 0.417 | 0.333 | 31 | 31 324 |
-| **agentether** | **0.667** | **0.083** | 34 | 42 408 |
+| naive | 0.500 | 0.500 | 21 | 20 936 |
+| simple-retry | 0.500 | 0.500 | 22 | 21 872 |
+| agentether-claims-only | 0.667 | 0.167 | 26 | 34 594 |
+| **agentether** (with `expects`) | 0.500 | **0.000** | 27 | 34 976 |
 
-The guarded arm caught three of the four false completions of the baseline
-and completed three more tasks, at the price of three more requests and
-11 000 more tokens.  The second model (`google/gemini-3.5-flash-lite`) did
-**not** show that difference: all three arms had the same false completion
-rate.
+The arm that declares what the step must produce caught **every** false
+completion of the baseline, and the arm that only checks the claimed files
+caught two of the three.  The second model (`google/gemini-3.5-flash-lite`)
+shows the same direction.
 
-**The verdicts are INCONCLUSIVE** for the first two hypotheses: with N = 12
-the minimum detectable effect of the sample is 0.404, and the observed
-differences are 0.25 and 0.00.  The overhead (H3) is **supported**: the
-guarded arm costs more.
+**The verdicts are INCONCLUSIVE.**  With N = 6 the minimum detectable
+effect of the sample is 0.571, and the observed difference of the false
+completion rate is 0.500 (three tasks in favour of the guarded arm, the
+exact McNemar test gives p = 0.250).  **The run of the day could not
+reach the sixty tasks per cell of the protocol**: the quota of the free
+tier of the day was spent by the probe, the pilots and the trial v2, and
+the provider of Google refused the calls of the afternoon with
+`HTTP 429`.  The overhead (H3) is **supported**: the guarded arm costs
+more requests and more tokens.
 
-Two things this does **not** show: that the library makes agents reliable
-in general, and that the selection rule of the protocol was met.  It was
-not: the two models that satisfy the rule are the two of Groq, whose daily
-quota was spent by the probe and the pilots, and the two models that had
-the quota are the two the rule excludes.  The run is therefore a
-**supplementary** run, and the deviation is stated in
-[`docs/evidence.md`](docs/evidence.md) and in
+**What the data do NOT show.**  Six tasks per cell cannot make a
+statistical result, and the report does not pretend otherwise.  The
+direction is consistent (in the trial v3 and in the trial v2, the guarded
+arm caught every false completion of the baseline that the claims-only
+arm did not), but the verdict is inconclusive, and the sample is small,
+the tasks are synthetic and the models are free tier models with their own
+limits.
+
+**The trial v2 (the supplementary run).**  Three arms and two conditions,
+N = 12 tasks per cell, two models.  The selection rule of that protocol
+(a band on the naive success rate) was **not** met: the two models that
+satisfy it are the two of Groq, whose daily quota was spent by the probe
+and the pilots, and the two models that had the quota are the two the
+rule excludes.  The run is therefore a **supplementary** run, and the
+deviation is stated in [`docs/evidence.md`](docs/evidence.md) and in
 [`docs/WORKLOG.md`](docs/WORKLOG.md).
-
-See [`docs/evidence.md`](docs/evidence.md) for the full tables, the
-request and token counts, the Wilson intervals, the paired differences and
-the p values.
 
 ## When **not** to use AgenTether
 
