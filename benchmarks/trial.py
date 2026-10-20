@@ -440,8 +440,12 @@ async def run_trial(
         else:
             caller = caller_factory(model, limiter, stats[model], model_cap)
         for condition in conditions:
-            for arm in arms:
-                for index, task in enumerate(selected):
+            # The arms are **inside** the tasks: a run that stops at the cap
+            # of the day leaves the tasks that are done complete (every arm
+            # of them), and the paired comparison keeps the same tasks for
+            # every arm.
+            for index, task in enumerate(selected):
+                for arm in arms:
                     key = (model, arm, condition, task.name)
                     if key in done:
                         continue
