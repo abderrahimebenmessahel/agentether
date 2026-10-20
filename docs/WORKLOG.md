@@ -598,6 +598,64 @@ the wrong thing, a Python that compiles may do the wrong thing.  The
 semantic check is left to a judge (`llm_judge`) or to a verifier of your
 own (`callable_verifier`).
 
+### Phase 4 — the trial v3
+
+**The protocol** (`docs/trial-protocol-v3.md`, commit `f4abb99`) was
+written and committed **before** the first result file of the trial v3
+existed.  It states the deviation of the protocol v2 openly: the band of
+the selection rule (a naive success between 30 % and 85 %) was not
+satisfiable by the models that had quota, so the rule of the v3 is the
+capability probe and the quota, with no band.  The data of the v2 stay a
+**supplementary** run.
+
+**The implementation** (commit `91ba086`):
+
+* `benchmarks/tasks_v3.py`: the twenty **new** tasks (new subjects, new
+  numbers, new function names).  Their visible specification says exactly
+  what the ground truth checks, so the expectations of the `agentether`
+  arm are as strong as the ground truth.
+* the fault **`hide_file`** (new): it removes a file of the answer *and*
+  its name from the claim.  It is the mechanism the v2 could not measure:
+  the model never produces a file and the claim mentions only the files it
+  did produce.
+* the four arms: `naive`, `simple-retry`, `agentether-claims-only` (the
+  configuration of the v2) and `agentether` (with the expectations).
+* the runner takes the task set, the seed of the fault schedule, the seed
+  of the model, the cap of the day and a cap of tokens.  **The cap of the
+  day defaults to half of the documented daily limit of the provider**:
+  the rule of the maintainer is now the default of the code and not only
+  of the command line.
+
+**The run of the day** (2026-10-20, the budget of the day):
+
+| Provider | The requests of the day | The budget left | The cap of the run |
+| --- | --- | --- | --- |
+| cerebras | 404 before the run | 96 requests (500 - 404) and 137 506 tokens (500 000 - 362 494) | 96 requests, 137 506 tokens |
+| google | 430 before the run | 320 requests (750 - 430) | 320 requests, 300 000 tokens (a safety net: the token limit of Google is not published) |
+
+**A defect of the runner, found by the run itself.**  The arms of the
+harness catch the exceptions of a call (a timeout, a transport error) and
+carry on; the *stop* of the daily cap was caught the same way, and the
+run wrote **136 empty cells** (a cell with zero request is not a
+measurement).  `TrialHalt` is a `BaseException` now, and a test pins it
+(`test_a_stop_is_not_swallowed_by_the_arms`).  `benchmarks/collect_cells.py`
+drops the cells without a request and **prints how many it dropped**.
+
+**The data of the day, Cerebras** (the injected condition, 6 tasks, 4
+arms, 24 cells):
+
+| Arm | N | correct | false completion | requests | tokens |
+| --- | --- | --- | --- | --- | --- |
+| naive | 6 | 3 | 3 | 21 | 20 936 |
+| simple-retry | 6 | 3 | 3 | 22 | 21 872 |
+| agentether-claims-only | 6 | 4 | 1 | 26 | 34 594 |
+| **agentether** (with the expectations) | 6 | 3 | **0** | 27 | 34 976 |
+
+The arm with the expectations caught the **three** false completions of
+the baseline; the arm that only checks the claimed files caught two of
+them.  The sample is too small for the verdict (the MDE of N = 6 is
+0.495): the run of Google is the one that can decide it.
+
 ### NEXT ACTION
 
 The final report is written
