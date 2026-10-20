@@ -593,9 +593,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-cap", type=int, default=DEFAULT_MODEL_CAP)
     parser.add_argument(
         "--task-set",
-        choices=("v2", "v3"),
+        choices=("v2", "v3", "v3-20"),
         default="v2",
-        help="the task set: the tasks of the trial v2 or the new ones of the trial v3",
+        help=(
+            "the task set: the tasks of the trial v2, the sixty tasks of the "
+            "trial v3 (the twenty hand-written ones and the forty generated "
+            "ones) or only the twenty hand-written ones"
+        ),
     )
     parser.add_argument(
         "--fault-seed",
@@ -650,10 +654,20 @@ def main(argv: list[str] | None = None) -> int:
             print(str(exc), file=sys.stderr)
             return 2
 
-    if args.task_set == "v3":
+    if args.task_set in ("v3", "v3-20"):
         from tasks_v3 import TASKS_V3
 
-        tasks = TASKS_V3
+        if args.task_set == "v3-20":
+            tasks = TASKS_V3
+        else:
+            # The sixty tasks of the trial v3: the twenty hand-written ones
+            # and the forty generated ones.  The first twenty are the same
+            # tasks, in the same order, and the fault schedule is a function
+            # of the index of the task, so the data that were already
+            # collected stay valid.
+            from tasks_v3_gen import TASKS_V3_FULL
+
+            tasks = TASKS_V3_FULL
         fault_seed = args.fault_seed if args.fault_seed is not None else FAULT_SEED_V3
         faults = FAULTS_V3
     else:
