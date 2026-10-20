@@ -91,15 +91,18 @@ def test_the_state_survives_a_hard_kill(tmp_path: Path) -> None:
             continue
         # A step that is recorded as completed must be complete: its summary
         # must not be cut in half and its telemetry must be intact.
-        for step, record in (state.get("telemetry") or {}).items():
-            summary = record.get("summary", "")
+        telemetry = state.get("telemetry")
+        records: dict[str, dict[str, object]] = telemetry if isinstance(telemetry, dict) else {}
+        for step, record in records.items():
+            summary = str(record.get("summary", ""))
             if summary != "x" * 500:
                 failures.append(
                     f"iteration {iteration}: step {step} has a truncated summary "
                     f"({len(summary)} characters)"
                 )
-        for step in state.get("completed_steps", []):
-            if step not in (state.get("telemetry") or {}):
+        completed = state.get("completed_steps")
+        for step in completed if isinstance(completed, list) else []:
+            if step not in records:
                 failures.append(
                     f"iteration {iteration}: step {step} is completed without telemetry"
                 )

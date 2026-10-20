@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from agentether import (
+    AgentExecutionError,
     AutoOrchestrator,
     CircuitBreakerOpenError,
     StateManager,
@@ -153,7 +154,7 @@ async def test_a_step_that_is_not_completed_is_never_resumed_as_completed(
     async def research(ctx: StepContext) -> str:
         return telemetry_answer("research", status="failed", summary="nope")
 
-    with pytest.raises(CircuitBreakerOpenError):
+    with pytest.raises(AgentExecutionError):
         await research()
 
     state = await StateManager(memory_dir).load()

@@ -30,7 +30,6 @@ SETTINGS = settings(
 )
 
 text_strategy = st.text(max_size=400)
-json_text_strategy = st.text(alphabet=st.characters(blacklist_categories=("Cs",)), max_size=200)
 
 
 @given(text_strategy)
