@@ -68,6 +68,13 @@ FAULT_SEED = 20261020
 #: progress below 100 as drift, and run 1 never told the model that, so every
 #: completed step was rejected.  That was a defect of the harness, not of the
 #: model, and the fix was applied to every arm.
+#:
+#: The block of a file is delimited by **four** backticks.  The trial v2
+#: used three, and a Markdown file that shows how to run a script (a code
+#: block inside the file) was cut in the middle by the parser: three of the
+#: seventeen false completions of the trial v2 were caused by that, and not
+#: by the model.  The rule is in the prompt of the trial v3, which is
+#: pre-registered before the data of the trial v3.
 PROTOCOL = """\
 You are working inside a sandbox. You cannot use tools: you return the content
 of every file in a fenced block.  The **first line inside the block** is
@@ -75,17 +82,19 @@ of every file in a fenced block.  The **first line inside the block** is
 
 Example (this is the whole answer, the fences included):
 
-```
+````
 FILE: notes.md
 # Notes
 ## Context
 ...
-```
+````
 
 Rules:
-- one fenced block per file, and the first line **inside** the block must be
-  "FILE: <path>", followed by the content of the file (the fences are part
-  of the answer, as in the example above);
+- one block per file, and the first line **inside** the block must be
+  "FILE: <path>", followed by the content of the file;
+- the block of a file is delimited by **four** backticks (````), so that a
+  code block inside the file (delimited by three backticks) does not close
+  it; the block of the file must be closed by four backticks again;
 - the path must be relative, without ".." and without a drive letter;
 - write every file the step asks for, with exactly the content that is asked
   for (the exact headings, the exact keys, the exact numbers);
@@ -102,6 +111,7 @@ Rules:
 """
 
 _FENCE = re.compile(r"```[^\r\n]*\r?\n(?P<body>.*?)```", re.DOTALL)
+_FENCE_OPEN = re.compile(r"^(?P<fence>`{3,})[ \t]*(?P<info>[^`\r\n]*?)[ \t]*$")
 _FILE_HEAD = re.compile(r"^\s*FILE:\s*(?P<path>[^\r\n`]+?)\s*$")
 _MAX_FILE_BYTES = 64_000
 _MAX_SANDBOX_BYTES = 512_000
@@ -113,6 +123,64 @@ _MAX_SANDBOX_BYTES = 512_000
 def build_prompt(step: Any) -> str:
     """The prompt of a step.  Every arm uses this exact string."""
     return f"{step.instruction}\n\n{PROTOCOL.format(step=step.name)}"
+
+
+def fenced_blocks(text: str) -> list[tuple[int, int, str]]:
+    """The fenced blocks of a text: ``(start, end, body)``.
+
+    The rule is the one of CommonMark, and it matters:
+
+    * a block opens on a line of **three or more** backticks;
+    * a block closes on a line of **at least as many** backticks and
+      nothing else;
+    * a fence that carries an **info string** (`````bash``) opens a block
+      of its own and never closes another one.
+
+    The old parser closed a file on the next fence whatever it was, so a
+    Markdown file that shows how to run a script (a code block inside the
+    file) was cut in the middle: the file on disk was the beginning of the
+    file, the rest was lost, and the ground truth of the task failed
+    behind the back of every arm.  It was found by the analysis of the
+    false completions of the trial v2 (see ``docs/false-completions.md``).
+
+    Args:
+        text: The text to scan.
+
+    Returns:
+        The blocks, in the order of the text.  ``start`` is the offset of
+        the opening fence and ``end`` the offset after the closing fence.
+    """
+    blocks: list[tuple[int, int, str]] = []
+    lines = text.splitlines(keepends=True)
+    offset = 0
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        opening = _FENCE_OPEN.match(line.rstrip("\r\n"))
+        if opening is None:
+            offset += len(line)
+            index += 1
+            continue
+        fence = opening.group("fence")
+        body_start = offset + len(line)
+        cursor = index + 1
+        body_end = body_start
+        closed = False
+        while cursor < len(lines):
+            candidate = lines[cursor].strip()
+            if candidate and set(candidate) == {"`"} and len(candidate) >= len(fence):
+                blocks.append((offset, body_end + len(lines[cursor]), text[body_start:body_end]))
+                offset = body_end + len(lines[cursor])
+                index = cursor + 1
+                closed = True
+                break
+            body_end += len(lines[cursor])
+            cursor += 1
+        if not closed:
+            # An unclosed block: the text ends inside it.
+            offset = body_start
+            index += 1
+    return blocks
 
 
 def parse_file_blocks(answer: str) -> list[tuple[str, str]]:
@@ -133,26 +201,25 @@ def parse_file_blocks(answer: str) -> list[tuple[str, str]]:
     """
     found: list[tuple[int, str, str]] = []
     inside: list[tuple[int, int]] = []
-    for match in _FENCE.finditer(answer):
-        body = match.group("body")
+    for start, end, body in fenced_blocks(answer):
         lines = body.splitlines()
         if not lines:
             continue
         head = _FILE_HEAD.match(lines[0])
         if head is None:
             continue
-        inside.append(match.span())
-        found.append((match.start(), head.group("path").strip(), "\n".join(lines[1:])))
-    for match in _FENCE.finditer(answer):
-        if any(start <= match.start() < stop for start, stop in inside):
+        inside.append((start, end))
+        found.append((start, head.group("path").strip(), "\n".join(lines[1:])))
+    for start, _end, body in fenced_blocks(answer):
+        if any(begin <= start < stop for begin, stop in inside):
             continue
-        before = answer[: match.start()].rstrip()
+        before = answer[:start].rstrip()
         if not before:
             continue
         head = _FILE_HEAD.match(before.splitlines()[-1])
         if head is None:
             continue
-        found.append((match.start(), head.group("path").strip(), match.group("body")))
+        found.append((start, head.group("path").strip(), body))
     found.sort(key=lambda item: item[0])
     return [(path, content) for _, path, content in found]
 
@@ -199,6 +266,37 @@ def _telemetry_of(answer: str) -> tuple[str, str]:
     return answer[start : end + 1], answer[:start]
 
 
+def _drop_the_blocks(answer: str) -> str:
+    """Remove every fenced block of an answer."""
+    blocks = fenced_blocks(answer)
+    if not blocks:
+        return answer
+    out = answer
+    for start, end, _ in reversed(blocks):
+        out = out[:start] + out[end:]
+    return out
+
+
+def _truncate_the_first_block(answer: str) -> str:
+    """Cut the content of the first fenced block of an answer in half."""
+    blocks = fenced_blocks(answer)
+    if not blocks:
+        return answer
+    start, end, body = blocks[0]
+    opening_end = answer.find("\n", start)
+    if opening_end < 0:
+        return answer
+    opening = answer[start : opening_end + 1]
+    tail = answer[:end].rstrip("\r\n")
+    closing = tail[tail.rfind("\n") + 1 :]
+    half = body[: len(body) // 2]
+    if not half.endswith("\n"):
+        # The closing fence must stay on a line of its own, or the block
+        # is not a block any more.
+        half += "\n"
+    return answer[:start] + opening + half + closing + answer[end:]
+
+
 def inject_fault(answer: str, fault: str, previous: str | None) -> str:
     """Apply one injected fault to an answer.
 
@@ -212,16 +310,9 @@ def inject_fault(answer: str, fault: str, previous: str | None) -> str:
         The faulty answer.
     """
     if fault == "drop_file_block":
-        return re.sub(r"```[^\r\n]*\r?\n.*?```", "", answer, flags=re.DOTALL)
+        return _drop_the_blocks(answer)
     if fault == "truncate_file":
-        blocks = list(_FENCE.finditer(answer))
-        if not blocks:
-            return answer
-        first = blocks[0]
-        body = first.group("body")
-        half = body[: len(body) // 2]
-        new_block = "```\n" + half + "\n```"
-        return answer[: first.start()] + new_block + answer[first.end() :]
+        return _truncate_the_first_block(answer)
     if fault == "corrupt_telemetry":
         telemetry, head = _telemetry_of(answer)
         if not telemetry:
@@ -238,7 +329,7 @@ def inject_fault(answer: str, fault: str, previous: str | None) -> str:
         return previous if previous is not None else answer
     if fault == "lie":
         # The claim stays, the file block goes.
-        return re.sub(r"```[^\r\n]*\r?\n.*?```", "", answer, flags=re.DOTALL)
+        return _drop_the_blocks(answer)
     return answer
 
 

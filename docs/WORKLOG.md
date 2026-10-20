@@ -493,6 +493,60 @@ have is not "it is identical" but "it is **never worse** than doing
 nothing", and that property holds and is tested by
 `tests/test_trial_arms.py`.
 
+### Phase 2 — the cause of every false completion
+
+The 17 false completions of the trial v2 (144 cells) were classified with
+`benchmarks/analyze_false.py`, a new tool that reads the raw cells, the
+sandboxes and the attempt logs of the run.  **No model was called.**  The
+document it writes is `docs/false-completions.md`.
+
+| Cause | The false completions | The failing checks |
+| --- | --- | --- |
+| (i) an injected fault damaged an artifact and the arm did not catch it | 14 | 46 |
+| (ii) a required file was never produced and the claim did not mention it | 0 | 0 |
+| (iii) something else | 3 | 6 |
+
+**The finding that matters.**  The verifier of the guarded arm was
+`artifacts_exist()`: it checks that the files the model **claims** exist.
+So it catches a false completion whose artifact is **missing** (the check
+fails, the step is retried) and it cannot catch one whose artifact
+**exists but is damaged** (the check passes).  Of the four false
+completions of the naive arm on Cerebras, three were a missing file
+(`replay_previous`, `lie`, `drop_file_block`) and one was a file cut in the
+middle (`truncate_file`): the guarded arm caught the three and missed the
+one.  That is the whole explanation, and it is a limit of the **verifier**,
+not of the fault timing: the faults of the trial v2 are applied *inside*
+the worker, that is **before** the verification of the library, so the
+library could have caught them if it had looked at the content.
+
+**The two false completions of the Google model were not the library's
+fault.**  The analysis compared the file on disk with the answer that the
+guarded arm recorded in its project memory, and the file was the
+**beginning** of the answer's file: the harness cut it.  The parser
+closed a file on the next fence, even when that fence opened a code block
+**of the file itself** (a Markdown file that shows how to run the script
+is the common case).  The rest of the file was lost and the ground truth
+failed.  The naive arm was right on those two tasks by luck: the Google
+model is not deterministic, and its answer for them did not hold a code
+block.
+
+**The fix of the harness** (before any new data): the parser follows the
+rule of CommonMark now (a fence with an info string opens a block and
+never closes another one, and a block closes on a fence at least as long
+as its own), the prompt asks for **four** backticks so that a code block
+inside a file cannot close it, and the faults were rebuilt on the new
+parser.  `tests/test_trial_parser.py` (13 tests) pins it down.
+
+**A second defect of the baseline, found by the analysis.**  The
+docstring of `_contract_is_completed` says that the simple-retry arm
+"parses the contract: the step name must match and the status must be
+completed".  The code does **not** check the step name (`parse_telemetry`
+validates the structure of the telemetry and not the name of the step), so
+the baseline accepted the answer of the **previous** step as the
+completion of the current one.  That is why the `replay_previous` fault
+ended in a false completion of the baseline.  The library itself checks
+the step name (a drift check), which is why the guarded arm caught it.
+
 ### NEXT ACTION
 
 The final report is written
