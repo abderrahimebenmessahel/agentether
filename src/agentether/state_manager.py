@@ -509,6 +509,14 @@ class StateManager:
             return copy.deepcopy(state)
         try:
             text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            # A human edited the file with an editor that uses another
+            # encoding.  That is a corrupt project, not a crash.
+            raise StateCorruptionError(
+                f"{path} is not valid UTF-8 ({exc.reason} at byte {exc.start}); "
+                "it was probably edited with an editor that uses another encoding. "
+                "Run 'contextguard doctor' to inspect the file."
+            ) from exc
         except OSError as exc:  # pragma: no cover - unreadable file
             raise StateCorruptionError(f"could not read {path}: {exc}") from exc
         state_pos = self._find_state_marker(text)
