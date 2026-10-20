@@ -21,7 +21,15 @@ from __future__ import annotations
 
 from typing import Any
 
-__all__ = ["anthropic_worker", "ollama_worker", "openai_worker", "openrouter_worker"]
+__all__ = [
+    "anthropic_worker",
+    "ollama_worker",
+    "openai_compatible_worker",
+    "openai_worker",
+    "openrouter_worker",
+    "provider_for",
+    "providers",
+]
 
 
 def _require(module: str, extra: str) -> Any:
@@ -96,3 +104,44 @@ def ollama_worker(**kwargs: Any) -> Any:
     from .ollama import ollama_worker as _worker
 
     return _worker(**kwargs)
+
+
+def openai_compatible_worker(**kwargs: Any) -> Any:
+    """Create a worker for any provider that speaks the OpenAI dialect.
+
+    The providers of the free tier are registered in
+    :data:`agentether.adapters.openai_compatible.PROVIDERS`: OpenRouter,
+    Groq, Cerebras, Mistral, Google AI Studio and a local Ollama.  Only
+    the standard library is used and the key is read from the environment.
+
+    .. warning::
+       Untested against live APIs unless ``AGENTETHER_LIVE_TESTS=1`` is set.
+    """
+    from .openai_compatible import openai_compatible_worker as _worker
+
+    return _worker(**kwargs)
+
+
+def provider_for(name: str) -> Any:
+    """The preset of a provider, by name.
+
+    Args:
+        name: The name of the provider, for example ``"groq"``.
+
+    Returns:
+        The :class:`~agentether.adapters.openai_compatible.ProviderSpec`.
+
+    Raises:
+        ConfigurationError: When the name is not known.  The message lists
+            the known names.
+    """
+    from .openai_compatible import provider_for as _provider_for
+
+    return _provider_for(name)
+
+
+def providers() -> list[str]:
+    """The names of the known providers."""
+    from .openai_compatible import providers as _providers
+
+    return _providers()

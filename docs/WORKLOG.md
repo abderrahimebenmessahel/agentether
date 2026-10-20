@@ -179,10 +179,49 @@ Gate after this change: **347 passed, 4 skipped** (Windows, CPython
 format --check` clean on 84 files, `scan_secrets.py` clean on the tree and
 on the history.
 
+### Phase 2 — the provider agnostic layer
+
+`agentether.adapters.openai_compatible` is new: one generic worker for the
+OpenAI dialect, plus a preset per provider (`PROVIDERS`): OpenRouter, Groq,
+Cerebras, Mistral, Google AI Studio and a local Ollama.
+
+* The **facts come from the official documentation** and were read on
+  2026-10-20; `docs/providers.md` has the link of every page and marks
+  every fact that could not be verified as **UNVERIFIED**.  The three
+  differences that the documentation shows and the code has to respect:
+  the **base paths differ** (Groq is `.../openai/v1`, Gemini is
+  `.../v1beta/openai`), the **seed is not portable** (Mistral calls it
+  `random_seed`, Gemini has no seed for the chat) and **only OpenRouter
+  publishes the price of a model**, so the free models of the other
+  providers cannot be found by their price.
+* The **model ids are never hard-coded**: `list_free_models` reads the
+  catalogue of the provider and keeps the models whose price is zero, or
+  whose name carries the free marker when the catalogue has no price.
+* The **limits** are respected: a token bucket per provider for the
+  requests per minute and a `DailyCounter` for the requests per day.  The
+  counter is written to disk with an atomic replace, so a run that is
+  interrupted and continued does not start the day from zero, and the run
+  stops *before* the limit of the provider is reached.
+* **401, 403 and 402 are never retried**; a 402 says that the request
+  needs a paid plan, which this project never enables.
+* The **key never leaks**: it is read from the environment only and every
+  message that could echo the server answer goes through the redaction
+  step first.  There is a test for **every** provider.
+* The OpenRouter adapter is now a thin preset over the generic layer; its
+  22 tests still pass unchanged.
+
+`scan_secrets.py` learned the key formats of Groq (`gsk_`), Cerebras
+(`csk-`), Google (`AIza`) and a bare `NAME=key` assignment, and it now
+scans the built wheel as well (a zip, which the tree scan skips).
+
+The trial runner uses the generic layer now: it takes a `--provider`, the
+rate limit of the provider is applied to every call and the daily counter
+of the provider is used, so a resumed run cannot exceed the quota.
+
 ### NEXT ACTION
 
-Phase 1(d): the mutation triage of `orchestrator.py` and
-`state_manager.py` (mutmut runs in WSL), then Phase 2 (the provider
-agnostic layer and `docs/providers.md`).
+Phase 3: the capability probe of the candidate models (live, free tier
+only), then the pre-registration of `docs/trial-protocol-v2.md`.
+
 
 

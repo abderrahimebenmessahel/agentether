@@ -86,12 +86,16 @@ exclude_lines = [
 
 [tool.mutmut]
 # The mutation testing run of the audit: the two modules where a mistake
-# would be a security problem.
-# The whole package is copied, so that the imports of the mutants work.
+# would be a security problem.  The whole package is copied, so that the
+# imports of the mutants work, but only those two files are mutated.
 source_paths = ["src/agentether"]
+only_mutate = ["src/agentether/orchestrator.py", "src/agentether/state_manager.py"]
+also_copy = ["benchmarks"]
+pytest_add_cli_args = ["-x", "-q", "--no-header", "-p", "no:cacheprovider"]
 pytest_add_cli_args_test_selection = ["tests"]
-timeout = 120
-debug = true
+# Only the lines the test suite actually reaches are mutated: a mutation of
+# a line that no test runs cannot say anything about the test suite.
+mutate_only_covered_lines = true
 
 [tool.ruff]
 line-length = 100

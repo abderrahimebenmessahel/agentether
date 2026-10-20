@@ -22,7 +22,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from trial import paired_difference, summarise  # noqa: E402
+from trial import paired_difference, summarise
 
 ARMS = ("naive", "simple-retry", "agentether")
 CONDITIONS = ("natural", "injected")
@@ -66,9 +66,7 @@ def _totals_section(cells: list[dict[str, Any]], meta: dict[str, Any]) -> list[s
         requests = sum(int(cell.get("requests", 0) or 0) for cell in rows)
         tokens = sum(int(cell.get("tokens", 0) or 0) for cell in rows)
         if meta.get("tokens_recorded") is False:
-            lines.append(
-                f"| {model} | {requests} | not recorded | not recorded |"
-            )
+            lines.append(f"| {model} | {requests} | not recorded | not recorded |")
         else:
             lines.append(f"| {model} | {requests} | {tokens} | (see the cells) |")
     lines.append("")

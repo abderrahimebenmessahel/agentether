@@ -9,6 +9,7 @@ committed payload was 0 as well.  These tests pin the accounting down.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -20,9 +21,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 
 from harness import Caller
 from tasks import TASKS, Check, FileSpec, StepSpec, TaskSpec
-from trial import ModelStats, RateLimiter, _read_progress, _seed_stats, run_trial
+from trial import ModelStats, _read_progress, _seed_stats, run_trial
 
 from agentether import Usage, WorkerOutput
+from agentether.adapters.openai_compatible import TokenBucketLimiter
 
 
 class CountingCaller:
@@ -34,6 +36,9 @@ class CountingCaller:
 
     async def call(self, prompt: str) -> WorkerOutput:
         """One counted request."""
+        # The call takes a little time, so that the measured duration of
+        # the cell is not rounded away to zero.
+        await asyncio.sleep(0.002)
         self.stats.requests += 1
         self.stats.input_tokens += 11
         self.stats.output_tokens += 7
@@ -71,7 +76,7 @@ def answer(step: str = "notes") -> str:
 def factory(text: str) -> Any:
     """A caller factory for the fake model."""
 
-    def _make(model: str, limiter: RateLimiter, stats: ModelStats, cap: int) -> Caller:
+    def _make(model: str, limiter: TokenBucketLimiter, stats: ModelStats, cap: int) -> Caller:
         return CountingCaller(stats, text)
 
     return _make

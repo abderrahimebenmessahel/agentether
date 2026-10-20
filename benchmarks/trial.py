@@ -48,9 +48,15 @@ from harness import (
 )
 from tasks import TASKS, TaskSpec
 
-from agentether.adapters.openrouter import (
-    OpenRouterTransientError,
-    openrouter_complete,
+from agentether.adapters.openai_compatible import (
+    DailyCounter,
+    OpenAICompatibleError,
+    OpenAICompatibleTransientError,
+    ProviderSpec,
+    TokenBucketLimiter,
+    openai_compatible_complete,
+    provider_for,
+    resolve_provider_key,
 )
 
 #: The models of the trial (different families, all free tier).  The ids are
@@ -78,25 +84,16 @@ class TrialHalt(Exception):
     """Raised when the trial must stop."""
 
 
+def _usage_path(provider: str) -> Path:
+    """Where the daily counter of a provider lives."""
+    base = os.environ.get("AGENTETHER_USAGE_DIR")
+    root = Path(base) if base else Path.home() / ".cache" / "agentether" / "usage"
+    return root / f"{provider}.json"
+
+
 # ----------------------------------------------------------------------
 # the model call
 # ----------------------------------------------------------------------
-class RateLimiter:
-    """A "N requests per minute" limiter."""
-
-    def __init__(self, per_minute: int) -> None:
-        self._interval = 60.0 / max(1, per_minute)
-        self._last = 0.0
-
-    async def acquire(self) -> None:
-        """Wait until the next request may be sent."""
-        now = time.monotonic()
-        delay = self._last + self._interval - now
-        if delay > 0:
-            await asyncio.sleep(delay)
-        self._last = time.monotonic()
-
-
 @dataclass
 class ModelStats:
     """The request accounting of one model."""
@@ -120,26 +117,47 @@ class ModelStats:
 class ModelCaller:
     """Calls a model with a rate limit, a cap and 429 handling."""
 
-    def __init__(self, model: str, limiter: RateLimiter, stats: ModelStats, cap: int) -> None:
+    def __init__(
+        self,
+        model: str,
+        spec: ProviderSpec,
+        limiter: TokenBucketLimiter,
+        stats: ModelStats,
+        cap: int,
+        counter: DailyCounter | None = None,
+    ) -> None:
         self.model = model
+        self.spec = spec
         self.limiter = limiter
         self.stats = stats
         self.cap = cap
+        self.counter = counter
 
     async def call(self, prompt: str) -> Any:
         """One request.  Raises ``TrialHalt`` when the cap is reached."""
-        await self.limiter.acquire()
         if self.stats.requests >= self.cap:
             raise TrialHalt(f"the request cap of {self.cap} was reached for {self.model}")
         self.stats.requests += 1
         try:
-            output = await openrouter_complete(prompt, model=self.model, max_retries=0)
-        except OpenRouterTransientError as exc:
+            output = await openai_compatible_complete(
+                prompt,
+                spec=self.spec,
+                model=self.model,
+                api_key_resolver=lambda: resolve_provider_key(self.spec),
+                max_retries=0,
+                limiter=self.limiter,
+                counter=self.counter,
+            )
+        except OpenAICompatibleTransientError as exc:
             self.stats.consecutive_429 += 1
             if self.stats.consecutive_429 >= 5:
                 raise TrialHalt(f"{self.model} kept returning a temporary error: {exc}") from exc
             await asyncio.sleep(min(exc.retry_after or 5.0, 60.0))
             raise
+        except OpenAICompatibleError as exc:
+            # A rejected key or a request that needs money: the run must
+            # stop, and the message must say why.
+            raise TrialHalt(f"{self.model} was refused by the provider: {exc}") from exc
         self.stats.consecutive_429 = 0
         usage = output.usage
         if usage is not None:
@@ -299,7 +317,8 @@ async def run_trial(
     model_cap: int,
     workdir: Path,
     progress_path: Path,
-    caller_factory: Callable[[str, RateLimiter, ModelStats, int], Caller] | None = None,
+    provider: str = "openrouter",
+    caller_factory: Callable[[str, Any, ModelStats, int], Caller] | None = None,
 ) -> dict[str, Any]:
     """Run the trial and return the result payload.
 
@@ -313,10 +332,16 @@ async def run_trial(
         model_cap: The hard cap of requests per model.
         workdir: The directory of the sandboxes.
         progress_path: The resumable progress file.
+        provider: The provider of the models.  The rate and the daily
+            limit of the provider are never exceeded: the requests per
+            minute are the smallest of the requested rate and the limit of
+            the provider, and the daily count is kept on disk.
         caller_factory: Builds the caller of a model.  It is ``None`` in
             the trial (the live model) and a script in the tests.
     """
-    limiter = RateLimiter(rate_limit)
+    spec = provider_for(provider)
+    limiter = TokenBucketLimiter(min(rate_limit, spec.requests_per_minute))
+    counter = DailyCounter(_usage_path(provider), spec.requests_per_day, spec.name)
     stats = {model: ModelStats(model) for model in models}
     cells: list[dict[str, Any]] = []
     halted = ""
@@ -332,7 +357,7 @@ async def run_trial(
     selected = tasks[:per_cell]
     for model in models:
         if caller_factory is None:
-            caller: Caller = ModelCaller(model, limiter, stats[model], model_cap)
+            caller: Caller = ModelCaller(model, spec, limiter, stats[model], model_cap, counter)
         else:
             caller = caller_factory(model, limiter, stats[model], model_cap)
         for condition in conditions:
@@ -410,6 +435,7 @@ async def run_trial(
         "attempt_cap": ATTEMPT_CAP,
         "rate_limit_per_minute": rate_limit,
         "model_request_cap": model_cap,
+        "provider": provider,
         "models": list(models),
         "arms": list(arms),
         "conditions": list(conditions),
@@ -430,6 +456,7 @@ async def run_trial(
 def main(argv: list[str] | None = None) -> int:
     """Entry point of the trial."""
     parser = argparse.ArgumentParser(description="Run the evidence trial.")
+    parser.add_argument("--provider", default="openrouter", help="the provider of the models")
     parser.add_argument("--models", nargs="*", default=list(MODELS))
     parser.add_argument("--arms", nargs="*", default=list(ARMS))
     parser.add_argument("--conditions", nargs="*", default=list(CONDITIONS))
@@ -450,12 +477,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    for name in ("minimax", "MINIMAX", "MINIMAX_API_KEY", "OPENROUTER_API_KEY"):
-        if os.environ.get(name):
-            break
-    else:
-        print("no API key found: set MINIMAX (or MINIMAX_API_KEY)", file=sys.stderr)
+    try:
+        spec = provider_for(args.provider)
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
         return 2
+    if spec.key_variables():
+        try:
+            resolve_provider_key(spec)
+        except Exception as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     workdir = Path(args.workdir)
     workdir.mkdir(parents=True, exist_ok=True)
@@ -471,6 +503,7 @@ def main(argv: list[str] | None = None) -> int:
             model_cap=args.model_cap,
             workdir=workdir,
             progress_path=progress,
+            provider=args.provider,
         )
     )
     output = Path(args.output)
