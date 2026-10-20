@@ -190,15 +190,22 @@ def wilson_interval(successes: int, total: int, z: float = 1.96) -> tuple[float,
 
 
 def summarise(cells: list[dict[str, Any]]) -> dict[str, Any]:
-    """Aggregate the cells into the tables of the report."""
+    """Aggregate the cells into the tables of the report.
+
+    The models and the conditions are taken from the cells themselves and
+    not from a fixed list, so a trial with the models of several providers
+    is summarised like any other.
+    """
     out: dict[str, Any] = {}
-    for model in MODELS:
-        for condition in CONDITIONS:
+    models = sorted({str(cell.get("model", "")) for cell in cells})
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
+    for model in models:
+        for condition in conditions:
             key = f"{model}|{condition}"
             rows = [cell for cell in cells if cell["key"] == key]
             if not rows:
                 continue
-            for arm in ARMS:
+            for arm in sorted({str(row.get("arm", "")) for row in rows}):
                 arm_rows = [row for row in rows if row["arm"] == arm]
                 if not arm_rows:
                     continue

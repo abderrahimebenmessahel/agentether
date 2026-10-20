@@ -1,12 +1,15 @@
 """Turn the raw trial cells into the tables of ``docs/evidence.md``.
 
-The document is built from the **raw** progress file of the trial (one JSON
-line per cell) and from a small meta file that describes the run.  Nothing
-is typed in by hand: the tables, the intervals and the totals are computed
-here, so the document can be regenerated and checked.
+The document is built from the **raw** progress files of the trial (one
+JSON line per cell) and from a small meta file that describes the run.
+Nothing is typed in by hand: the tables, the intervals and the totals are
+computed here, so the document can be regenerated and checked.
 
     python benchmarks/evidence.py --progress benchmarks/results/run-1-progress.jsonl \\
         --meta benchmarks/results/run-1-meta.json --out docs/evidence.md
+
+    python benchmarks/evidence.py --progress a/progress.jsonl b/progress.jsonl \\
+        --meta benchmarks/results/trial-v2-meta.json --out docs/evidence.md
 
 .. versionadded:: 0.3.0a1
 """
@@ -23,9 +26,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trial import paired_difference, summarise
-
-ARMS = ("naive", "simple-retry", "agentether")
-CONDITIONS = ("natural", "injected")
 
 
 def _rate(value: float) -> str:
@@ -58,17 +58,18 @@ def _totals_section(cells: list[dict[str, Any]], meta: dict[str, Any]) -> list[s
     lines = [
         "## The request and token totals",
         "",
-        "| Model | Requests | Input tokens | Output tokens |",
+        "| Model | Requests | Tokens | Wall clock (s) |",
         "| --- | --- | --- | --- |",
     ]
-    for model in meta.get("models", []):
-        rows = [cell for cell in cells if cell["model"] == model]
+    for model in sorted({str(cell.get("model", "")) for cell in cells}):
+        rows = [cell for cell in cells if cell.get("model") == model]
         requests = sum(int(cell.get("requests", 0) or 0) for cell in rows)
         tokens = sum(int(cell.get("tokens", 0) or 0) for cell in rows)
+        seconds = sum(float(cell.get("seconds", 0.0) or 0.0) for cell in rows)
         if meta.get("tokens_recorded") is False:
-            lines.append(f"| {model} | {requests} | not recorded | not recorded |")
+            lines.append(f"| {model} | {requests} | not recorded | {seconds:.1f} |")
         else:
-            lines.append(f"| {model} | {requests} | {tokens} | (see the cells) |")
+            lines.append(f"| {model} | {requests} | {tokens} | {seconds:.1f} |")
     lines.append("")
     if meta.get("tokens_note"):
         lines.extend([f"> {meta['tokens_note']}", ""])
@@ -80,7 +81,8 @@ def _condition_tables(
 ) -> list[str]:
     """One table per condition."""
     lines: list[str] = []
-    for condition in CONDITIONS:
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
+    for condition in conditions:
         lines.extend(
             [
                 f"## Condition: {condition}",
@@ -92,7 +94,8 @@ def _condition_tables(
             ]
         )
         for model in models:
-            for arm in ARMS:
+            arms = sorted({str(row.get("arm", "")) for row in cells if row.get("model") == model})
+            for arm in arms:
                 row = summary.get(f"{model}|{condition}|{arm}")
                 if not row:
                     continue
@@ -129,8 +132,9 @@ def _paired_tables(cells: list[dict[str, Any]], models: list[str]) -> list[str]:
         "| Model | Condition | Comparison | Only A | Only B | Both | Neither | Difference |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
     for model in models:
-        for condition in CONDITIONS:
+        for condition in conditions:
             key = f"{model}|{condition}"
             for arm_a, arm_b in (
                 ("agentether", "naive"),
@@ -171,14 +175,16 @@ def _hypotheses(
         "## The hypotheses",
         "",
         "H1: the guarded arm completes more tasks correctly.  H2: the guarded arm",
-        "catches more false completions.  The paired difference is the share of",
-        "the tasks where one arm was right and the other was not.",
+        "catches more false completions (the primary endpoint).  The paired",
+        "difference is the share of the tasks where one arm was right and the",
+        "other was not.",
         "",
         "| Model | Condition | agentether | naive | H1 (paired) | H2 (paired) |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
     for model in models:
-        for condition in CONDITIONS:
+        for condition in conditions:
             key = f"{model}|{condition}"
             a = summary.get(f"{key}|agentether")
             b = summary.get(f"{key}|naive")
@@ -197,6 +203,44 @@ def _hypotheses(
                 )
             )
     lines.append("")
+    return lines
+
+
+def _runs_section(runs: list[dict[str, Any]]) -> list[str]:
+    """The models of the run, with the pilot and the size of the sample."""
+    if not runs:
+        return []
+    lines = [
+        "## The models of the run",
+        "",
+        "| Provider | Model | Pilot (naive, natural) | Qualifies | N per cell |"
+        " MDE of the paired difference |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for run in runs:
+        pilot = run.get("pilot") or {}
+        lines.append(
+            "| {provider} | {model} | {pilot} | {qualifies} | {n} | {mde} |".format(
+                provider=run.get("provider", "?"),
+                model=run.get("model", "?"),
+                pilot=(
+                    f"{pilot.get('correct', 0)}/{pilot.get('n', 0)} = "
+                    f"{_rate(float(pilot.get('rate', 0.0)))}"
+                    if pilot
+                    else "not run"
+                ),
+                qualifies=run.get("qualification", "?"),
+                n=run.get("n", "?"),
+                mde=run.get("mde", "?"),
+            )
+        )
+    lines.append("")
+    for run in runs:
+        note = run.get("note")
+        if note:
+            lines.append(f"- **{run.get('model', '?')}**: {note}")
+    if any(run.get("note") for run in runs):
+        lines.append("")
     return lines
 
 
@@ -229,7 +273,7 @@ def _defects_section(defects: list[dict[str, Any]]) -> list[str]:
 def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
     """Build the evidence document."""
     summary = summarise(cells)
-    models = list(meta.get("models") or sorted({cell["model"] for cell in cells}))
+    models = sorted({str(cell.get("model", "")) for cell in cells})
     measured = sum(float(cell.get("seconds", 0.0) or 0.0) for cell in cells)
     requests = sum(int(cell.get("requests", 0) or 0) for cell in cells)
     label = meta.get("label", "The run")
@@ -240,7 +284,7 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
         "> **A tiny sample from free models on a single day.**  This is not a",
         "> benchmark and it does not show that AgenTether works in general.  The",
         "> protocol was pre-registered and committed before the first result file",
-        "> existed: [`docs/trial-protocol.md`](trial-protocol.md).",
+        "> existed: [`docs/trial-protocol-v2.md`](trial-protocol-v2.md).",
         "",
         f"## {label}",
         "",
@@ -253,7 +297,6 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
         [
             "## What was run",
             "",
-            f"- Tasks per cell: {meta.get('tasks_per_cell', '?')}",
             f"- Cells completed: {len(cells)}",
             f"- Time the calls took: {measured:.1f} s",
             f"- Model calls: {requests}",
@@ -263,6 +306,7 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
             "",
         ]
     )
+    lines.extend(_runs_section(list(meta.get("runs") or [])))
     lines.extend(_totals_section(cells, meta))
     lines.extend(
         [
@@ -304,14 +348,16 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Read the progress file and write the evidence document."""
+    """Read the progress files and write the evidence document."""
     parser = argparse.ArgumentParser(description="Build the evidence document.")
-    parser.add_argument("--progress", required=True, help="the progress.jsonl of the trial")
+    parser.add_argument("--progress", nargs="+", required=True, help="the progress files")
     parser.add_argument("--out", default="docs/evidence.md")
     parser.add_argument("--meta", default=None, help="the JSON description of the run")
     args = parser.parse_args(argv)
 
-    cells = _read_progress(Path(args.progress))
+    cells: list[dict[str, Any]] = []
+    for name in args.progress:
+        cells.extend(_read_progress(Path(name)))
     meta: dict[str, Any] = {}
     if args.meta and Path(args.meta).exists():
         meta = json.loads(Path(args.meta).read_text(encoding="utf-8"))

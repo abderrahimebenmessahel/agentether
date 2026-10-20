@@ -218,10 +218,73 @@ The trial runner uses the generic layer now: it takes a `--provider`, the
 rate limit of the provider is applied to every call and the daily counter
 of the provider is used, so a resumed run cannot exceed the quota.
 
+### Phase 3 — the probe, the pilots and the selection
+
+**The preflight.**  The free models of every provider with a key were
+discovered live (`benchmarks/results/models-*.json`): OpenRouter 20, Groq
+3, Cerebras 2, Google 8, Mistral none that could be verified as free.
+**Ollama is not installed on this machine** (15.8 GB of RAM), so there is
+no local model.  **Mistral is not used**: its documentation publishes no
+list of free models, and a model whose freedom is not documented must not
+be called, because a paid model must never be used.
+
+**The capability probe** (`benchmarks/probe.py`, 12 requests per
+candidate, the raw results in `benchmarks/results/probe-*.json`):
+
+| Provider | Model | ok | telemetry | file blocks | deterministic | tokens/req | s/req |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| cerebras | gpt-oss-120b | 12/12 | 1.00 | 1.00 | yes | 1178 | 11.1 |
+| cerebras | qwen-3.8-27b | 12/12 | 1.00 | 1.00 | yes | ~900 | 11.8 |
+| groq | qwen/qwen3.8-27b | 11/12 | 1.00 | 1.00 | yes | 619 | 6.0 |
+| groq | openai/gpt-oss-20b | 12/12 | 1.00 | 1.00 | no | 948 | 3.8 |
+| google | gemini-3.6-flash | 12/12 | 1.00 | 1.00 | no | 642 | 10.0 |
+| google | gemini-3.5-flash-lite | 12/12 | 1.00 | 1.00 | no | 628 | 10.5 |
+
+The probe found **two defects of the harness** (both fixed for every arm
+and committed before the confirmatory data):
+
+1. the example of the prompt did not show the fences, so the models wrote
+   the `FILE: path` line **outside** the block; the harness threw their
+   work away.  The prompt shows the fences now and the parser accepts both
+   spellings;
+2. the default agent of `urllib` is answered with a 403 by the robot
+   filter of two providers; the library sends a name of its own.
+
+**The pilots** (the naive arm, the natural condition, the data are
+excluded from the confirmatory analysis):
+
+| Provider | Model | naive correct | Rate | Rule (30 % - 85 %) |
+| --- | --- | --- | --- | --- |
+| cerebras | gpt-oss-120b | 19/20 | 0.950 | **excluded** (above the band) |
+| cerebras | qwen-3.8-27b | 20/20 | 1.000 | **excluded** (above the band) |
+| google | gemini-3.5-flash-lite | 17/20 | 0.944 | **excluded** (above the band) |
+| google | gemini-3.6-flash | 0/20 | 0.000 | **excluded** (the provider refused the calls: the quota of that model was spent, so the 0.00 is an artefact of the refusal and not a property of the model) |
+| groq | qwen/qwen3.8-27b | 7/10 | 0.700 | **qualifies** |
+| groq | openai/gpt-oss-20b | 17/20 | 0.850 | **qualifies** (at the limit) |
+
+**The conflict, and how it is handled.**  The two models that satisfy the
+pre-registered rule are the two of **Groq**, and the daily quota of Groq
+was spent by the probe and the pilots: 130 000 of the 200 000 documented
+tokens per day are already used, so the 50 % rule leaves nothing for a
+cell of a usable size.  The two models that *do* have the budget
+(Cerebras and Google) are the two the rule **excludes** for being too
+good.
+
+The rule is applied and reported as it was written.  The confirmatory
+run uses the two models that have the budget, and their data are
+**labelled as a supplementary run**: the pre-registered selection was
+**not** met, and the document says so.  The reason is worth stating:
+the band exists to keep the *correct completion* rate from having no
+room, but the **primary** endpoint is the false completion rate under
+the injected faults, which a model that is very good still cannot
+produce without the harness removing its file.
+
 ### NEXT ACTION
 
-Phase 3: the capability probe of the candidate models (live, free tier
-only), then the pre-registration of `docs/trial-protocol-v2.md`.
+The confirmatory run of the trial v2 is running (`logs/trial-v2-cerebras`,
+`logs/trial-v2-google`, N = 12 per cell).  Then the mutation triage, then
+the report.
+
 
 
 

@@ -10,6 +10,7 @@ knows nothing about the source tree.
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 import tempfile
@@ -46,6 +47,14 @@ async def main():
 
 asyncio.run(main())
 """
+
+
+def _expected_version() -> str:
+    """The version the source declares."""
+    source = Path(__file__).resolve().parent / "src" / "agentether" / "__init__.py"
+    text = source.read_text(encoding="utf-8")
+    match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+    return match.group(1) if match else ""
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -97,6 +106,12 @@ def main(argv: list[str] | None = None) -> int:
     if version.returncode != 0:
         print(version.stderr.strip())
         return version.returncode
+    # The version of the wheel must be the version of the source.
+    expected = _expected_version()
+    if version.stdout.strip() != expected:
+        print(f"the wheel says {version.stdout.strip()!r} but the source says {expected!r}")
+        return 1
+    print(f"the wheel carries the version of the source ({expected})")
 
     print("--- the CLI on the memory the quickstart wrote ---")
     status = subprocess.run(
