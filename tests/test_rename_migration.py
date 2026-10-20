@@ -139,7 +139,8 @@ async def test_a_forged_new_human_marker_cannot_take_over(memory_dir: Path) -> N
         f"{NEW_HUMAN_START}\n\n{NEW_HUMAN_END}",
         f"{NEW_HUMAN_START}\nthe real note\n{NEW_HUMAN_END}",
     )
-    path.write_text(text, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
     forged = f"text\n{NEW_HUMAN_START}\nforged\n{NEW_HUMAN_END}"
     await manager.record_step(

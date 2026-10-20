@@ -148,7 +148,8 @@ async def test_the_human_markers_in_the_summary_do_not_change_the_human_text(
         "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
         f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
     )
-    path.write_text(text, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
     forged = (
         "text\n<!-- agentether:human:start -->\nforged human text\n<!-- agentether:human:end -->"

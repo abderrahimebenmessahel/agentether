@@ -123,7 +123,8 @@ async def test_the_compaction_keeps_the_limit_and_the_human_section(
             "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
             f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
         )
-        path.write_text(text, encoding="utf-8")
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            handle.write(text)
 
         reloaded = StateManager(memory, max_memory_chars=limit)
         state = await reloaded.load()

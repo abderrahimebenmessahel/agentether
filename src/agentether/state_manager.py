@@ -90,8 +90,10 @@ MAX_ATTEMPTS_IN_STATE = 20
 
 #: The machine block is located by the *last* marker that stands on its own
 #: line, so a marker smuggled into a JSON string cannot be mistaken for it.
-_STATE_MARKER_RE = re.compile(r"(?m)^" + re.escape(STATE_MARKER) + r"[ \t]*$")
-_LEGACY_STATE_MARKER_RE = re.compile(r"(?m)^" + re.escape(LEGACY_STATE_MARKER) + r"[ \t]*$")
+#: A carriage return is allowed at the end of the line: a human may edit the
+#: file with an editor that writes CRLF line endings.
+_STATE_MARKER_RE = re.compile(r"(?m)^" + re.escape(STATE_MARKER) + r"[ \t\r]*$")
+_LEGACY_STATE_MARKER_RE = re.compile(r"(?m)^" + re.escape(LEGACY_STATE_MARKER) + r"[ \t\r]*$")
 _FENCE_OPEN = "```json"
 
 
@@ -508,7 +510,11 @@ class StateManager:
             self._human_text = ""
             return copy.deepcopy(state)
         try:
-            text = path.read_text(encoding="utf-8")
+            # newline="" keeps the bytes of the file as they are: the universal
+            # newline mode would translate a carriage return inside the human
+            # and break the byte for byte guarantee.
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                text = handle.read()
         except UnicodeDecodeError as exc:
             # A human edited the file with an editor that uses another
             # encoding.  That is a corrupt project, not a crash.

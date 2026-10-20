@@ -864,7 +864,8 @@ async def test_human_input_unblocks_a_blocked_step(memory_dir: Path) -> None:
         "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
         "<!-- agentether:human:start -->\nthe key is 12345\n<!-- agentether:human:end -->",
     )
-    path.write_text(text, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
     result = await research.rerun()
     assert result.telemetry.status == "completed"

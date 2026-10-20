@@ -310,7 +310,8 @@ async def test_human_section_is_preserved_byte_for_byte(memory_dir: Path) -> Non
         "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
         f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
     )
-    path.write_text(text, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
     await manager.record_step("write", make_telemetry("write"), "more output")
     after = path.read_text(encoding="utf-8")
@@ -328,7 +329,8 @@ async def test_human_section_is_injected_into_the_context(memory_dir: Path) -> N
         "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
         f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
     )
-    path.write_text(text, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
     state = await manager.load()
     rendered = manager.render_context(state)
@@ -358,7 +360,8 @@ async def test_migration_keeps_the_human_section(memory_dir: Path) -> None:
         "<!-- agentether:human:start -->\nkeep me\n<!-- agentether:human:end -->\n"
         "<!-- agentether:state -->",
     )
-    path.write_text(text, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
     manager = StateManager(memory_dir)
     state = await manager.load()

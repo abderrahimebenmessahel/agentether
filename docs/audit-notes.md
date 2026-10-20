@@ -121,5 +121,7 @@ and is named here.  A test that only *partly* covers the claim says so.
 | Bug | How it was found | Fix |
 | --- | --- | --- |
 | A memory file that is not valid UTF-8 raised `UnicodeDecodeError` instead of `StateCorruptionError`. | The state file fuzzer (`test_fuzz_state.py`). | `StateManager._load_sync` now catches `UnicodeDecodeError` and raises an actionable `StateCorruptionError`. |
+| The universal newline mode translated a `` inside the human section, so the human text was **not** preserved byte for byte. | The property test `test_the_compaction_keeps_the_limit_and_the_human_section` (a hypothesis case with a carriage return). | The memory file is read with `newline=""`, so the bytes are kept as they are. |
+| A memory file that a human edited with an editor that writes CRLF line endings could not be read at all: the marker regex required a plain end of line. | The same property test, after the read fix. | The marker regexes accept a trailing ``.  `test_a_file_with_crlf_line_endings_is_still_readable` covers it. |
 | The escaping of the memory file was not injective: a summary that already contained `&lt;!--` came back as `<!--`. | The adversarial test (a) of the previous session. | The ampersand is escaped first. |
 | The corruption message mentioned a `.bak` file that might not exist. | Reading the messages of the audit. | The backup is mentioned only when it is really there. |

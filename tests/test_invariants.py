@@ -105,7 +105,8 @@ async def test_the_compaction_never_drops_the_human_section(memory_dir: Path) ->
         "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
         f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
     )
-    path.write_text(text, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
     reloaded = StateManager(memory_dir, max_memory_chars=400)
     state = await reloaded.load()
@@ -223,3 +224,31 @@ async def test_a_verification_error_keeps_the_evidence(memory_dir: Path, work_di
     cause = excinfo.value.__cause__
     assert isinstance(cause, VerificationFailedError)
     assert cause.evidence.get("missing") == ["missing.md"]
+
+
+async def test_the_human_section_survives_carriage_returns(memory_dir: Path) -> None:
+    """The invariant: the human text is preserved byte for byte.
+
+    The universal newline mode would turn a "\r" into a "\n", so the file
+    is read with newline="".
+    """
+    manager = StateManager(memory_dir)
+    await manager.record_step(
+        "research",
+        Telemetry(step="research", status="completed", summary="s", progress=100),
+        "out",
+    )
+    path = memory_dir / "PROJECT_MEMORY.md"
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        text = handle.read()
+    human = "first line\rsecond line"
+    text = text.replace(
+        "<!-- agentether:human:start -->\n\n<!-- agentether:human:end -->",
+        f"<!-- agentether:human:start -->\n{human}\n<!-- agentether:human:end -->",
+    )
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
+
+    reloaded = StateManager(memory_dir)
+    await reloaded.load()
+    assert human in reloaded.human_text
