@@ -37,8 +37,10 @@ class CountingCaller:
     async def call(self, prompt: str) -> WorkerOutput:
         """One counted request."""
         # The call takes a little time, so that the measured duration of
-        # the cell is not rounded away to zero.
-        await asyncio.sleep(0.002)
+        # the cell is not rounded away to zero.  The wait is long enough
+        # for the coarse clock of Windows before Python 3.13 (the
+        # resolution of ``time.monotonic`` is 15.6 ms there).
+        await asyncio.sleep(0.02)
         self.stats.requests += 1
         self.stats.input_tokens += 11
         self.stats.output_tokens += 7
@@ -108,10 +110,12 @@ async def test_the_runner_counts_the_tokens_of_the_model(tmp_path: Path) -> None
     cell = payload["cells"][0]
     assert cell["tokens"] == 18
     assert cell["requests"] == 1
-    assert cell["seconds"] > 0.0
+    assert cell["seconds"] >= 0.0
+    # The measured time is the sum of the cells, and it is not zero.
     assert payload["measured_seconds"] == pytest.approx(
         sum(float(c["seconds"]) for c in payload["cells"])
     )
+    assert payload["measured_seconds"] > 0.0
 
 
 async def test_a_resumed_run_counts_the_cells_of_the_earlier_runs(tmp_path: Path) -> None:

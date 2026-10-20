@@ -147,6 +147,92 @@ the rest of the package is there.
   it says that the test suite does not distinguish many mutations, not that
   the code has many bugs.  A per-mutant triage is still to be done.
 
+## The triage of the two modules that matter
+
+The triage was done again, on the two modules where a mistake would be a
+security problem: `orchestrator.py` and `state_manager.py`.  The run is in
+WSL (`mutmut` has no native Windows support) and it uses the
+configuration of `pyproject.toml`:
+
+```toml
+[tool.mutmut]
+source_paths = ["src/agentether"]
+only_mutate = ["src/agentether/orchestrator.py", "src/agentether/state_manager.py"]
+also_copy = ["benchmarks"]
+pytest_add_cli_args = ["-x", "-q", "--no-header", "-p", "no:cacheprovider"]
+pytest_add_cli_args_test_selection = ["tests"]
+mutate_only_covered_lines = true
+```
+
+`only_mutate` restricts the mutation to the two modules while the whole
+package is still copied, so that the imports of the mutants work.
+`mutate_only_covered_lines` leaves out the lines that no test reaches: a
+mutation of a line that no test runs cannot say anything about the test
+suite, and it would only inflate the number of survivors.
+
+**The result of the first run of the triage:**
+
+| | orchestrator.py | state_manager.py | total |
+| --- | --- | --- | --- |
+| Mutants | 1 430 | 1 283 | **2 713** |
+| Killed by a test | 831 | 790 | **1 623** |
+| Killed by the timeout (the mutant hangs) | 82 | 8 | **90** |
+| **Survived** | 517 | 483 | **1 000** |
+
+The 90 timeouts are mutants that made the test suite hang: they are not
+survivors, but they are not clean kills either, and they are reported
+apart.
+
+**The triage itself.**  `mutation_triage.py` reads the `.meta` files of
+the run and classifies every survivor by the *shape* of the change and by
+what that shape means:
+
+| Verdict | What it means | Count (first run) |
+| --- | --- | --- |
+| **equivalent** | The change cannot be seen: a keyword argument is replaced by ``None`` and the parameter of the callee really defaults to ``None``.  The verdict comes from the abstract syntax tree of the package, not from a guess. | 50 |
+| **cosmetic** | Only the wording of a message changes.  The behaviour of the library is the same, only what it says is different. | 226 |
+| **gap (record)** | The content of a record (an event, a line of the ledger, the attempt log) is wrong.  The behaviour is the same. | 16 |
+| **gap (format)** | A key of the state file, or the way the file is written, changes.  The format is described in `docs/spec/state-file-format-v2.md`: it is a public contract. | 9 |
+| **gap (behaviour)** | The behaviour changes and no test noticed. | 699 |
+
+**What this says, and what it does not.**  The classification is
+**rule-based**, not a hand analysis of the 1 000 mutants one by one.  The
+rules decide the verdict of the classes above; they cannot decide the
+individual case, and the class "gap (behaviour)" is coarse: it holds
+everything the other rules do not claim.  **The number of survivors is
+therefore a weak signal** and the number of gaps is weaker still.  What
+the triage *does* give is the shape of the problem: most of the survivors
+are mutations that no caller can see, and the ones that matter are the
+keys of the state file and the fields of the records.
+
+**The gaps that were closed.**  The class "gap (format)" and the class
+"gap (record)" pointed at the same thing: nothing looked at the *keys* of
+the state file, at the *fields* of the telemetry or at the *records* of
+the ledger.  `tests/test_contracts.py` pins them now (18 tests): the keys
+of the state file, the keys of the telemetry object, the fields of a line
+of the claims ledger, the fields of the breaker and the shape of the
+budget section.
+
+**What was left open.**  The class "gap (behaviour)" holds 699 survivors
+and was **not** triaged one by one.  They are mostly of three kinds:
+
+1. the value of a *recorded* field (the number of the attempts, the
+   reason of the breaker, the status of a claim): the behaviour is right,
+   the record is incomplete;
+2. the *boundary* of a loop (the compaction, the trimming of the
+   snippets): a change of the bound is not seen;
+3. the *branch* of a condition that the tests never reach in the other
+   direction (for example the half-open breaker when the cooldown comes
+   from the policy and not from the argument).
+
+Closing them means writing one test per branch, which is a day of work
+that the audit did not do.  **They are not bugs that are known to exist:
+they are places where the test suite does not look.**  The honest summary
+is: the mutation score of the two modules is 60 % (1 623 of 2 713 killed
+by a test) and 64 % with the timeouts, and the survivors are dominated by
+equivalent mutants.
+
+
 ## The bugs the property and fuzz tests found
 
 | Bug | Found by | Fix |

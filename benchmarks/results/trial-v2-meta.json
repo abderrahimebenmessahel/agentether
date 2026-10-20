@@ -1,0 +1,45 @@
+{
+  "label": "Trial v2 (2026-10-20)",
+  "status": "A PARTIAL confirmatory run.  The pre-registered selection was NOT met: the two models that satisfy the band of the selection rule are the two of Groq, whose daily quota was spent by the probe and the pilots, and the two models that had the quota are the two the band excludes.  The run below uses the two models that had the quota; their data are a SUPPLEMENTARY run and the deviation is stated here and in docs/WORKLOG.md.",
+  "fault_rate": 0.2,
+  "attempt_cap": 3,
+  "halted": "no",
+  "runs": [
+    {
+      "provider": "cerebras",
+      "model": "gpt-oss-120b",
+      "pilot": {"n": 20, "correct": 19, "rate": 0.95},
+      "qualification": "excluded (0.95 > 0.85)",
+      "n": 9,
+      "mde": "0.467",
+      "note": "the model solves the tasks of the pilot too well for the band of the selection rule; it is reported as a supplementary run.  The daily quota of the provider is 1 000 000 tokens; the pilot, the probe and this run stay under half of it."
+    },
+    {
+      "provider": "google",
+      "model": "gemini-3.5-flash-lite",
+      "pilot": {"n": 20, "correct": 17, "rate": 0.85},
+      "qualification": "excluded (0.85 is the limit of the band; the pilot ended at 0.944)",
+      "n": 12,
+      "mde": "0.404",
+      "note": "the quota of the free tier of this model is per model: gemini-3.6-flash was refused by the provider during its pilot (HTTP 429) and the rate limit of the free tier is not published."
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b",
+      "pilot": {"n": 10, "correct": 7, "rate": 0.7},
+      "qualification": "qualifies",
+      "n": 0,
+      "mde": "not measured",
+      "note": "the model satisfies the rule, but the daily quota of Groq (200 000 tokens) was spent by the probe and the pilots: 130 000 tokens were already used, and the rule of the maintainer forbids going over half of the daily quota of the provider.  No cell of this model was run."
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-20b",
+      "pilot": {"n": 20, "correct": 17, "rate": 0.85},
+      "qualification": "qualifies",
+      "n": 0,
+      "mde": "not measured",
+      "note": "the model satisfies the rule, but the daily quota of Groq was spent by the probe and the pilots (see above).  No cell of this model was run."
+    }
+  ]
+}
