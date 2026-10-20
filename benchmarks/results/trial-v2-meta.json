@@ -57,5 +57,6 @@
       "mde": "not measured",
       "note": "the model satisfies the rule, but the daily quota of Groq was spent by the probe and the pilots (see above).  No cell of this model was run."
     }
-  ]
+  ],
+  "notes": "\n### The two models, and the three cases\n\nThe table above compares the false completions of the naive arm (the arm\nthat trusts every claim) with the false completions of the guarded arm,\ntask by task, on the same tasks and the same fault schedule.\n\n* **cerebras/gpt-oss-120b, injected.**  The naive arm had four false\n  completions.  The guarded arm caught three of them: the file was\n  **missing** (the faults `replay_previous`, `lie` and `drop_file_block`\n  removed it), the existence check failed and the step was retried.  It\n  could not catch the fourth: the fault `truncate_file` left a file that\n  exists but is cut in the middle, and the existence check cannot see it.\n* **google/gemini-3.5-flash-lite, injected.**  The naive arm had two\n  false completions.  The guarded arm caught one of them and could not\n  catch the other, but it **added** a false completion of its own: the\n  defect of the harness (below).  The two effects cancelled each other in\n  the rate (0.167 against 0.167).\n\nSo the two results are not the same kind of result.  The honest reading\nis **not** \"the library works on Cerebras and not on Gemini\": it is \"the\nlibrary catches a missing artifact and does not catch a damaged one\", and\nthe harness must not damage the files.\n"
 }

@@ -5,6 +5,8 @@
 > protocol of every run was pre-registered and committed before the
 > first result file of that run existed.
 
+> The protocol of this run: [`docs/trial-protocol-v3.md`](trial-protocol-v3.md).
+
 > The protocol of this run: [`docs/trial-protocol-v2.md`](trial-protocol-v2.md).
 
 ## The sign convention
@@ -20,6 +22,124 @@ first).  What the sign means depends on the metric:
 
 The same rule applies to the hypotheses, to the verdicts and to the
 tables of the report.
+
+## Trial v3 (2026-10-20)
+
+> **Status: A PARTIAL confirmatory run.  The protocol of the trial v3 is docs/trial-protocol-v3.md, committed before the first result file of this run.  The selection rule of the protocol v2 (a band on the naive success rate) was NOT satisfiable by the models that had quota, and the rule of the v3 is the capability probe and the quota, with no band; the deviation was decided BEFORE the new data.  The budget of the free tier of the day allowed six tasks per cell (Cerebras) and six or seven (Google), and the provider of Google refused the calls of the afternoon with HTTP 429.  The verdicts that depend on the size of the sample are INCONCLUSIVE, and the data show the direction only.**
+
+### What was run
+
+- Cells completed: 50
+- Time the calls took: 2487.8 s
+- Model calls: 194
+- Fault rate: 0.2 (the injected condition only)
+- Attempt cap per step: 3
+- Halted: the daily quota of the provider: Cerebras made its 96 last requests and Google was refused with HTTP 429 (quota exceeded)
+
+### The models of the run
+
+| Provider | Model | Pilot (naive, natural) | Qualifies | N per cell | MDE of the paired difference |
+| --- | --- | --- | --- | --- | --- |
+| cerebras | gpt-oss-120b | 19/20 = 0.950 | passes the capability probe; no band (the rule of the v3) | 6 | 0.571 |
+| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 6 | 0.571 |
+
+- **gpt-oss-120b**: the free tier of the provider: 1 000 requests and 1 000 000 tokens per day; the rule of the maintainer is half of it, and the probe, the pilots and the trial v2 had already spent 404 requests and 362 494 tokens of the day
+- **gemini-3.5-flash-lite**: the free tier of the provider: 1 500 requests per day; the token limit is NOT published (UNVERIFIED in docs/providers.md) and the provider refused the calls of the afternoon with HTTP 429 (quota exceeded)
+
+### The request and token totals
+
+| Model | Requests | Tokens | Wall clock (s) |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 98 | 74866 | 1219.7 |
+| gpt-oss-120b | 96 | 112378 | 1268.2 |
+| **total** | **194** | **187244** | **2487.9** |
+
+### The arms
+
+| Arm | What it does |
+| --- | --- |
+| agentether | The full library with the declarative expectations of the step: the contract, the drift checks, the verifiers, the loop detector, the budget and the breaker. |
+| agentether-claims-only | The full library, but the step declares no expectation: only the files the agent claims are checked. It isolates the contribution of the declarative expectations. |
+| naive | One call per step; the claim is trusted. |
+| simple-retry | The baseline most people would write: retry on a contract failure, an exception or a timeout. No verification, no loop detection, no drift check. |
+
+### Condition: injected
+
+| Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | agentether | 6 | 1.000 [0.610, 1.000] | 0.000 [0.000, 0.390] | 6 | 23 | 319.96 | 1 | 0 |
+| gemini-3.5-flash-lite | agentether-claims-only | 6 | 0.833 [0.436, 0.970] | 0.167 [0.030, 0.564] | 6 | 22 | 231.29 | 0 | 0 |
+| gemini-3.5-flash-lite | naive | 7 | 0.286 [0.082, 0.641] | 0.571 [0.250, 0.842] | 6 | 24 | 374.78 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 7 | 0.714 [0.359, 0.918] | 0.143 [0.026, 0.513] | 6 | 29 | 293.64 | 0 | 0 |
+| gpt-oss-120b | agentether | 6 | 0.500 [0.188, 0.812] | 0.000 [0.000, 0.390] | 3 | 27 | 328.96 | 9 | 0 |
+| gpt-oss-120b | agentether-claims-only | 6 | 0.667 [0.300, 0.903] | 0.167 [0.030, 0.564] | 5 | 26 | 333.93 | 5 | 0 |
+| gpt-oss-120b | naive | 6 | 0.500 [0.188, 0.812] | 0.500 [0.188, 0.812] | 5 | 21 | 282.95 | 0 | 0 |
+| gpt-oss-120b | simple-retry | 6 | 0.500 [0.188, 0.812] | 0.500 [0.188, 0.812] | 6 | 22 | 322.33 | 0 | 0 |
+
+### The paired differences
+
+Every arm saw the same tasks and the same fault schedule, so the
+comparison is paired.  The difference is the share of the tasks where
+one arm was right and the other was not, with the sign convention of
+the section above (A minus B).
+
+| Model | Condition | Comparison | Only A | Only B | Both | Neither | Difference |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs agentether-claims-only) | 1 | 0 | 5 | 0 | +0.167 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs agentether-claims-only) | 0 | 1 | 0 | 5 | -0.167 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 4 | 0 | 2 | 0 | +0.667 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 0 | 3 | 0 | 3 | -0.500 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 1 | 0 | 5 | 0 | +0.167 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 0 | 1 | 0 | 5 | -0.167 |
+| gpt-oss-120b | injected | correct completion (agentether vs agentether-claims-only) | 2 | 3 | 1 | 0 | -0.167 |
+| gpt-oss-120b | injected | false completion (agentether vs agentether-claims-only) | 0 | 1 | 0 | 5 | -0.167 |
+| gpt-oss-120b | injected | correct completion (agentether vs naive) | 2 | 2 | 1 | 1 | +0.000 |
+| gpt-oss-120b | injected | false completion (agentether vs naive) | 0 | 3 | 0 | 3 | -0.500 |
+| gpt-oss-120b | injected | correct completion (agentether vs simple-retry) | 2 | 2 | 1 | 1 | +0.000 |
+| gpt-oss-120b | injected | false completion (agentether vs simple-retry) | 0 | 3 | 0 | 3 | -0.500 |
+
+### The hypotheses
+
+H1: the guarded arm completes more tasks correctly.  H2: the guarded arm
+catches more false completions (the primary endpoint).  The paired
+differences follow the sign convention of the section above: the
+guarded arm minus the naive arm, a **positive** H1 is an improvement
+and a **negative** H2 is an improvement.
+
+| Model | Condition | agentether | naive | H1 (paired) | H2 (paired) |
+| --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | 1.000 | 0.286 | +0.667 | -0.500 |
+| gpt-oss-120b | injected | 0.500 | 0.500 | +0.000 | -0.500 |
+
+### The verdicts
+
+H1: under the injected faults, the guarded arm completes more tasks
+correctly than the baseline.  H2 (the primary endpoint): the guarded
+arm catches more false completions.  H3: the guarded arm costs more.
+
+The verdict of a hypothesis is **INCONCLUSIVE** when the difference is
+smaller than the minimum detectable effect of the sample: the sample
+is then too small to say anything, which is not the same as "no
+effect".  The p value is the exact two sided McNemar test of the
+discordant pairs.
+
+| Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | +0.167 (in 1 task only the guarded arm completed, in 0 tasks only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | 23 against 29 requests, 22438 against 15187 tokens: SUPPORTED |
+| gpt-oss-120b | +0.000 (in 2 tasks only the guarded arm completed, in 2 tasks only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | -0.500 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 27 against 22 requests, 34976 against 21872 tokens: SUPPORTED |
+
+### The contribution of the declarative expectations (H4)
+
+H4: the arm that **declares** what the step must produce has fewer
+false completions than the arm that only checks the files the agent
+claims.  The difference is the false completion rate of the guarded
+arm minus the one of the claims-only arm: a **negative** value is an
+improvement.
+
+| Model | Condition | H4 (paired) | The verdict |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 only the claims-only arm; p = 1.000) | INCONCLUSIVE (the sample is too small) |
+| gpt-oss-120b | injected | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 only the claims-only arm; p = 1.000) | INCONCLUSIVE (the sample is too small) |
 
 ## Trial v2 (2026-10-20)
 

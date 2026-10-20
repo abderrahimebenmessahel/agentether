@@ -120,12 +120,15 @@ def _totals_section(run: Run, level: int) -> list[str]:
     ]
     total_requests = 0
     total_tokens = 0
+    # The total of the wall clock is the sum of the **rounded** rows of the
+    # table: a reader must be able to add the rows of the table and find the
+    # same number.
     total_seconds = 0.0
     for model in sorted({str(cell.get("model", "")) for cell in cells}):
         rows = [cell for cell in cells if cell.get("model") == model]
         requests = sum(int(cell.get("requests", 0) or 0) for cell in rows)
         tokens = sum(int(cell.get("tokens", 0) or 0) for cell in rows)
-        seconds = sum(float(cell.get("seconds", 0.0) or 0.0) for cell in rows)
+        seconds = round(sum(float(cell.get("seconds", 0.0) or 0.0) for cell in rows), 1)
         total_requests += requests
         total_tokens += tokens
         total_seconds += seconds
@@ -495,6 +498,71 @@ def _verdicts_section(run: Run, level: int) -> list[str]:
                         f"{'SUPPORTED' if more else 'NOT SUPPORTED'}"
                     )
         lines.append(f"| {model} | {h1_text} | {h2_text} | {h3_text} |")
+    lines.append("")
+    lines.extend(_expectations_section(run, level))
+    return lines
+
+
+def _expectations_section(run: Run, level: int) -> list[str]:
+    """The verdict of H4: the contribution of the declarative expectations.
+
+    H4 compares the arm that declares what the step must produce with the
+    arm that only checks the claimed files.  It is only computed when both
+    arms are in the run.
+    """
+    cells = run.cells
+    summary = summarise(cells)
+    models = sorted({str(cell.get("model", "")) for cell in cells})
+    arms = {str(cell.get("arm", "")) for cell in cells}
+    if "agentether-claims-only" not in arms:
+        return []
+    mdes: dict[str, float] = {}
+    for item in list(run.meta.get("runs") or []):
+        try:
+            mdes[str(item.get("model"))] = float(item.get("mde", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            mdes[str(item.get("model"))] = 0.0
+    head = "#" * level
+    lines = [
+        f"{head} The contribution of the declarative expectations (H4)",
+        "",
+        "H4: the arm that **declares** what the step must produce has fewer",
+        "false completions than the arm that only checks the files the agent",
+        "claims.  The difference is the false completion rate of the guarded",
+        "arm minus the one of the claims-only arm: a **negative** value is an",
+        "improvement.",
+        "",
+        "| Model | Condition | H4 (paired) | The verdict |",
+        "| --- | --- | --- | --- |",
+    ]
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
+    for model in models:
+        for condition in conditions:
+            key = f"{model}|{condition}"
+            a = summary.get(f"{key}|agentether")
+            b = summary.get(f"{key}|agentether-claims-only")
+            if not (a and b):
+                continue
+            diff = paired_difference(
+                cells, key, "agentether", "agentether-claims-only", "false_completion"
+            )
+            if not diff["n"]:
+                continue
+            p_value = _mcnemar(diff["discordant"], diff["only_agentether"])
+            verdict = _verdict(diff["difference"], p_value, mdes.get(model, 0.0), -1)
+            lines.append(
+                "| {model} | {condition} | {difference:+.3f} (in {n} tasks only the "
+                "guarded arm falsely completed, in {other} only the claims-only arm; "
+                "p = {p:.3f}) | {verdict} |".format(
+                    model=model,
+                    condition=condition,
+                    difference=diff["difference"],
+                    n=diff["only_agentether"],
+                    other=diff["only_agentether-claims-only"],
+                    p=p_value,
+                    verdict=verdict,
+                )
+            )
     lines.append("")
     return lines
 

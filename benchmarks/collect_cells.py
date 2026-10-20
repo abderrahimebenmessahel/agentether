@@ -32,7 +32,7 @@ def collect(cells: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
         The cells with at least one request, and the number of the cells
         that were dropped.
     """
-    kept = [cell for cell in cells if int(cell.get("requests", 0) or 0) > 0]
+    kept = [cell for cell in cells if int(cell.get("attempts", 0) or 0) > 0]
     return kept, len(cells) - len(kept)
 
 
@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         for cell in kept:
             handle.write(json.dumps(cell, sort_keys=True) + "\n")
     print(f"cells kept: {len(kept)}")
-    print(f"cells dropped (no request: the run was stopped in the middle): {dropped}")
+    print(f"cells dropped (no attempt: the run was stopped in the middle): {dropped}")
     print(f"written: {out}")
     return 0
 

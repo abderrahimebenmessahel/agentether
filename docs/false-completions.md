@@ -77,6 +77,11 @@ completion: the arm does not believe the task is done.
 | gpt-oss-120b | injected | task08-compass | json_value data.json 'a=18' | drop_file_block | **(i)** | the injected fault 'drop_file_block' of the attempt 1 removed the file |
 | gpt-oss-120b | injected | task08-compass | json_value data.json 'b=compass' | drop_file_block | **(i)** | the injected fault 'drop_file_block' of the attempt 1 removed the file |
 
+### The arm agentether-claims-only
+
+| Model | Condition | Task | The check that failed | The fault | Cause | Why |
+| --- | --- | --- | --- | --- | --- | --- |
+
 ### The arm agentether
 
 | Model | Condition | Task | The check that failed | The fault | Cause | Why |
@@ -112,44 +117,35 @@ arm, task by task, on the same tasks and the same fault schedule.
 | gemini-3.5-flash-lite | natural | 0 | none | none | task11-vellum (iii) |
 | gpt-oss-120b | injected | 4 | task02-orchard (i), task04-meridian (i), task08-compass (i) | task07-trellis (i) | none |
 
-## Why the guarded arm caught three of the four on Cerebras and none on Gemini
+## Why the guarded arm caught what it caught
 
-The verifier of the guarded arm in the trial v2 is
-`artifacts_exist()`: it checks that the files the model **claims**
-exist.  It does not look at their content, and it cannot know what the
-step asked for.  Two consequences follow, and they are the whole
-explanation:
+The verifier of the claims-only arm is `artifacts_exist()`: it checks
+that the files the model **claims** exist.  It does not look at their
+content, and it cannot know what the step asked for.  The arm that
+declares what the step owes checks the **declaration** of the step:
+the file must exist, and its content must satisfy the declaration.
+Three cases follow, and they are the whole explanation:
 
-* a false completion whose artifact is **missing** is caught: the
-  existence check fails, the step is retried and the arm does not
-  believe the task is done;
-* a false completion whose artifact **exists but is damaged** is not
-  caught: the check passes, the step completes and the ground truth
-  fails behind the back of the arm.
+* a false completion whose artifact is **missing** is caught by both:
+  the check fails, the step is retried and the arm does not believe
+  the task is done;
+* a false completion whose artifact **exists but is damaged** is
+  caught only by the declaration: the existence check passes;
+* a false completion whose artifact was **never produced and never
+  claimed** is caught only by the declaration: the check of the
+  claimed files passes.
 
 * **gemini-3.5-flash-lite, injected.**
-  * the false completion of task02-orchard was **caught**: the injected fault 'replay_previous' removed the file, the existence check failed and the step was retried.
-  * the false completion of task07-trellis was **not** caught: the injected fault 'truncate_file' left a file that exists but is cut in the middle, and the existence check cannot see it.
+  * the false completion of task02-orchard was **caught**: the injected fault 'replay_previous' of the attempt 1 removed the file.
+  * the false completion of task07-trellis was **not** caught: the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer.
   * the guarded arm **added** a false completion of its own on task05-quarry: the answer of the model holds more than the file on disk: the harness cut the file while writing it (the answer holds a code block inside the file, and the parser closes the file on the fence of that block)  This one is a defect of the harness and not of the library: the file on disk is a faithful copy of what the harness wrote, so no verifier of the library could see it.
 * **gemini-3.5-flash-lite, natural.**
   * the guarded arm **added** a false completion of its own on task11-vellum: the answer of the model holds more than the file on disk: the harness cut the file while writing it (the answer holds a code block inside the file, and the parser closes the file on the fence of that block)  This one is a defect of the harness and not of the library: the file on disk is a faithful copy of what the harness wrote, so no verifier of the library could see it.
 * **gpt-oss-120b, injected.**
-  * the false completion of task02-orchard was **caught**: the injected fault 'replay_previous' removed the file, the existence check failed and the step was retried.
-  * the false completion of task04-meridian was **caught**: the injected fault 'lie' removed the file, the existence check failed and the step was retried.
-  * the false completion of task08-compass was **caught**: the injected fault 'drop_file_block' removed the file, the existence check failed and the step was retried.
-  * the false completion of task07-trellis was **not** caught: the injected fault 'truncate_file' left a file that exists but is cut in the middle, and the existence check cannot see it.
-
-So the two results are not the same kind of result.  On Cerebras
-the guarded arm caught the three false completions whose artifact
-was **missing** and could not catch the one whose artifact was
-**damaged but present**.  On Gemini it caught the missing one and
-missed the damaged one, but it also lost a task of its own to a
-defect of the harness, and the two effects cancelled each other in
-the rate (0.167 against 0.167).  The honest reading of the two
-cells is therefore **not** "the library works on Cerebras and not
-on Gemini": it is "the library catches a missing artifact and does
-not catch a damaged one", and the harness must not damage the
-files.
+  * the false completion of task02-orchard was **caught**: the injected fault 'replay_previous' of the attempt 1 removed the file.
+  * the false completion of task04-meridian was **caught**: the injected fault 'lie' of the attempt 1 removed the file.
+  * the false completion of task08-compass was **caught**: the injected fault 'drop_file_block' of the attempt 1 removed the file.
+  * the false completion of task07-trellis was **not** caught: the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer.
 
 ### The defect of the harness
 
@@ -178,11 +174,27 @@ opens a block, and the trial v3 runs with the repaired parser (the
 data of the trial v2 stay as they are: they are a supplementary
 run).
 
-**What the fix is.**  A step that declares what it must produce
-(`expects`) is checked against that declaration and not only
-against the claim of the agent: the file must exist **and** be
-valid (a JSON that parses, a Python that compiles, a Markdown
-that has its headings).  A file that is cut in the middle then
-fails the declaration, the step is retried and the false
-completion disappears.  See `docs/verifiers.md`.
+
+### The two models, and the three cases
+
+The table above compares the false completions of the naive arm (the arm
+that trusts every claim) with the false completions of the guarded arm,
+task by task, on the same tasks and the same fault schedule.
+
+* **cerebras/gpt-oss-120b, injected.**  The naive arm had four false
+  completions.  The guarded arm caught three of them: the file was
+  **missing** (the faults `replay_previous`, `lie` and `drop_file_block`
+  removed it), the existence check failed and the step was retried.  It
+  could not catch the fourth: the fault `truncate_file` left a file that
+  exists but is cut in the middle, and the existence check cannot see it.
+* **google/gemini-3.5-flash-lite, injected.**  The naive arm had two
+  false completions.  The guarded arm caught one of them and could not
+  catch the other, but it **added** a false completion of its own: the
+  defect of the harness (below).  The two effects cancelled each other in
+  the rate (0.167 against 0.167).
+
+So the two results are not the same kind of result.  The honest reading
+is **not** "the library works on Cerebras and not on Gemini": it is "the
+library catches a missing artifact and does not catch a damaged one", and
+the harness must not damage the files.
 

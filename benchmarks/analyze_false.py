@@ -475,20 +475,23 @@ def _explanation(analyses: list[CellAnalysis]) -> list[str]:
     cannot drift away from the data.
     """
     lines = [
-        "## Why the guarded arm caught three of the four on Cerebras and none on Gemini",
+        "## Why the guarded arm caught what it caught",
         "",
-        "The verifier of the guarded arm in the trial v2 is",
-        "`artifacts_exist()`: it checks that the files the model **claims**",
-        "exist.  It does not look at their content, and it cannot know what the",
-        "step asked for.  Two consequences follow, and they are the whole",
-        "explanation:",
+        "The verifier of the claims-only arm is `artifacts_exist()`: it checks",
+        "that the files the model **claims** exist.  It does not look at their",
+        "content, and it cannot know what the step asked for.  The arm that",
+        "declares what the step owes checks the **declaration** of the step:",
+        "the file must exist, and its content must satisfy the declaration.",
+        "Three cases follow, and they are the whole explanation:",
         "",
-        "* a false completion whose artifact is **missing** is caught: the",
-        "  existence check fails, the step is retried and the arm does not",
-        "  believe the task is done;",
-        "* a false completion whose artifact **exists but is damaged** is not",
-        "  caught: the check passes, the step completes and the ground truth",
-        "  fails behind the back of the arm.",
+        "* a false completion whose artifact is **missing** is caught by both:",
+        "  the check fails, the step is retried and the arm does not believe",
+        "  the task is done;",
+        "* a false completion whose artifact **exists but is damaged** is",
+        "  caught only by the declaration: the existence check passes;",
+        "* a false completion whose artifact was **never produced and never",
+        "  claimed** is caught only by the declaration: the check of the",
+        "  claimed files passes.",
         "",
     ]
     keys: list[tuple[str, str]] = []
@@ -518,18 +521,12 @@ def _explanation(analyses: list[CellAnalysis]) -> list[str]:
         if caught:
             for task in caught:
                 finding = naive[task].findings[0]
-                lines.append(
-                    f"  * the false completion of {task} was **caught**: the injected "
-                    f"fault {finding.fault!r} removed the file, the existence check "
-                    "failed and the step was retried."
-                )
+                lines.append(f"  * the false completion of {task} was **caught**: {finding.note}.")
         if missed:
             for task in missed:
                 finding = naive[task].findings[0]
                 lines.append(
-                    f"  * the false completion of {task} was **not** caught: the "
-                    f"injected fault {finding.fault!r} left a file that exists but "
-                    "is cut in the middle, and the existence check cannot see it."
+                    f"  * the false completion of {task} was **not** caught: {finding.note}."
                 )
         for task in added:
             finding = guarded[task].findings[0]
@@ -541,36 +538,7 @@ def _explanation(analyses: list[CellAnalysis]) -> list[str]:
             )
         if not naive and not guarded:
             lines.append("  * there is no false completion at all.")
-    lines.extend(
-        [
-            "",
-            "So the two results are not the same kind of result.  On Cerebras",
-            "the guarded arm caught the three false completions whose artifact",
-            "was **missing** and could not catch the one whose artifact was",
-            "**damaged but present**.  On Gemini it caught the missing one and",
-            "missed the damaged one, but it also lost a task of its own to a",
-            "defect of the harness, and the two effects cancelled each other in",
-            "the rate (0.167 against 0.167).  The honest reading of the two",
-            'cells is therefore **not** "the library works on Cerebras and not',
-            'on Gemini": it is "the library catches a missing artifact and does',
-            'not catch a damaged one", and the harness must not damage the',
-            "files.",
-            "",
-        ]
-    )
-    lines.extend(_harness_defect(analyses))
-    lines.extend(
-        [
-            "**What the fix is.**  A step that declares what it must produce",
-            "(`expects`) is checked against that declaration and not only",
-            "against the claim of the agent: the file must exist **and** be",
-            "valid (a JSON that parses, a Python that compiles, a Markdown",
-            "that has its headings).  A file that is cut in the middle then",
-            "fails the declaration, the step is retried and the false",
-            "completion disappears.  See `docs/verifiers.md`.",
-            "",
-        ]
-    )
+    lines.append("")
     return lines
 
 
@@ -618,8 +586,18 @@ def _harness_defect(analyses: list[CellAnalysis]) -> list[str]:
     return lines
 
 
-def build_markdown(analyses: list[CellAnalysis], title: str = "the trial v2") -> str:
-    """The document of the analysis."""
+def build_markdown(
+    analyses: list[CellAnalysis],
+    title: str = "the trial v2",
+    meta: dict[str, Any] | None = None,
+) -> str:
+    """The document of the analysis.
+
+    The notes of the run (the interpretation that is not computed) are
+    appended at the end; they come from the meta of the run, so the
+    document is reproducible from the cells and the meta.
+    """
+    meta = meta or {}
     lines: list[str] = [
         f"# The cause of every false completion of {title}",
         "",
@@ -657,6 +635,11 @@ def build_markdown(analyses: list[CellAnalysis], title: str = "the trial v2") ->
     lines.extend(_counts(analyses))
     lines.extend(_caught_analysis(analyses))
     lines.extend(_explanation(analyses))
+    lines.extend(_harness_defect(analyses))
+    notes = meta.get("notes")
+    if notes:
+        lines.append(str(notes).rstrip())
+        lines.append("")
     return "\n".join(lines) + "\n"
 
 
@@ -696,6 +679,7 @@ def main(argv: list[str] | None = None) -> int:
         default="the trial v2",
         help="the title of the document",
     )
+    parser.add_argument("--meta", default=None, help="the JSON description of the run")
     args = parser.parse_args(argv)
 
     cells: list[dict[str, Any]] = []
@@ -710,6 +694,9 @@ def main(argv: list[str] | None = None) -> int:
             provider = Path(name).name.replace("trial-v2-", "").replace("trial-v3-", "")
             path = name
         workdirs[provider] = Path(path)
+    meta: dict[str, Any] = {}
+    if args.meta and Path(args.meta).exists():
+        meta = json.loads(Path(args.meta).read_text(encoding="utf-8"))
     if args.task_set == "v3":
         from tasks_v3 import TASKS_V3
 
@@ -719,7 +706,7 @@ def main(argv: list[str] | None = None) -> int:
     analyses = analyse(cells, workdirs, tasks, args.fault_seed, tuple(args.faults))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(build_markdown(analyses, args.title), encoding="utf-8")
+    out.write_text(build_markdown(analyses, args.title, meta), encoding="utf-8")
     print(f"false completions: {len(analyses)}")
     print(f"written: {out}")
     return 0

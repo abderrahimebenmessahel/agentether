@@ -178,7 +178,7 @@ def test_the_document_counts_the_false_completions_of_the_raw_cells() -> None:
         arm = str(cell["arm"])
         counts[arm] = counts.get(arm, 0) + 1
     for arm, count in counts.items():
-        marker = f"### The arm {arm}"
+        marker = f"### The arm {arm}\n"
         assert marker in text
         section = text.split(marker, 1)[1]
         # Only the table of the arm, not the sections that follow it.

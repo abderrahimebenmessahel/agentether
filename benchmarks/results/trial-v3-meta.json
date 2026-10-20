@@ -1,0 +1,36 @@
+{
+  "label": "Trial v3 (2026-10-20)",
+  "status": "A PARTIAL confirmatory run.  The protocol of the trial v3 is docs/trial-protocol-v3.md, committed before the first result file of this run.  The selection rule of the protocol v2 (a band on the naive success rate) was NOT satisfiable by the models that had quota, and the rule of the v3 is the capability probe and the quota, with no band; the deviation was decided BEFORE the new data.  The budget of the free tier of the day allowed six tasks per cell (Cerebras) and six or seven (Google), and the provider of Google refused the calls of the afternoon with HTTP 429.  The verdicts that depend on the size of the sample are INCONCLUSIVE, and the data show the direction only.",
+  "fault_rate": 0.2,
+  "attempt_cap": 3,
+  "halted": "the daily quota of the provider: Cerebras made its 96 last requests and Google was refused with HTTP 429 (quota exceeded)",
+  "runs": [
+    {
+      "provider": "cerebras",
+      "model": "gpt-oss-120b",
+      "pilot": {
+        "n": 20,
+        "correct": 19,
+        "rate": 0.95
+      },
+      "qualification": "passes the capability probe; no band (the rule of the v3)",
+      "n": 6,
+      "mde": "0.571",
+      "note": "the free tier of the provider: 1 000 requests and 1 000 000 tokens per day; the rule of the maintainer is half of it, and the probe, the pilots and the trial v2 had already spent 404 requests and 362 494 tokens of the day"
+    },
+    {
+      "provider": "google",
+      "model": "gemini-3.5-flash-lite",
+      "pilot": {
+        "n": 20,
+        "correct": 17,
+        "rate": 0.85
+      },
+      "qualification": "passes the capability probe; no band (the rule of the v3)",
+      "n": 6,
+      "mde": "0.571",
+      "note": "the free tier of the provider: 1 500 requests per day; the token limit is NOT published (UNVERIFIED in docs/providers.md) and the provider refused the calls of the afternoon with HTTP 429 (quota exceeded)"
+    }
+  ],
+  "notes": "\n### What the run of the day shows\n\nThe run of the day is **partial**: the budget of the day of the free tier\nallowed six tasks per cell on Cerebras and six (seven for two arms) on\nGoogle, and the provider of Google refused the calls of the afternoon with\n`HTTP 429 - You exceeded your current quota`.  The sample is far below\nthe sixty tasks per cell of the protocol, and every verdict that depends\non the size of the sample is **inconclusive**.\n\nWhat the data show is the **direction**, and it is the same in the two\nmodels:\n\n* the naive arm and the baseline believed the task was done while the\n  ground truth said it was not, on three tasks (Cerebras) and on one task\n  (Google);\n* the arm that only checks the **claimed** files caught two of them\n  (Cerebras) and one (Google);\n* the arm that **declares** what the step must produce caught **all** of\n  them, in the two models.\n\nThe causes of the false completions are the ones the trial v3 was built\nto measure: the file was removed (`hide_file`, `lie`, `drop_file_block`),\nthe file was cut in the middle (`truncate_file`), or the file was never\nproduced and the claim mentioned only the files the model did produce.\nThe declaration of the step sees the three cases; the check of the\nclaimed files sees the first one only.\n"
+}
