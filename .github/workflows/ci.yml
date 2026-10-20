@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload the coverage report
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage.xml
@@ -73,7 +73,7 @@ jobs:
         run: |
           pip-audit --progress-spinner off --format json > pip-audit.json || true
           echo "pip-audit report written to pip-audit.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pip-audit
           path: pip-audit.json
