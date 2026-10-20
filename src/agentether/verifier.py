@@ -56,6 +56,12 @@ class PathNotAllowedError(ValueError):
     """
 
 
+#: A path of the shape ``C:\...``: a drive letter and a separator.  It is
+#: refused on every platform, so that a path that is a mistake on Windows
+#: does not become a legal file name on Linux.
+_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:[\/]")
+
+
 def resolve_within(base: Path, candidate: str) -> Path:
     """Resolve ``candidate`` inside ``base``.
 
@@ -74,6 +80,11 @@ def resolve_within(base: Path, candidate: str) -> Path:
         raise PathNotAllowedError("empty path")
     raw = Path(candidate)
     if raw.is_absolute() or raw.drive or raw.root:
+        raise PathNotAllowedError(f"absolute paths are not allowed: {candidate!r}")
+    if _WINDOWS_DRIVE.match(candidate):
+        # A path of the shape ``C:\\...`` is refused on every platform: it
+        # is a mistake everywhere, and a path that is a mistake on Windows
+        # must not become a legal file name on Linux.
         raise PathNotAllowedError(f"absolute paths are not allowed: {candidate!r}")
     if ".." in raw.parts:
         raise PathNotAllowedError(f"'..' is not allowed in paths: {candidate!r}")
