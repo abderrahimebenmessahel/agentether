@@ -88,6 +88,18 @@ class GuardedStep(Protocol[P]):
     async def rerun(self, *args: P.args, **kwargs: P.kwargs) -> StepResult: ...
 
 
+class _WorkerTimeout(Exception):
+    """The worker itself raised a timeout.
+
+    It is used to tell "the worker gave up" apart from "the supervisor gave
+    up", without depending on the resolution of the clock.
+    """
+
+    def __init__(self, original: BaseException) -> None:
+        super().__init__(str(original))
+        self.original = original
+
+
 @dataclass
 class _Failure:
     """Internal description of a failed attempt.
@@ -1130,22 +1142,20 @@ class AutoOrchestrator:
     ) -> tuple[str, Usage | None]:
         target = func
         timeout = self._timeout_seconds
-        # The injectable clock is used on purpose: a simulated benchmark can
-        # jump the clock instead of really waiting.
-        started = self._clock()
         try:
             if inspect.iscoroutinefunction(target):
                 outcome = cast("Awaitable[Any]", target(context, *args, **kwargs))
-                raw = await asyncio.wait_for(outcome, timeout)
+                raw = await asyncio.wait_for(self._await_worker(outcome), timeout)
             else:
                 raw = await asyncio.wait_for(
-                    asyncio.to_thread(target, context, *args, **kwargs), timeout
+                    self._call_in_thread(target, context, *args, **kwargs), timeout
                 )
         except asyncio.TimeoutError as exc:
-            if self._clock() - started < timeout:
-                # The worker raised a timeout itself; that is an agent error.
-                raise AgentExecutionError(context.step_name, exc) from exc
+            # The supervisor's own timer fired: the worker was too slow.
             raise AgentTimeoutError(context.step_name, timeout) from exc
+        except _WorkerTimeout as exc:
+            # The worker raised a timeout itself: that is an agent error.
+            raise AgentExecutionError(context.step_name, exc.original) from exc.original
         except asyncio.CancelledError:
             # Cancellation is never swallowed and never retried.
             raise
@@ -1163,6 +1173,22 @@ class AutoOrchestrator:
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
+    @staticmethod
+    async def _await_worker(awaitable: Awaitable[Any]) -> Any:
+        """Await the worker, tagging a timeout it raises itself."""
+        try:
+            return await awaitable
+        except asyncio.TimeoutError as exc:
+            raise _WorkerTimeout(exc) from exc
+
+    @staticmethod
+    async def _call_in_thread(target: Callable[..., Any], *args: Any) -> Any:
+        """Run a synchronous worker in a thread, tagging its own timeouts."""
+        try:
+            return await asyncio.to_thread(target, *args)
+        except asyncio.TimeoutError as exc:
+            raise _WorkerTimeout(exc) from exc
+
     def _expected_next_step(self, step_name: str) -> str | None:
         index = self._index[step_name]
         if index + 1 < len(self._roadmap):

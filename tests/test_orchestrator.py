@@ -929,3 +929,32 @@ async def test_cancellation_is_never_retried(memory_dir: Path) -> None:
     with pytest.raises(asyncio.CancelledError):
         await research()
     assert calls == [1]
+
+
+async def test_a_worker_that_raises_its_own_timeout_is_an_execution_error(
+    memory_dir: Path,
+) -> None:
+    # The supervisor's timeout and the worker's own timeout are different
+    # things; the classification must not depend on the clock resolution.
+    orch = make_orchestrator(memory_dir, timeout_seconds=5.0, max_retries=1)
+
+    @orch.guard_step("research")
+    async def research(ctx: StepContext) -> str:
+        raise asyncio.TimeoutError("the provider gave up")
+
+    with pytest.raises(CircuitBreakerOpenError) as excinfo:
+        await research()
+    assert_cause(excinfo, AgentExecutionError)
+    assert excinfo.value.reason == "execution_error"
+
+
+async def test_a_worker_that_raises_its_own_timeout_in_a_thread(memory_dir: Path) -> None:
+    orch = make_orchestrator(memory_dir, timeout_seconds=5.0, max_retries=1)
+
+    @orch.guard_step("research")
+    def research(ctx: StepContext) -> str:
+        raise TimeoutError("the provider gave up")
+
+    with pytest.raises(CircuitBreakerOpenError) as excinfo:
+        await research()
+    assert_cause(excinfo, AgentExecutionError)
