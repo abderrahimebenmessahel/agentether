@@ -178,4 +178,23 @@ No prompt is tuned to make the guarded arm look better than it is.
 
 ## Changes after the first run
 
-(none yet -- this section is filled in if a change becomes necessary)
+**2026-10-20, after the first (partial) run.**  Two changes, neither of them
+a prompt change:
+
+1. **The measurement of the arms' belief was wrong.**  The runner wrote the
+   *ground truth* into the `reported_complete` column, so the false
+   completion rate was 0 by construction.  The runner now records the belief
+   of the arm (`reported_complete`) and the ground truth (`correct` and
+   `artifacts_present`) separately.  The results of the first run are kept
+   unchanged and are labelled as not measuring the false completion rate.
+2. **The per-cell token accounting was added** after the run started, so the
+   per-cell token column of the first run is 0; the totals per model are in
+   the trial output.
+
+No prompt was changed, so the comparison stays valid for the part that was
+measured (the correct completion rate).
+
+**The first run stopped early.**  The free tier of OpenRouter answered
+`HTTP 429: free-models-per-day` (limit 50, remaining 0) after the first
+model, so only one of the three models ran, with N = 10 tasks per cell.  The
+runner is resumable; the command is in `docs/evidence.md`.

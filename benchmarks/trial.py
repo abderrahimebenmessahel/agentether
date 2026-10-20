@@ -358,6 +358,7 @@ async def run_arm_naive(
     """Arm A: one call per step, the claim is trusted."""
     attempts = 0
     previous: str | None = None
+    believed = False
     for step_index, step in enumerate(task.steps):
         prompt = f"{step.instruction}\n\n{PROTOCOL.format(step=step.name)}"
         output = await caller.call(prompt)
@@ -373,9 +374,9 @@ async def run_arm_naive(
             telemetry = parse_telemetry(answer, step.name)
         except TelemetryParseError:
             continue
-        if telemetry.status != "completed":
-            continue
-    return {"attempts": attempts, "reported_complete": _reported(task, sandbox)}
+        # The belief of the naive arm: the last step claimed "completed".
+        believed = telemetry.status == "completed"
+    return {"attempts": attempts, "reported_complete": believed}
 
 
 async def run_arm_simple_retry(
@@ -388,6 +389,7 @@ async def run_arm_simple_retry(
     """Arm B: retry on a parse failure, an exception or a timeout."""
     attempts = 0
     previous: str | None = None
+    believed = False
     for step_index, step in enumerate(task.steps):
         prompt = f"{step.instruction}\n\n{PROTOCOL.format(step=step.name)}"
         for _attempt in range(1, ATTEMPT_CAP + 1):
@@ -411,9 +413,10 @@ async def run_arm_simple_retry(
             if telemetry.status == "completed":
                 write_answer_files(answer, sandbox)
                 previous = answer
+                believed = True
                 break
             previous = answer
-    return {"attempts": attempts, "reported_complete": _reported(task, sandbox)}
+    return {"attempts": attempts, "reported_complete": believed}
 
 
 async def run_arm_agentether(
@@ -438,6 +441,7 @@ async def run_arm_agentether(
     rejections = 0
     loops = 0
     attempts = 0
+    believed = False
     previous: str | None = None
 
     def on_event(payload: dict[str, Any]) -> None:
@@ -468,27 +472,24 @@ async def run_arm_agentether(
             return answer
 
         try:
-            await _worker()
+            outcome = await _worker()
         except TrialHalt:
             raise
         except Exception:
-            pass
+            continue
+        believed = outcome.telemetry.status == "completed"
     return {
         "attempts": attempts,
-        "reported_complete": _reported(task, sandbox),
+        "reported_complete": believed,
         "verifier_rejections": rejections,
         "loop_detections": loops,
     }
 
 
-def _reported(task: TaskSpec, sandbox: Path) -> bool:
-    """Whether the arm believes the task is finished.
-
-    The naive and the simple-retry arms believe it when the last step
-    reported "completed"; the ground truth is checked separately.
-    """
-    return all((sandbox / path).exists() for path in task.expected_files) and bool(
-        task.expected_files
+def _artifacts_present(task: TaskSpec, sandbox: Path) -> bool:
+    """Whether every expected file is on disk (part of the ground truth)."""
+    return bool(task.expected_files) and all(
+        (sandbox / path).exists() for path in task.expected_files
     )
 
 
@@ -647,6 +648,7 @@ async def run_trial(
                     memory = sandbox.parent / f"{task.name}-memory"
                     memory.mkdir(parents=True, exist_ok=True)
                     before = stats[model].requests
+                    tokens_before = stats[model].input_tokens + stats[model].output_tokens
                     step_started = time.monotonic()
                     try:
                         if arm == "naive":
@@ -663,7 +665,7 @@ async def run_trial(
                         halted = str(exc)
                         break
                     requests = stats[model].requests - before
-                    tokens = 0
+                    tokens = stats[model].input_tokens + stats[model].output_tokens - tokens_before
                     record = {
                         "key": f"{model}|{condition}",
                         "model": model,
@@ -674,6 +676,7 @@ async def run_trial(
                         "attempts": outcome.get("attempts", 0),
                         "reported_complete": bool(outcome.get("reported_complete")),
                         "correct": task_is_correct(task, sandbox),
+                        "artifacts_present": _artifacts_present(task, sandbox),
                         "requests": requests,
                         "tokens": tokens,
                         "seconds": round(time.monotonic() - step_started, 3),

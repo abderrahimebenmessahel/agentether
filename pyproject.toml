@@ -84,10 +84,8 @@ exclude_lines = [
 [tool.mutmut]
 # The mutation testing run of the audit: the two modules where a mistake
 # would be a security problem.
-source_paths = [
-    "src/agentether/verifier.py",
-    "src/agentether/state_manager.py",
-]
+# The whole package is copied, so that the imports of the mutants work.
+source_paths = ["src/agentether"]
 pytest_add_cli_args_test_selection = ["tests"]
 timeout = 120
 debug = true

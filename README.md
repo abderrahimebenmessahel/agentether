@@ -1,59 +1,88 @@
 # AgenTether
 
-[![PyPI](https://img.shields.io/badge/pypi-context--guard-blue)](https://pypi.org/project/agentether/)
+[![PyPI](https://img.shields.io/badge/pypi-agentether-blue)](https://pypi.org/project/agentether/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](CHANGELOG.md)
 [![Typing](https://img.shields.io/badge/typing-mypy%20--strict-informational)](https://mypy-lang.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-success)](pyproject.toml)
 
-**A tiny supervisor for LLM agent steps.**
+**A tiny supervisor for LLM agent steps: it checks the agent's claims against
+reality, detects loops semantically, and keeps the project state in a
+human-readable Markdown file.**
 
 AgenTether wraps **one** function -- your LLM call -- and keeps the control
 path (the plan, the state, the limits, the validation) in deterministic code
-and in a Markdown file you can read.  It is **not** a multi-agent framework, a
-workflow engine or an orchestration platform, and it does not try to be.
+and on disk.  It is not a multi-agent framework, a workflow engine or an
+orchestration platform, and it does not try to be.  It is standard library
+only and Python 3.10+.
 
 Four ideas, and nothing else:
 
 1. **The agent's claims are verified, not trusted.**  A step that says
-   `status: "completed"` can be checked against reality: does the file
-   exist, is the JSON valid, does the command succeed?
+   `status: "completed"` can be checked against the filesystem: does the file
+   exist, is the JSON valid, does the script compile?
 2. **Loops and stalls are detected semantically**, not only by counting
    retries.  Three answers that look different but say the same thing are a
-   loop, and the library says so.
-3. **The project state is a human-readable, human-editable Markdown file.**
-   The plan lives in `PROJECT_MEMORY.md`, not in the context window, and a
-   human has their own section in it.
+   loop.
+3. **The project state is a human-readable, human-editable Markdown file**
+   -- with a section that belongs to *you*, which the library never rewrites.
 4. **It wraps one function.**  No graph, no roles, no message bus, no
    framework to adopt.
 
-> **Status: Alpha.**  The API may still change.  Nothing here has been
-> validated against live model providers -- the adapters are untested
-> against live APIs (see [Provider adapters](#provider-adapters)).
->
-> **TODO for the maintainer:** decide whether to state the development
-> practice ("AI-assisted development; reviewed by humans") in this README,
-> and fill in the PyPI name check below.
+> **Status: Alpha.**  The API may still change.  The audit in
+> [`docs/audit-notes.md`](docs/audit-notes.md) was written by an AI, not by
+> an independent human reviewer, and the evidence below comes from a tiny
+> sample of three free models.  Read
+> [Known limitations](#known-limitations) before you rely on it.
 
-## The problem
+## 60 seconds, no API key
 
-An agent asked to "research X, then write the summary" forgets what it did,
-because the plan lives in the context window, and the context window is the
-scarcest resource in the run.  When the window fills up, the plan quietly
-disappears.  When the model misunderstands the task, it says "completed" and
-the supervisor believes it.  When it gets stuck, it produces slightly
-different nonsense every time, and a retry counter happily burns the budget.
+```bash
+git clone https://github.com/abderrahimebenmessahel/agentether.git
+cd agentether && pip install -e ".[dev]"
+python examples/demo.py
+```
 
-AgenTether moves the plan out of the context window and into a file, and it
-stops believing the agent.
+The demo's "agent" claims to have written a file it never wrote.  The real
+output:
 
-## Architecture
+```text
+step      : notes
+status    : completed
+attempts  : 2
+summary   : I wrote the notes for real.
+the file  : True
+the first claim was rejected: the file did not exist yet
+the memory file: C:\Users\rimob\AppData\Local\Temp\tmp1sr8sq_i\memory\PROJECT_MEMORY.md
+```
+
+The first attempt claimed success; the verifier found that the file was not
+there, the agent was told why, and the second attempt did the work.
+
+## The 5 line quickstart
+
+```python
+from agentether import AutoOrchestrator
+
+orch = AutoOrchestrator(roadmap=["research", "write"], memory_dir="./memory", timeout_seconds=60, max_retries=3)
+
+@orch.guard_step("research")
+async def research(ctx): return await my_llm(ctx.build_prompt("Research X"))
+
+result = await research()  # StepResult with validated telemetry
+```
+
+`ctx` is injected by the decorator; the decorated function returns the raw
+text of the model.  The decorated callable is always awaited, even when the
+wrapped function is a plain `def` (synchronous workers run in a thread).
+
+## What it does
 
 ```text
                     CONTROL PATH  (deterministic code + files on disk)
   ┌──────────────────────────────────────────────────────────────────────┐
-  │   @orch.guard_step("research")                                       │
+  │   @orch.guard_step("research", verify=[...])                        │
   │        ▼                                                             │
   │   ┌────────────────────┐   read     ┌─────────────────────────────┐   │
   │   │  AutoOrchestrator  │──────────►│  PROJECT_MEMORY.md          │   │
@@ -79,55 +108,6 @@ stops believing the agent.
 
 More in [`docs/architecture.md`](docs/architecture.md).
 
-## Install
-
-```bash
-pip install agentether              # from a package index
-pip install -e ".[dev]"                # from a checkout, with the dev tooling
-pip install "agentether[anthropic]"  # optional provider adapter
-```
-
-AgenTether is **standard library only** and requires Python 3.10 or newer.
-The core package never imports a provider SDK.
-
-> **Distribution name.**  The package is published as `agentether`; the
-> import name stays `agentether` and the command is available as both
-> `agentether` and `agentether`.  The shorter name `agentether` is
-> **taken** on PyPI by an unrelated project, so it is not used for the
-> distribution.
-
-## Quickstart
-
-```python
-from agentether import AutoOrchestrator
-
-orch = AutoOrchestrator(
-    roadmap=["research", "write"], memory_dir="./memory", timeout_seconds=60, max_retries=3
-)
-
-
-@orch.guard_step("research")
-async def research(ctx):
-    return await my_llm(ctx.build_prompt("Research X"))
-
-
-result = await research()  # StepResult with validated telemetry
-```
-
-`ctx` is injected by the decorator; the decorated function returns the raw
-text of the model.  The decorated callable is always awaited, even when the
-wrapped function is a plain `def` (synchronous workers run in a thread).
-
-Runnable examples:
-
-| Example | What it shows |
-| --- | --- |
-| [`examples/quickstart.py`](examples/quickstart.py) | The basics, the cache and `rerun()`. |
-| [`examples/verified_step.py`](examples/verified_step.py) | An agent that lies, and a verifier that catches it. |
-| [`examples/human_in_the_loop.py`](examples/human_in_the_loop.py) | A blocked step waiting for a human answer. |
-| [`examples/loop_detection.py`](examples/loop_detection.py) | A loop of equivalent answers. |
-| [`examples/anthropic_agent.py`](examples/anthropic_agent.py) | The Anthropic adapter (needs the extra and a real API key). |
-
 ## The telemetry contract
 
 The answer must end with a single JSON object.  Prose before it is fine; a
@@ -144,329 +124,169 @@ second JSON object later is ignored -- the last valid one wins.
 }
 ```
 
-`step`, `status` and `summary` are required.  A wrong `step`, an unknown
-`status` or `completed` with a `progress` below 100 is a drift error and is
-retried.  A mismatching `next_step` is only a **warning** unless the
-orchestrator was built with `strict_next_step=True`.
+A wrong `step`, an unknown `status` or `completed` with a `progress` below
+100 is a drift error and is retried.  A mismatching `next_step` is only a
+**warning** unless the orchestrator was built with `strict_next_step=True`.
 
-Full details: [`docs/telemetry-contract.md`](docs/telemetry-contract.md).
+The full contract (draft, for other implementations) is in
+[`docs/spec/telemetry-contract-v1.md`](docs/spec/telemetry-contract-v1.md).
 
 ## Verification: trust, but check
 
 ```python
 from agentether import artifacts_exist, file_contains, json_file_valid
 
-
-@orch.guard_step(
-    "research",
-    verify=[
-        file_contains("notes.md", "Sources"),
-        json_file_valid("notes.json", required_keys=["sources"]),
-        artifacts_exist(),
-    ],
-)
+@orch.guard_step("research", verify=[file_contains("notes.md", "## Findings"),
+                                     json_file_valid("notes.json", required_keys=["sources"]),
+                                     artifacts_exist()])
 async def research(ctx): ...
 ```
 
 The verifiers run in order, all of them must pass, each has its own timeout,
-and an exception inside a verifier is a *failed verification*, never a crash.
-A failed verification is retried with the reason injected into the next
-attempt: `"you reported completed but: the file does not exist: notes.md"`.
+and an exception inside a verifier is a *failed verification*, not a crash.  A
+failed verification is retried with the reason injected into the next attempt:
+`"you reported completed but: the file does not exist: notes.md"`.
 
-Built-in verifiers: `file_exists`, `file_contains`, `json_file_valid`,
-`artifacts_exist`, `command_succeeds` (argv list, **no shell**, hard
-timeout, minimal environment, the whole process tree is killed on a timeout),
-`callable_verifier` and `llm_judge` (an interface only -- the core ships no
-provider code).
+Built in: `file_exists`, `file_contains`, `json_file_valid`,
+`json_schema_subset`, `markdown_has_headings`, `python_syntax_valid`,
+`artifacts_exist`, `command_succeeds` (argv list, **no shell**, the whole
+process tree is killed on a timeout), `callable_verifier` and `llm_judge` (an
+interface only -- the core ships no provider code).
 
 Every path that comes from the model is untrusted: absolute paths, `..`
-components and symlinks that escape the work directory are rejected.  The
-**executable** of a verifier command is untrusted in the same way: by default
-`command_succeeds` refuses an `argv[0]` that resolves inside the work
-directory, because the agent could replace it.
+components and symlinks that escape the work directory are rejected.
 
-Details and the security implications: [`docs/verifiers.md`](docs/verifiers.md).
+## The claims ledger and the "reliability meter"
 
-## Failure handling
+Every attempt that produced a claim is recorded in `claims.jsonl`: the status
+the agent reported, the artifacts it claimed, the summary and the outcome of
+the verification.
 
-| Failure | Retryable? | Action |
-| --- | --- | --- |
-| `AgentTimeoutError` -- the call exceeded `timeout_seconds` | yes | Retry with a corrective hint ("produce a shorter answer") |
-| `TelemetryParseError` -- no usable JSON telemetry | yes | Retry with a corrective hint describing what was wrong |
-| `ContextDriftError` (in-step) -- wrong `step`, unknown `status`, `completed` with `progress < 100` | yes | Retry with a corrective hint naming the mismatch |
-| `ContextDriftError` (roadmap) -- unknown step, or a step whose predecessors are unfinished | **no** | Raised immediately; this is a caller error |
-| `VerificationFailedError` -- a verifier rejected the completion claim | yes | Retry with "you reported completed but: ..." |
-| `LoopDetectedError` -- the answers are near-identical | once | Retry once with a strong hint, then the breaker trips |
-| `AgentExecutionError` -- your function raised | yes | Retry with the original exception in the hint |
-| `blocked` status | **no** | The reason is persisted, a "Needs human input" entry is written, the step waits for a human |
-| `failed` status | **no** | The reason is persisted and raised as an `AgentExecutionError` |
-| `BudgetExceededError` -- a budget is exhausted | **no** | The reason is persisted; the state stays resumable |
-| `CircuitBreakerOpenError` | **no** | The breaker is open; call `await orch.reset_breaker()` |
-| `StateCorruptionError` | **no** | The on-disk state is not trustworthy; it is never silently reset |
-| `asyncio.CancelledError`, `KeyboardInterrupt` | **no** | Never swallowed, never retried |
+```console
+$ agentether stats ./memory
+claims recorded : 12
+claims completed: 9
+verified true   : 7
+verified false  : 2
+false claim rate: 0.222
 
-When the attempts are exhausted the breaker opens and the error that is raised
-is a `CircuitBreakerOpenError`; the original failure is chained as its
-`__cause__` and `exc.reason` names the failure kind.
-
-Which exceptions are retried is configurable:
-
-```python
-orch = AutoOrchestrator(..., retry_on=(TimeoutError,), no_retry_on=(MyFatalError,))
+per step:
+  research: claims=8 completed=6 verified_true=5 verified_false=1
 ```
 
-## The circuit breaker and resume
+`agentether audit ./memory` verifies the hash chain of the event and claim
+logs (each line carries the SHA-256 of the previous one, and a head file
+carries the hash of the last line).  It detects accidental or naive tampering
+-- **not** an attacker who rewrites the whole chain.
 
-```python
-try:
-    await research()
-except CircuitBreakerOpenError as exc:
-    print("breaker open:", exc.reason, exc.last_error)
-    await orch.reset_breaker()  # close it and continue
-```
-
-The breaker lives in `PROJECT_MEMORY.md`, so it survives a process restart:
-an agent that keeps crashing does not get to start over from scratch every
-time the supervisor is relaunched.  While the breaker is open, any
-`guard_step` call fails fast -- the agent is not called at all.
-
-With `breaker_cooldown_seconds=60` the breaker becomes *half open* after a
-minute and allows exactly one trial attempt: success closes it, failure
-re-opens it.
-
-`resume=True` (the default) means a step that is already recorded as
-completed is not executed again; the cached `StepResult` is returned with
-`from_cache=True`.  To run it anyway, use the explicit API:
-
-```python
-result = await research.rerun()
-```
-
-## Budgets
-
-```python
-orch = AutoOrchestrator(
-    ...,
-    policy=GuardPolicy(
-        budget=BudgetPolicy(max_total_seconds=600, max_total_attempts=20, max_total_tokens=100_000)
-    ),
-)
-```
-
-The budgets are **global per project, not per process**: the used attempts,
-tokens, cost and elapsed seconds are written to the state file with every
-attempt and restored when the orchestrator starts, so a run that was
-interrupted and started again continues to spend the same budget.
-
-A worker may report what it spent by returning a `WorkerOutput` instead of a
-string:
-
-```python
-@orch.guard_step("research")
-async def research(ctx) -> WorkerOutput:
-    text, usage = await my_model_call(ctx.build_prompt("Research X"))
-    return WorkerOutput(text=text, usage=Usage(input_tokens=..., output_tokens=..., cost=...))
-```
-
-Workers that return a plain string keep working unchanged; their tokens are
-estimated with the configurable `token_counter` (by default a character
-heuristic -- an approximation, not a tokenizer).
+`agentether report ./memory --format html` builds a self-contained report of
+the run (the agent text is escaped, so a report can never carry a script into
+your browser).
 
 ## Human in the loop
 
 `PROJECT_MEMORY.md` has a section that belongs to you:
 
 ```markdown
-<!-- agentether:human:start -->
-The customer wants bullet points, no more than five.
-<!-- agentether:human:end -->
+<!-- contextguard:human:start -->
+Write it in bullet points, no more than five.
+<!-- contextguard:human:end -->
 ```
 
 The library never rewrites it.  It is injected into the agent's context with
-the highest priority (truncated with a visible marker, and a warning, only
-if it alone does not fit into the budget).  When a step ends `blocked`, a
-"Needs human input" entry is written; as soon as you edit your section, the
-step may run again and your text is injected as a hint.
+the highest priority.  When a step ends `blocked`, a "Needs human input"
+entry is written; as soon as you edit your section, the step may run again
+and your text is injected as a hint.
 
-## Events
+## The evidence
 
-```python
-orch.on("attempt_failed", lambda payload: print("failed:", payload["step"]))
-orch.on("step_completed", on_completed)  # sync or async callbacks
-```
-
-Seven events: `attempt_started`, `attempt_failed`, `step_completed`,
-`breaker_opened`, `loop_detected`, `budget_exceeded`, `verification_failed`.
-An exception inside a callback is logged and never breaks the run.  Every
-event is also appended to `events.jsonl` in the memory directory, with a
-monotonic sequence number and an ISO-8601 UTC timestamp.
-
-## The command line
-
-```bash
-agentether status ./memory            # roadmap progress, breaker, last error
-agentether doctor ./memory            # validate the state file, exit non-zero on problems
-agentether verify ./memory            # re-check the recorded artifacts
-agentether reset-breaker ./memory     # close an open breaker
-agentether benchmark --trials 1000 --seed 0
-```
-
-Every command supports `--json`.
-
-## Simulated benchmark (not a real-world measurement)
+### The simulated benchmark (not a real world measurement)
 
 > **This is a simulation.**  No LLM was called.  A seeded random number
-> generator produces a *failure schedule* for a synthetic agent (hang, no
-> JSON, wrong step name, "completed" without the artifact, near-identical
-> output, partial progress) and two runners are compared over the very same
-> schedules: a **naive** runner (retry blindly, trust the claim) and a
-> **guarded** runner (AgenTether with verifiers, loop detection and the
-> breaker).  A fake clock makes the runs take a minute instead of a day.
+> generator produces a failure schedule for a synthetic agent, and two runners
+> are compared over the very same schedules.  The numbers describe the
+> *policies*, not the behaviour of any model.
 
-Reproduce with `python -m agentether benchmark --trials 1000 --seed 0`
-(the committed result is in [`benchmarks/results/seed-0.json`](benchmarks/results/seed-0.json)).
-
+```console
+$ python -m agentether benchmark --trials 1000 --seed 0
 | Metric | naive | guarded |
 | --- | --- | --- |
 | tasks | 1000 | 1000 |
-| **correct completion rate** (reported *and* really finished) | 0.294 | **0.438** |
-| reported completion rate (the claim alone) | 0.597 | 0.438 |
-| false completion rate (claimed, not done) | 0.303 | **0.000** |
+| **correct completion rate** (done *and* really finished) | 0.294 | 0.438 |
+| reported completion rate (claims only) | 0.597 | 0.438 |
+| false completion rate (claimed, not done) | 0.303 | 0.000 |
 | mean attempts per step | 1.696 | 1.808 |
 | total attempts | 5088 | 5425 |
 | repeated attempts (answer ~ previous answer) | 1140 | 1276 |
-| simulated cost (tokens) | 4,070,400 | 4,340,000 |
+| simulated cost (tokens) | 4070400 | 4340000 |
 | mean time to halt (s) | 10.176 | 10.850 |
+```
 
-**Read this honestly.**  The *correct completion rate* is the headline: a
-task counts only when the runner finished it **and** every artifact is really
-there.  The naive runner reports more tasks as finished (0.597 against
-0.438), but 30.3% of its "finished" tasks were not really done -- it believed
-claims the agent had not earned.  On the metric that counts only real work,
-the naive runner reaches 0.294 and the guarded runner 0.438.
+The naive runner "completes" more tasks, but 30.3% of them were never really
+done: it believed claims the agent had not earned.  The guarded runner
+refuses to count them, so its completion rate drops and its cost rises
+slightly.  That is the trade, stated plainly.  The result is reproducible
+(identical on Linux and Windows) and is committed in
+[`benchmarks/results/seed-0.json`](benchmarks/results/seed-0.json).
 
-The guarded runner also spends slightly more attempts, tokens and time, and it
-does *more* repeated work (1276 against 1140): it refuses the false
-completion and keeps trying, while the naive runner "finishes" the task --
-wrongly -- after fewer attempts.  The loop detector stops the guarded runner
-from repeating forever; it does not make the agent smarter.
+### The real model trial (tiny sample, one day)
 
-**What this does and does not show.**
+See [`docs/evidence.md`](docs/evidence.md) for the full tables, the request
+and token counts, the Wilson intervals and the paired differences.  The
+protocol was **pre-registered and committed before the first result file
+exists** ([`docs/trial-protocol.md`](docs/trial-protocol.md)).
 
-* It shows how the two *policies* behave on the same failure schedule.
-* It does **not** show that the library works with a real model, that a real
-  agent fails this way, or that the numbers generalise beyond the documented
-  parameters.
-* The parameters are part of the result: 3 steps per task, 4 attempts per
-  step, a 45% chance that an attempt succeeds, and the failure mix
-  `malformed 0.25, drift 0.15, lie 0.15, loop 0.15, partial 0.10, hang 0.10`
-  with a 15% chance that a step can never be completed.  Change them and the
-  numbers change.
+## When **not** to use AgenTether
 
-## Real trial (tiny sample, one model)
+* **When the workflow must survive a cluster.**  Use Temporal or Dapr Agents.
+* **When you want a framework to own the shape of the application.**  Use
+  LangGraph or Pyantra; AgenTether has no graph, no streaming, no typed
+  state.
+* **When "retry this function" is the whole problem.**  Use tenacity; it has
+  a much richer retry vocabulary.
+* **When you need cross-process locking or a shared state store.**  AgenTether
+  is a single process with a single directory, on purpose.
+* **When the check needs a model.**  A judge model is available
+  (`llm_judge`), but a judge inherits the unreliability of the model.  Use a
+  deterministic check where you can.
+* **When you need an audit trail for a compliance requirement.**  The hash
+  chain is a tripwire, not a signature.
 
-> **This is a tiny sample from a single free model on a single day.**  It is
-> not a benchmark and it does not show that the library works in general.
-> The numbers below were observed once, with the model
-> `minimax/minimax-m3.1-flash:free` through OpenRouter, on ten synthetic
-> three-step tasks.  Nothing here generalises to other models, other tasks or
-> a real codebase.
+The full comparison, with what each project does better, is in
+[`docs/comparison.md`](docs/comparison.md).
 
-The harness gives the model a tiny protocol (it returns file contents in
-`FILE: path` blocks, the harness writes them into a sandbox) and runs the
-same tasks twice: once **unguarded** (one call per step, the claim is
-trusted) and once **guarded** (AgenTether with the artifact and content
-verifiers, the loop detector and a budget).  The raw result is in
-[`benchmarks/results/`](benchmarks/results/).
-
-| Metric | unguarded | guarded |
-| --- | --- | --- |
-| tasks run | 10 | 10 |
-| correct completions (the files really exist and are valid) | 8 | 10 |
-| false completions (claimed, not done) | 1 | 0 |
-| model calls | 30 | 33 |
-| input tokens | 13,200 | 14,480 |
-| output tokens | 16,301 | 23,493 |
-| verifier rejections | 0 | 0 |
-| loop detections | 0 | 0 |
-| wall seconds | 243 | 320 |
-
-63 HTTP requests in total (the cap was 150, the rate limit 15/minute); the
-trial was not halted early.
-
-**Read this honestly.**  The guarded arm finished all ten tasks and the
-unguarded arm eight, and the unguarded arm once claimed a task was done
-while `README.md` did not mention the script it was supposed to.  But the
-verifiers *never fired* in this run (0 rejections): the guarded arm's
-advantage came from **retrying** a step whose answer had no parseable
-telemetry, not from catching a lie.  With ten easy tasks and a cooperative
-model, this says almost nothing about a real project.  The difference between
-the simulated benchmark above and this trial is that the simulation
-manufactures failures on purpose, while this trial asked a model to do
-boring work.
-
-## How this differs from
-
-AgenTether is not the only tool in this space, and it is not the best
-tool for every job.  What the alternatives do **better**:
-
-* **[tenacity](https://github.com/jd/tenacity)** is the reference for retrying
-  a call: more stop strategies, better composability, a bigger community.
-  AgenTether adds the plan, the memory, the contract, the verifiers and the
-  semantic loop detection.
-* **[Temporal](https://temporal.io/), Restate, Airflow, Prefect** are durable
-  execution engines.  They are much better at **scale and durability**: they
-  persist every step, replay after a crash, run thousands of workers across
-  a cluster, and give you operational tooling.  AgenTether is one process,
-  one directory, no server, no database, no daemon -- and its state is a
-  Markdown file you can read and edit.
-* **[LangGraph](https://github.com/langchain-ai/langgraph), CrewAI, AutoGen,
-  Semantic Kernel** are frameworks.  They are much better at **multi-agent
-  topologies**, tool registries, streaming into their own UI and integration
-  ecosystems.  AgenTether wraps **one function** and adds no abstraction
-  you have to adopt; you can put a `guard_step` inside a LangGraph node.
-* **Other agent-reliability libraries** (guardrails-style output checkers,
-  LLM judges, evaluation harnesses) check the *content* of an answer.
-  AgenTether checks the *claim* against the filesystem and the roadmap, and
-  it is dependency free.
-
-More in [`docs/faq.md`](docs/faq.md).
-
-## Limitations
-
-Honest list of what this library does **not** do:
+## Known limitations
 
 * **Single process only.**  Writers are serialised with an `asyncio.Lock`
-  *within* one process.  There is no cross-process locking.  Two
-  orchestrators must not share a memory directory.
+  within one process.  There is no cross-process locking: two orchestrators
+  must not share a memory directory.
 * **A sync function cannot be killed on timeout.**  A thread is not
   interruptible: when a synchronous worker exceeds `timeout_seconds`, the
-  supervisor stops *waiting*, but the thread keeps running in the background.
+  supervisor stops *waiting*, but the thread keeps running.
 * **`max_memory_chars` counts characters, not tokens**, and the default token
   counter is a character heuristic.  Both are approximations.
-* **Parsing is best effort.**  The extractor is forgiving about prose and
-  strict about JSON.  It cannot repair invalid JSON and it takes the last
-  valid object when there are several.
-* **The model can still lie.**  AgenTether validates the *shape* and the
-  *consistency* of the telemetry and can check the claim against the
-  filesystem.  It cannot tell whether the work is any good.
-* **The memory file is protected against marker injection, not against a
-  malicious human.**  Every string the model controls is escaped when it is
-  written, so it can never forge a marker; the human section is trusted.
+* **The loop detector compares text, not meaning.**  It catches answers that
+  are near identical after the normalisation; it can miss a loop whose answers
+  are lexically diverse but semantically equal, and it can flag answers that
+  share most of their shingles.
+* **The model can still lie.**  AgenTether validates the shape and the
+  consistency of the telemetry and can check a claim against the filesystem.
+  It cannot tell whether the work is any good.
 * **A verifier that asks a model is not a check.**  `llm_judge` is an
   interface; the judgement inherits the unreliability of the model.
 * **`command_succeeds` runs a subprocess** with your privileges.  Only
-  verify commands you trust, and keep them **outside** the agent writable
-  work directory (the default rejects an executable inside it).
-* **The benchmark is simulated.**  It compares policies, not real models.
-* **The provider adapters are untested against live APIs** unless you set
-  `AGENTETHER_LIVE_TESTS=1` and run the opt-in test.
+  verify commands you trust, and keep them outside the agent writable work
+  directory (the default rejects an executable inside it).
+* **The evidence is small.**  The trial is a tiny sample from three free
+  models on one day.
+* **The audit was written by an AI.**  There is no independent human review
+  of this code yet.
 
 ## Development
 
 Developed by Abderrahime BENMESSAHEL with substantial AI assistance
-(LLM-generated code, verified through automated tests and adversarial checks;
-limited independent human code review).
+(LLM-generated code, verified through automated tests, an AI audit and CI;
+**no independent human review yet**).
 
 ```bash
 pip install -e ".[dev]"
@@ -478,64 +298,42 @@ mypy .
 
 The test suite is offline and deterministic: no network, no real model, and
 no test waits for real time (the clock and the backoff sleep are injectable).
-The CI matrix runs Python 3.10 to 3.13 on Linux and Windows.
+The CI matrix runs Python 3.10 to 3.14 on Linux and Windows.
 
-## Provider adapters
+How to add a verifier: write an async function that takes a
+`VerifyContext` and returns a `VerifyResult`, and add it to
+`src/agentether/verifier.py`.  See
+[`docs/verifiers.md`](docs/verifiers.md).
 
-`agentether.adapters` contains `anthropic_worker`, `openai_worker`,
-`ollama_worker` and `openrouter_worker`.  They turn a provider call into a
-worker that returns a `WorkerOutput` with usage information, so the token and
-cost budgets work with real providers.
-
-```python
-from agentether.adapters import anthropic_worker
-
-worker = anthropic_worker(model="claude-3-5-sonnet-latest")
-```
-
-The OpenRouter adapter needs no third party package at all:
-
-```python
-from agentether.adapters import openrouter_worker
-
-worker = openrouter_worker(model="minimax/minimax-m3.1-flash:free")
-```
-
-It reads the key from the environment (`minimax`, `MINIMAX`,
-`MINIMAX_API_KEY` or `OPENROUTER_API_KEY`, case insensitively), never logs
-it, never puts it in an error message, honours `Retry-After` on a rate limit
-and never retries a rejected key.
-
-The SDKs are optional extras and are imported lazily; the core package never
-imports them.  **These adapters are untested against live APIs** unless
-`AGENTETHER_LIVE_TESTS=1` is set and the opt-in live test is run.  API
-keys are read from the environment only, and never logged.
+How to reproduce the evidence: see
+[`docs/trial-protocol.md`](docs/trial-protocol.md) and
+[`docs/evidence.md`](docs/evidence.md).
 
 ## Documentation
 
-* [`docs/architecture.md`](docs/architecture.md) -- the modules and the life
-  of one step.
-* [`docs/state-file-format.md`](docs/state-file-format.md) -- the state file
-  format (schema version 2) and the migration.
-* [`docs/telemetry-contract.md`](docs/telemetry-contract.md) -- what the
-  agent must emit and what is checked.
-* [`docs/verifiers.md`](docs/verifiers.md) -- the verifier guide.
-* [`docs/faq.md`](docs/faq.md) -- "Why not X?".
+| Document | What is in it |
+| --- | --- |
+| [`docs/architecture.md`](docs/architecture.md) | The modules and the life of one step. |
+| [`docs/audit-notes.md`](docs/audit-notes.md) | Every invariant, the test that proves it, and the bugs the audit found. |
+| [`docs/telemetry-contract.md`](docs/telemetry-contract.md) | What the agent must emit and what is checked. |
+| [`docs/verifiers.md`](docs/verifiers.md) | The verifier guide and the security notes. |
+| [`docs/state-file-format.md`](docs/state-file-format.md) | The state file (schema version 2). |
+| [`docs/spec/`](docs/spec/) | The draft specs for other implementations. |
+| [`docs/comparison.md`](docs/comparison.md) | How AgenTether differs from the alternatives. |
+| [`docs/faq.md`](docs/faq.md) | "Why not X?" |
+| [`docs/trial-protocol.md`](docs/trial-protocol.md) | The pre-registration of the trial. |
+| [`docs/evidence.md`](docs/evidence.md) | The results of the trial. |
 
-## Roadmap
+## Examples
 
-* [x] Roadmap enforcement, telemetry contract, retries, circuit breaker
-* [x] Durable, human editable project memory with atomic writes
-* [x] Resume from the project memory and the explicit `rerun()` API
-* [x] Independent verification of the completion claim
-* [x] Semantic loop and stall detection
-* [x] Budgets for seconds, attempts, tokens and cost
-* [x] Human in the loop
-* [x] Event hooks and an append-only event log
-* [x] A `agentether` command line interface
-* [ ] Pluggable storage backends behind the `StateManager` API
-* [ ] Token accurate memory budgeting (a real tokenizer)
-* [ ] A `agentether doctor --repair` that rebuilds the file from the backup
+| Example | What it shows |
+| --- | --- |
+| [`examples/demo.py`](examples/demo.py) | The 60 second demo, without an API key. |
+| [`examples/quickstart.py`](examples/quickstart.py) | The basics, the cache and `rerun()`. |
+| [`examples/verified_step.py`](examples/verified_step.py) | An agent that lies, and a verifier that catches it. |
+| [`examples/human_in_the_loop.py`](examples/human_in_the_loop.py) | A blocked step waiting for a human answer. |
+| [`examples/loop_detection.py`](examples/loop_detection.py) | A loop of equivalent answers. |
+| [`examples/anthropic_agent.py`](examples/anthropic_agent.py) | The Anthropic adapter (needs the extra and a real key). |
 
 ## License
 
