@@ -781,11 +781,16 @@ class AutoOrchestrator:
         flag = getattr(error, "retryable", None)
         if isinstance(flag, bool):
             return flag
+        # The worker exceptions are wrapped in an AgentExecutionError, so the
+        # *original* exception decides as well: an adapter that says
+        # "this will never work" (``retryable = False``) must not be retried.
+        original = getattr(error, "original", None)
+        if isinstance(original, BaseException):
+            original_flag = getattr(original, "retryable", None)
+            if isinstance(original_flag, bool):
+                return original_flag
         if isinstance(error, self._policy.retry.retry_on):
             return True
-        # The worker exceptions are wrapped in an AgentExecutionError, so the
-        # class of the *original* exception is looked at as well.
-        original = getattr(error, "original", None)
         if isinstance(original, BaseException):
             return isinstance(original, self._policy.retry.retry_on)
         return False

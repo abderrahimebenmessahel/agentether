@@ -95,15 +95,22 @@ def escape_embedded(text: str) -> str:
     The agent controls the summary, the step names, the artifact paths and
     the failure reasons.  None of them may ever contain a literal
     ``<!--``, because that is what the library uses to find its own markers.
-    The text is escaped on write and unescaped on read, so the state that is
-    read back is the state that was written.
+
+    The ampersand is escaped first, so the escaping is injective: a summary
+    that already contains the text ``&lt;!--`` survives the round trip byte
+    for byte.  The text is escaped on write and unescaped on read, so the
+    state that is read back is the state that was written.
     """
-    return text.replace("<!--", "&lt;!--")
+    return text.replace("&", "&amp;").replace("<!--", "&lt;!--")
 
 
 def unescape_embedded(text: str) -> str:
-    """Undo :func:`escape_embedded`."""
-    return text.replace("&lt;!--", "<!--")
+    """Undo :func:`escape_embedded`.
+
+    The order is the reverse of the escaping, and it is what makes the round
+    trip lossless.
+    """
+    return text.replace("&lt;!--", "<!--").replace("&amp;", "&")
 
 
 def _escape_state(state: Mapping[str, Any]) -> dict[str, Any]:
@@ -553,6 +560,17 @@ class StateManager:
             content = content[:-1]
         return content
 
+    def _corruption_hint(self) -> str:
+        """The actionable tail of a corruption message.
+
+        A ``.bak`` file is only mentioned when it actually exists: promising
+        a backup that is not there sends the reader looking for nothing.
+        """
+        backup = self.memory_path.with_suffix(self.memory_path.suffix + ".bak")
+        if backup.exists():
+            return f" A backup of an earlier version is at {backup.name}."
+        return ""
+
     def _parse_state_block(self, text: str, state_pos: int) -> dict[str, Any]:
         marker_index = state_pos
         if marker_index == -1:
@@ -560,6 +578,7 @@ class StateManager:
                 f"{self.memory_path} does not contain the ContextGuard state marker "
                 f"{STATE_MARKER!r}; refusing to silently reset the project memory. "
                 "Run 'contextguard doctor' to inspect the file."
+                f"{self._corruption_hint()}"
             )
         # The block is the first fence after the marker up to the *last*
         # fence in the file: a summary that contains "```" cannot truncate it.
@@ -568,7 +587,7 @@ class StateManager:
             raise StateCorruptionError(
                 f"{self.memory_path} contains the state marker but no JSON block; "
                 "the project memory is corrupted. Run 'contextguard doctor' to "
-                "inspect the file."
+                f"inspect the file.{self._corruption_hint()}"
             )
         newline = text.find(chr(10), open_pos)
         if newline < 0:
@@ -588,8 +607,8 @@ class StateManager:
         except json.JSONDecodeError as exc:
             raise StateCorruptionError(
                 f"{self.memory_path} contains a malformed state block: {exc}. "
-                "Run 'contextguard doctor' to inspect the file; a .bak copy of an "
-                "earlier version may exist next to it."
+                "Run 'contextguard doctor' to inspect the file."
+                f"{self._corruption_hint()}"
             ) from exc
         if not isinstance(data, dict):
             raise StateCorruptionError(
@@ -602,6 +621,7 @@ class StateManager:
                 f"{self.memory_path} uses unsupported schema_version {version!r}; "
                 f"this build understands {version} and {SCHEMA_VERSION}. "
                 "Run 'contextguard doctor' to inspect the file."
+                f"{self._corruption_hint()}"
             )
         state = self._fresh_state()
         state.update(data)

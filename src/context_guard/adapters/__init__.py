@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-__all__ = ["anthropic_worker", "ollama_worker", "openai_worker"]
+__all__ = ["anthropic_worker", "ollama_worker", "openai_worker", "openrouter_worker"]
 
 
 def _require(module: str, extra: str) -> Any:
@@ -49,6 +49,22 @@ def anthropic_worker(**kwargs: Any) -> Any:
        the source code and never log it.
     """
     from .anthropic import anthropic_worker as _worker
+
+    return _worker(**kwargs)
+
+
+def openrouter_worker(**kwargs: Any) -> Any:
+    """Create a worker that calls the OpenRouter API.
+
+    The key is read from the environment only: ``api_key_env`` or, when that
+    is ``None``, the first of ``minimax``, ``MINIMAX``, ``MINIMAX_API_KEY``
+    and ``OPENROUTER_API_KEY`` that is set.  The key is never logged and never
+    appears in an error message.
+
+    .. warning::
+       Untested against live APIs unless ``CONTEXTGUARD_LIVE_TESTS=1`` is set.
+    """
+    from .openrouter import openrouter_worker as _worker
 
     return _worker(**kwargs)
 
