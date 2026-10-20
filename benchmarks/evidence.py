@@ -1,10 +1,14 @@
 """Turn the raw trial cells into the tables of ``docs/evidence.md``.
 
-The statistics are the ones of the pre-registration
-(``docs/trial-protocol.md``): Wilson 95% intervals for the proportions and
-paired differences over the identical tasks and fault schedules.
+The document is built from the **raw** progress file of the trial (one JSON
+line per cell) and from a small meta file that describes the run.  Nothing
+is typed in by hand: the tables, the intervals and the totals are computed
+here, so the document can be regenerated and checked.
 
-    python benchmarks/evidence.py --progress <progress.jsonl> --out docs/evidence.md
+    python benchmarks/evidence.py --progress benchmarks/results/run-1-progress.jsonl \\
+        --meta benchmarks/results/run-1-meta.json --out docs/evidence.md
+
+.. versionadded:: 0.3.0a1
 """
 
 from __future__ import annotations
@@ -18,7 +22,10 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from trial import ARMS, CONDITIONS, paired_difference, summarise
+from trial import paired_difference, summarise  # noqa: E402
+
+ARMS = ("naive", "simple-retry", "agentether")
+CONDITIONS = ("natural", "injected")
 
 
 def _rate(value: float) -> str:
@@ -29,27 +36,44 @@ def _ci(low: float, high: float) -> str:
     return f"[{low:.3f}, {high:.3f}]"
 
 
-def _totals_section(meta: dict[str, Any]) -> list[str]:
+def _read_progress(path: Path) -> list[dict[str, Any]]:
+    """The cells of a run."""
+    cells: list[dict[str, Any]] = []
+    if not path.exists():
+        return cells
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                cells.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return cells
+
+
+def _totals_section(cells: list[dict[str, Any]], meta: dict[str, Any]) -> list[str]:
     """The request and token totals of the run."""
-    stats = meta.get("model_stats")
-    if not isinstance(stats, dict) or not stats:
-        return []
     lines = [
-        "### The request and token totals",
+        "## The request and token totals",
         "",
         "| Model | Requests | Input tokens | Output tokens |",
         "| --- | --- | --- | --- |",
     ]
-    for name, item in sorted(stats.items()):
-        lines.append(
-            "| {model} | {requests} | {inp} | {out} |".format(
-                model=name,
-                requests=item.get("requests", 0),
-                inp=item.get("input_tokens", 0),
-                out=item.get("output_tokens", 0),
+    for model in meta.get("models", []):
+        rows = [cell for cell in cells if cell["model"] == model]
+        requests = sum(int(cell.get("requests", 0) or 0) for cell in rows)
+        tokens = sum(int(cell.get("tokens", 0) or 0) for cell in rows)
+        if meta.get("tokens_recorded") is False:
+            lines.append(
+                f"| {model} | {requests} | not recorded | not recorded |"
             )
-        )
+        else:
+            lines.append(f"| {model} | {requests} | {tokens} | (see the cells) |")
     lines.append("")
+    if meta.get("tokens_note"):
+        lines.extend([f"> {meta['tokens_note']}", ""])
     return lines
 
 
@@ -64,8 +88,9 @@ def _condition_tables(
                 f"## Condition: {condition}",
                 "",
                 "| Model | Arm | N | Correct completion rate (95% CI) |"
-                " False completion rate | Requests | Wall s | Rejections | Loops |",
-                "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+                " False completion rate (95% CI) | Believed done | Requests | Wall s |"
+                " Rejections | Loops |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for model in models:
@@ -74,14 +99,16 @@ def _condition_tables(
                 if not row:
                     continue
                 lines.append(
-                    "| {model} | {arm} | {n} | {rate} {ci} | {false} |"
-                    " {requests} | {seconds} | {rejections} | {loops} |".format(
+                    "| {model} | {arm} | {n} | {rate} {ci} | {false} {false_ci} |"
+                    " {reported} | {requests} | {seconds} | {rejections} | {loops} |".format(
                         model=model,
                         arm=arm,
                         n=row["n"],
                         rate=_rate(row["correct_rate"]),
                         ci=_ci(*row["correct_ci"]),
                         false=_rate(row["false_rate"]),
+                        false_ci=_ci(*row["false_ci"]),
+                        reported=row["reported"],
                         requests=row["requests"],
                         seconds=row["seconds"],
                         rejections=row["verifier_rejections"],
@@ -97,7 +124,7 @@ def _paired_tables(cells: list[dict[str, Any]], models: list[str]) -> list[str]:
     lines = [
         "## The paired differences",
         "",
-        "Every arm saw the same tasks and the same injected faults, so the",
+        "Every arm saw the same tasks and the same fault schedule, so the",
         "comparison is paired.  The difference is the share of the tasks where",
         "one arm was right and the other was not.",
         "",
@@ -175,10 +202,40 @@ def _hypotheses(
     return lines
 
 
+def _defects_section(defects: list[dict[str, Any]]) -> list[str]:
+    """The defects of the harness, with the evidence for each."""
+    if not defects:
+        return []
+    lines = [
+        "## The defects of this run",
+        "",
+        "A run whose harness treats the arms differently does not measure the",
+        "arms.  The defects below were found in the harness of this run, and",
+        "each of them changed the numbers of the tables above.",
+        "",
+    ]
+    for defect in defects:
+        lines.extend(
+            [
+                f"### {defect['id']}. {defect['title']}",
+                "",
+                f"- **Evidence.** {defect['evidence']}",
+                f"- **Effect.** {defect['effect']}",
+                f"- **Fix.** {defect['fix']}",
+                "",
+            ]
+        )
+    return lines
+
+
 def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
     """Build the evidence document."""
     summary = summarise(cells)
-    models = sorted({cell["model"] for cell in cells})
+    models = list(meta.get("models") or sorted({cell["model"] for cell in cells}))
+    measured = sum(float(cell.get("seconds", 0.0) or 0.0) for cell in cells)
+    requests = sum(int(cell.get("requests", 0) or 0) for cell in cells)
+    label = meta.get("label", "The run")
+
     lines: list[str] = [
         "# Evidence",
         "",
@@ -187,17 +244,28 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
         "> protocol was pre-registered and committed before the first result file",
         "> existed: [`docs/trial-protocol.md`](trial-protocol.md).",
         "",
-        "## What was run",
+        f"## {label}",
         "",
-        f"- Tasks per cell: {meta.get('tasks_per_cell', '?')}",
-        f"- Cells completed: {len(cells)} of the planned grid",
-        f"- Wall clock: {meta.get('wall_seconds', '?')} s",
-        f"- Fault rate: {meta.get('fault_rate', '?')} (the injected condition only)",
-        f"- Attempt cap per step: {meta.get('attempt_cap', '?')}",
-        f"- Halted: {meta.get('halted') or 'no'}",
+        f"> **Status: {meta.get('status', 'unknown')}**",
         "",
     ]
-    lines.extend(_totals_section(meta))
+    if meta.get("wall_clock_note"):
+        lines.extend([f"> {meta['wall_clock_note']}", ""])
+    lines.extend(
+        [
+            "## What was run",
+            "",
+            f"- Tasks per cell: {meta.get('tasks_per_cell', '?')}",
+            f"- Cells completed: {len(cells)}",
+            f"- Time the calls took: {measured:.1f} s",
+            f"- Model calls: {requests}",
+            f"- Fault rate: {meta.get('fault_rate', '?')} (the injected condition only)",
+            f"- Attempt cap per step: {meta.get('attempt_cap', '?')}",
+            f"- Halted: {meta.get('halted') or 'no'}",
+            "",
+        ]
+    )
+    lines.extend(_totals_section(cells, meta))
     lines.extend(
         [
             "## The arms",
@@ -206,7 +274,7 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
             "| --- | --- |",
             "| naive | One call per step; the claim is trusted. |",
             "| simple-retry | The baseline most people would write: retry on a"
-            " parse failure, an exception or a timeout. No verification, no loop"
+            " contract failure, an exception or a timeout. No verification, no loop"
             " detection, no drift check. |",
             "| agentether | The full library: the contract, the drift checks, the"
             " verifiers, the loop detector, the budget and the breaker. |",
@@ -216,6 +284,7 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
     lines.extend(_condition_tables(cells, summary, models))
     lines.extend(_paired_tables(cells, models))
     lines.extend(_hypotheses(cells, summary, models))
+    lines.extend(_defects_section(list(meta.get("defects") or [])))
     lines.extend(
         [
             "## What this shows and what it does not",
@@ -241,21 +310,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build the evidence document.")
     parser.add_argument("--progress", required=True, help="the progress.jsonl of the trial")
     parser.add_argument("--out", default="docs/evidence.md")
-    parser.add_argument("--meta", default=None, help="the JSON result of the trial")
+    parser.add_argument("--meta", default=None, help="the JSON description of the run")
     args = parser.parse_args(argv)
 
-    progress = Path(args.progress)
-    cells: list[dict[str, Any]] = []
-    if progress.exists():
-        with progress.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    cells.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
+    cells = _read_progress(Path(args.progress))
     meta: dict[str, Any] = {}
     if args.meta and Path(args.meta).exists():
         meta = json.loads(Path(args.meta).read_text(encoding="utf-8"))

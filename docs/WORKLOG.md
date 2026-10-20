@@ -86,8 +86,103 @@ Gate after this change: **325 passed, 4 skipped** (Windows, CPython 3.14.7),
 `mypy --strict` clean on 53 files, `ruff check` clean, `ruff format --check`
 clean on 81 files.
 
+### Phase 1(b) and 1(c) — the accounting, and the simple-retry anomaly
+
+**The diagnosis of the anomaly.**  The evidence was in the run-1 work
+directory (`%TEMP%\agentether-trial`), which still existed:
+
+- `simple-retry/natural/task01-harbour` held **only** `notes.md`, while
+  `naive/natural/task01-harbour` held all four files of the same task, with
+  the same model.  The baseline threw away the work the model had done.
+- The cause was in `run_arm_simple_retry`: `write_answer_files` was called
+  **only** when the telemetry parsed *and* the status was "completed".  The
+  naive arm wrote the files of every answer.  So a file that the model
+  really produced was destroyed by the baseline whenever the claim was not
+  exactly "completed" -- and the baseline then failed the ground truth
+  check.  A baseline that only adds retries cannot be worse than doing
+  nothing; this one was, because of that line.
+
+Two more defects of the same run were found while the first one was
+verified:
+
+- **The prompt never said that `progress` is a number from 0 to 100.**  The
+  contract of AgenTether treats a completed step with a progress below 100
+  as drift.  The attempt log of `agentether/natural/task03-lantern-memory`
+  reads: *"Context drift at step 'notes': step was reported as completed
+  but progress is 1 (expected='progress >= 100 for a completed step',
+  observed=1.0)"*, and the second and the third step of that task were
+  never attempted.  The agentether arm of run 1 measured the prompt, not
+  the library.
+- **The roadmap order stopped the agentether arm at the first failed
+  step**, while the other two arms walked through every step.
+- **The fault schedule was keyed on a counter that ran across the whole
+  task**, so an arm that retried more met different faults for the same
+  step.  The claim that every arm saw the same faults was false.
+- **The belief was computed three different ways** (the last answer, "any
+  step ever completed", the last step), so the false completion rate was
+  not comparable.
+
+**The accounting.**  The runner that produced run 1 had `tokens = 0`
+hard-coded (commit 64266c1), and the committed payload has
+`wall_seconds: 0` next to `requests: 291`.  A live probe of the same
+endpoint (one request, `logs/probe_openrouter.py`) showed that the server
+*does* report the usage (`usage.prompt_tokens: 205`,
+`usage.completion_tokens: 21`), so the zeros were the runner's fault, not
+the provider's.
+
+**What was changed.**
+
+- `benchmarks/harness.py` is new: the protocol, the file protocol, the
+  faults, the ground truth and the three arms.  The arms take a `Caller`,
+  so a scripted fake model can drive them offline.
+- Every arm now writes the files of **every** answer, whatever the claim
+  says.  The naive arm catches a failed call (it has no claim, so it has
+  no verdict) instead of letting the exception end the trial.
+- The prompt states the scale of `progress` and that it must be 100 for a
+  completed step.  The change was applied to **all** arms.
+- The agentether arm is built with `strict_order=False` and the breaker is
+  closed again before every step, so each step gets the same number of
+  attempts as in the other arms.  It uses the prompt the library builds
+  (`ctx.build_prompt`), which adds the roadmap position, the project
+  memory and the corrective hint of the previous attempt.  That is a
+  **confound of the correct-completion rate** and it is reported as such;
+  it does not touch the false completion rate, which is the primary
+  endpoint.
+- Every arm reports a verdict for every step; the belief of the task is
+  true when every step was considered done.  The naive arm trusts the
+  claim, the simple-retry arm enforces the contract and retries, the
+  agentether arm needs the step to pass the verifiers.
+- The fault schedule is a function of the task, the step and the attempt
+  number **inside** that step.
+- The runner counts the tokens, sums the time of the calls
+  (`measured_seconds`), and seeds the counters of a resumed run with the
+  cells of the earlier sessions.
+
+**The tests.**  `tests/test_trial_arms.py` (17 tests) drives the arms with
+a scripted fake model: the model fails once and then succeeds, the first
+telemetry is broken, the first status is `in_progress`, the first call
+times out, the first call fails, the first step name is wrong.  In every
+case **the simple-retry arm is never worse than the naive arm**, and a
+retry never destroys a file the model produced.
+`tests/test_trial_runner.py` (5 tests) pins the accounting down.
+
+**The raw data of run 1 is now in the repository**
+(`benchmarks/results/run-1-progress.jsonl`, 60 cells) because it only
+existed in `%TEMP%`.  `docs/evidence.md` is regenerated from it by
+`benchmarks/evidence.py` and now carries the status of the run, the
+measured time (4039.1 s) and the six defects with their evidence.  **The
+numbers of run 1 are not a comparison of the three arms and the document
+says so.**
+
+Gate after this change: **347 passed, 4 skipped** (Windows, CPython
+3.14.7), `mypy --strict` clean on 55 files, `ruff check` clean, `ruff
+format --check` clean on 84 files, `scan_secrets.py` clean on the tree and
+on the history.
+
 ### NEXT ACTION
 
-Phase 1(b): the token and elapsed-time accounting of the trial runner, and
-the regeneration of `docs/evidence.md` from the raw JSON.
+Phase 1(d): the mutation triage of `orchestrator.py` and
+`state_manager.py` (mutmut runs in WSL), then Phase 2 (the provider
+agnostic layer and `docs/providers.md`).
+
 

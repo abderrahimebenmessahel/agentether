@@ -1,8 +1,9 @@
 """The runner of the evidence trial.
 
 Three arms (naive, simple-retry, agentether), two conditions (natural,
-injected), three models.  Every arm sees the same tasks and the same seeded
-fault schedule.
+injected), several models.  Every arm sees the same tasks, the same prompts
+and the same fault schedule; the arms themselves live in
+:mod:`benchmarks.harness`.
 
 The runner is **resumable**: it appends one JSON line per call to a progress
 file, so a run that stops (a daily cap, a rate limit) can be continued later
@@ -22,11 +23,10 @@ import argparse
 import asyncio
 import json
 import os
-import random
-import re
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,23 +35,26 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from tasks import TASKS, Check, TaskSpec
-
-from agentether import (
-    AutoOrchestrator,
-    StepContext,
-    TelemetryParseError,
-    WorkerOutput,
-    artifacts_exist,
-    parse_telemetry,
+from harness import (
+    ATTEMPT_CAP,
+    FAULT_RATE,
+    FAULT_SEED,
+    Caller,
+    artifacts_present,
+    run_arm_agentether,
+    run_arm_naive,
+    run_arm_simple_retry,
+    task_is_correct,
 )
+from tasks import TASKS, TaskSpec
+
 from agentether.adapters.openrouter import (
-    OpenRouterError,
     OpenRouterTransientError,
     openrouter_complete,
 )
 
-#: The models of the trial (three different families, all free tier).
+#: The models of the trial (different families, all free tier).  The ids are
+#: checked against the live catalogue of OpenRouter before a run.
 MODELS: tuple[str, ...] = (
     "minimax/minimax-m3.1-flash:free",
     "google/gemma-4-31b-it:free",
@@ -64,211 +67,15 @@ ARMS: tuple[str, ...] = ("naive", "simple-retry", "agentether")
 #: The conditions of the trial.
 CONDITIONS: tuple[str, ...] = ("natural", "injected")
 
-#: The probability that a fault is injected into an attempt.
-FAULT_RATE = 0.20
-
-#: The seed of the fault schedule.
-FAULT_SEED = 20261020
-
 #: The hard cap of HTTP requests per model per day.
 DEFAULT_MODEL_CAP = 400
 
 #: The global rate limit in requests per minute.
 DEFAULT_RATE_LIMIT = 15
 
-#: The attempt cap of the simple-retry and the agentether arms.
-ATTEMPT_CAP = 3
 
-PROTOCOL = """\
-You are working inside a sandbox. You cannot use tools: you return the content
-of every file in a fenced block whose first line is "FILE: <relative path>".
-
-Example:
-
-FILE: notes.md
-# Notes
-## Context
-...
-
-Rules:
-- one fenced block per file, and the first line of the block must be
-  "FILE: <path>" followed by the content of the file;
-- the path must be relative, without ".." and without a drive letter;
-- write every file the step asks for, with exactly the content that is asked
-  for (the exact headings, the exact keys, the exact numbers);
-- end your answer with a single JSON object with the keys "step", "status",
-  "summary", "progress", "next_step" and "artifacts" (the list of the files
-  you produced, as relative paths);
-- the value of "step" must be exactly "{step}";
-- report "completed" only when you really produced every file of the step.
-"""
-
-_FENCE = re.compile(r"```[^\r\n]*\r?\n(?P<body>.*?)```", re.DOTALL)
-_FILE_HEAD = re.compile(r"^\s*FILE:\s*(?P<path>[^\r\n`]+?)\s*$")
-_MAX_FILE_BYTES = 64_000
-_MAX_SANDBOX_BYTES = 512_000
-
-
-# ----------------------------------------------------------------------
-# the harness protocol
-# ----------------------------------------------------------------------
-def parse_file_blocks(answer: str) -> list[tuple[str, str]]:
-    """Extract the ``FILE: path`` blocks of an answer."""
-    found: list[tuple[str, str]] = []
-    for match in _FENCE.finditer(answer):
-        body = match.group("body")
-        lines = body.splitlines()
-        if not lines:
-            continue
-        head = _FILE_HEAD.match(lines[0])
-        if head is None:
-            continue
-        found.append((head.group("path").strip(), "\n".join(lines[1:])))
-    return found
-
-
-def write_answer_files(answer: str, sandbox: Path) -> list[str]:
-    """Write the files of an answer into the sandbox (path confined)."""
-    written: list[str] = []
-    total = 0
-    for path, content in parse_file_blocks(answer):
-        if not path or path.startswith("/") or ".." in Path(path).parts:
-            continue
-        encoded = content.encode("utf-8")[:_MAX_FILE_BYTES]
-        if total + len(encoded) > _MAX_SANDBOX_BYTES:
-            break
-        target = sandbox / path
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(encoded)
-        except OSError:
-            continue
-        written.append(path)
-        total += len(encoded)
-    return written
-
-
-# ----------------------------------------------------------------------
-# the injected faults
-# ----------------------------------------------------------------------
-def _telemetry_of(answer: str) -> tuple[str, str]:
-    """The telemetry JSON of an answer and the text before it."""
-    start = answer.rfind("{")
-    if start < 0:
-        return "", answer
-    end = answer.rfind("}")
-    if end < start:
-        return "", answer
-    return answer[start : end + 1], answer[:start]
-
-
-def inject_fault(answer: str, fault: str, previous: str | None) -> str:
-    """Apply one injected fault to an answer.
-
-    Args:
-        answer: The answer of the model.
-        fault: The name of the fault.
-        previous: The previous answer of the same step (for the replay fault).
-
-    Returns:
-        The faulty answer.
-    """
-    if fault == "drop_file_block":
-        return re.sub(r"```[^\r\n]*\r?\n.*?```", "", answer, flags=re.DOTALL)
-    if fault == "truncate_file":
-        blocks = list(_FENCE.finditer(answer))
-        if not blocks:
-            return answer
-        first = blocks[0]
-        body = first.group("body")
-        half = body[: len(body) // 2]
-        new_block = "```\n" + half + "\n```"
-        return answer[: first.start()] + new_block + answer[first.end() :]
-    if fault == "corrupt_telemetry":
-        telemetry, head = _telemetry_of(answer)
-        if not telemetry:
-            return answer + "\n{not json at all}"
-        broken = telemetry.replace('"status"', '"stat us"')
-        return head + "\n" + broken
-    if fault == "wrong_step":
-        telemetry, head = _telemetry_of(answer)
-        if not telemetry:
-            return answer
-        broken = re.sub(r'"step"\s*:\s*"[^"]*"', '"step": "some_other_step"', telemetry)
-        return head + "\n" + broken
-    if fault == "replay_previous":
-        return previous if previous is not None else answer
-    if fault == "lie":
-        # The claim stays, the file block goes.
-        return re.sub(r"```[^\r\n]*\r?\n.*?```", "", answer, flags=re.DOTALL)
-    return answer
-
-
-def fault_for(task_index: int, step_index: int, attempt: int) -> str | None:
-    """The fault of one attempt (or ``None``).
-
-    The schedule is seeded and identical for every arm, so the comparison is
-    paired.
-    """
-    rng = random.Random(f"{FAULT_SEED}:{task_index}:{step_index}:{attempt}")
-    if rng.random() >= FAULT_RATE:
-        return None
-    return rng.choice(
-        [
-            "drop_file_block",
-            "truncate_file",
-            "corrupt_telemetry",
-            "wrong_step",
-            "replay_previous",
-            "lie",
-        ]
-    )
-
-
-# ----------------------------------------------------------------------
-# the ground truth
-# ----------------------------------------------------------------------
-def run_check(check: Check, sandbox: Path) -> bool:
-    """Run one ground truth check."""
-    target = sandbox / check.path
-    if check.kind == "file_exists":
-        return target.is_file()
-    if not target.is_file():
-        return False
-    if check.kind in ("contains", "headings"):
-        content = target.read_text(encoding="utf-8", errors="replace")
-        return bool(check.value in content)
-    if check.kind == "python_valid":
-        source = target.read_text(encoding="utf-8", errors="replace")
-        try:
-            compile(source, str(target), "exec")
-        except SyntaxError:
-            return False
-        return True
-    if check.kind == "json_keys":
-        data = _load_json(target)
-        if not isinstance(data, dict):
-            return False
-        return all(key in data for key in check.value.split(","))
-    if check.kind == "json_value":
-        data = _load_json(target)
-        if not isinstance(data, dict):
-            return False
-        key, _, expected = check.value.partition("=")
-        return bool(str(data.get(key)) == expected)
-    return False
-
-
-def _load_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8", errors="replace"))
-    except (OSError, json.JSONDecodeError):
-        return None
-
-
-def task_is_correct(task: TaskSpec, sandbox: Path) -> bool:
-    """Whether every ground truth check of the task passes."""
-    return all(run_check(check, sandbox) for check in task.checks)
+class TrialHalt(Exception):
+    """Raised when the trial must stop."""
 
 
 # ----------------------------------------------------------------------
@@ -319,7 +126,7 @@ class ModelCaller:
         self.stats = stats
         self.cap = cap
 
-    async def call(self, prompt: str) -> WorkerOutput:
+    async def call(self, prompt: str) -> Any:
         """One request.  Raises ``TrialHalt`` when the cap is reached."""
         await self.limiter.acquire()
         if self.stats.requests >= self.cap:
@@ -339,158 +146,6 @@ class ModelCaller:
             self.stats.input_tokens += usage.input_tokens
             self.stats.output_tokens += usage.output_tokens
         return output
-
-
-class TrialHalt(Exception):
-    """Raised when the trial must stop."""
-
-
-# ----------------------------------------------------------------------
-# the arms
-# ----------------------------------------------------------------------
-async def run_arm_naive(
-    task: TaskSpec,
-    sandbox: Path,
-    caller: ModelCaller,
-    condition: str,
-    task_index: int,
-) -> dict[str, Any]:
-    """Arm A: one call per step, the claim is trusted."""
-    attempts = 0
-    previous: str | None = None
-    believed = False
-    for step_index, step in enumerate(task.steps):
-        prompt = f"{step.instruction}\n\n{PROTOCOL.format(step=step.name)}"
-        output = await caller.call(prompt)
-        attempts += 1
-        answer = output.text
-        if condition == "injected":
-            fault = fault_for(task_index, step_index, attempts)
-            if fault is not None:
-                answer = inject_fault(answer, fault, previous)
-        previous = answer
-        write_answer_files(answer, sandbox)
-        try:
-            telemetry = parse_telemetry(answer, step.name)
-        except TelemetryParseError:
-            continue
-        # The belief of the naive arm: the last step claimed "completed".
-        believed = telemetry.status == "completed"
-    return {"attempts": attempts, "reported_complete": believed}
-
-
-async def run_arm_simple_retry(
-    task: TaskSpec,
-    sandbox: Path,
-    caller: ModelCaller,
-    condition: str,
-    task_index: int,
-) -> dict[str, Any]:
-    """Arm B: retry on a parse failure, an exception or a timeout."""
-    attempts = 0
-    previous: str | None = None
-    believed = False
-    for step_index, step in enumerate(task.steps):
-        prompt = f"{step.instruction}\n\n{PROTOCOL.format(step=step.name)}"
-        for _attempt in range(1, ATTEMPT_CAP + 1):
-            try:
-                output = await caller.call(prompt)
-            except OpenRouterError:
-                continue
-            except TrialHalt:
-                raise
-            attempts += 1
-            answer = output.text
-            if condition == "injected":
-                fault = fault_for(task_index, step_index, attempts)
-                if fault is not None:
-                    answer = inject_fault(answer, fault, previous)
-            try:
-                telemetry = parse_telemetry(answer, step.name)
-            except TelemetryParseError:
-                previous = answer
-                continue
-            if telemetry.status == "completed":
-                write_answer_files(answer, sandbox)
-                previous = answer
-                believed = True
-                break
-            previous = answer
-    return {"attempts": attempts, "reported_complete": believed}
-
-
-async def run_arm_agentether(
-    task: TaskSpec,
-    sandbox: Path,
-    memory_dir: Path,
-    caller: ModelCaller,
-    condition: str,
-    task_index: int,
-) -> dict[str, Any]:
-    """Arm C: the full library."""
-    orchestrator = AutoOrchestrator(
-        roadmap=[step.name for step in task.steps],
-        memory_dir=str(memory_dir),
-        timeout_seconds=120.0,
-        max_retries=ATTEMPT_CAP,
-        workdir=str(sandbox),
-        backoff_base=0.0,
-        events_enabled=True,
-        resume=False,
-    )
-    rejections = 0
-    loops = 0
-    attempts = 0
-    believed = False
-    previous: str | None = None
-
-    def on_event(payload: dict[str, Any]) -> None:
-        nonlocal rejections, loops
-        if payload.get("event") == "verification_failed":
-            rejections += 1
-        if payload.get("event") == "loop_detected":
-            loops += 1
-
-    orchestrator.on("verification_failed", on_event)
-    orchestrator.on("loop_detected", on_event)
-
-    for step_index, step in enumerate(task.steps):
-        prompt = f"{step.instruction}\n\n{PROTOCOL.format(step=step.name)}"
-
-        @orchestrator.guard_step(step.name, verify=[artifacts_exist()])
-        async def _worker(ctx: StepContext, _prompt: str = prompt, _index: int = step_index) -> str:
-            nonlocal attempts, previous
-            output = await caller.call(_prompt)
-            attempts += 1
-            answer = output.text
-            if condition == "injected":
-                fault = fault_for(task_index, _index, attempts)
-                if fault is not None:
-                    answer = inject_fault(answer, fault, previous)
-            previous = answer
-            write_answer_files(answer, ctx.workdir)
-            return answer
-
-        try:
-            outcome = await _worker()
-        except TrialHalt:
-            raise
-        except Exception:
-            continue
-        believed = outcome.telemetry.status == "completed"
-    return {
-        "attempts": attempts,
-        "reported_complete": believed,
-        "verifier_rejections": rejections,
-        "loop_detections": loops,
-    }
-
-
-def _artifacts_present(task: TaskSpec, sandbox: Path) -> bool:
-    """Whether every expected file is on disk (part of the ground truth)."""
-    return bool(task.expected_files) and all(
-        (sandbox / path).exists() for path in task.expected_files
-    )
 
 
 # ----------------------------------------------------------------------
@@ -596,6 +251,44 @@ def paired_difference(
 # ----------------------------------------------------------------------
 # the runner
 # ----------------------------------------------------------------------
+def _read_progress(progress_path: Path) -> list[dict[str, Any]]:
+    """The cells of the previous runs of this work directory."""
+    cells: list[dict[str, Any]] = []
+    if not progress_path.exists():
+        return cells
+    seen: set[tuple[str, str, str, str]] = set()
+    with progress_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            key = (record["model"], record["arm"], record["condition"], record["task"])
+            if key in seen:
+                continue
+            seen.add(key)
+            cells.append(record)
+    return cells
+
+
+def _seed_stats(stats: dict[str, ModelStats], cells: list[dict[str, Any]]) -> None:
+    """Seed the counters of a resumed run with the cells of the past runs.
+
+    Without this, the request and token totals of a resumed run would only
+    count the cells of the last session.
+    """
+    for cell in cells:
+        stat = stats.get(cell.get("model", ""))
+        if stat is None:
+            continue
+        stat.requests += int(cell.get("requests", 0) or 0)
+        stat.input_tokens += int(cell.get("input_tokens", 0) or 0)
+        stat.output_tokens += int(cell.get("output_tokens", 0) or 0)
+
+
 async def run_trial(
     models: tuple[str, ...],
     arms: tuple[str, ...],
@@ -606,8 +299,23 @@ async def run_trial(
     model_cap: int,
     workdir: Path,
     progress_path: Path,
+    caller_factory: Callable[[str, RateLimiter, ModelStats, int], Caller] | None = None,
 ) -> dict[str, Any]:
-    """Run the trial and return the result payload."""
+    """Run the trial and return the result payload.
+
+    Args:
+        models: The model ids to run.
+        arms: The arms to run.
+        conditions: The conditions to run.
+        tasks: The task set.
+        per_cell: The number of tasks per cell.
+        rate_limit: The requests per minute.
+        model_cap: The hard cap of requests per model.
+        workdir: The directory of the sandboxes.
+        progress_path: The resumable progress file.
+        caller_factory: Builds the caller of a model.  It is ``None`` in
+            the trial (the live model) and a script in the tests.
+    """
     limiter = RateLimiter(rate_limit)
     stats = {model: ModelStats(model) for model in models}
     cells: list[dict[str, Any]] = []
@@ -615,25 +323,18 @@ async def run_trial(
     started = time.monotonic()
 
     done: set[tuple[str, str, str, str]] = set()
-    if progress_path.exists():
-        with progress_path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                key = (record["model"], record["arm"], record["condition"], record["task"])
-                if key in done:
-                    continue
-                done.add(key)
-                cells.append(record)
+    for record in _read_progress(progress_path):
+        key = (record["model"], record["arm"], record["condition"], record["task"])
+        done.add(key)
+        cells.append(record)
+    _seed_stats(stats, cells)
 
     selected = tasks[:per_cell]
     for model in models:
-        caller = ModelCaller(model, limiter, stats[model], model_cap)
+        if caller_factory is None:
+            caller: Caller = ModelCaller(model, limiter, stats[model], model_cap)
+        else:
+            caller = caller_factory(model, limiter, stats[model], model_cap)
         for condition in conditions:
             for arm in arms:
                 for index, task in enumerate(selected):
@@ -673,15 +374,16 @@ async def run_trial(
                         "arm": arm,
                         "task": task.name,
                         "task_index": index,
-                        "attempts": outcome.get("attempts", 0),
-                        "reported_complete": bool(outcome.get("reported_complete")),
+                        "attempts": outcome.attempts,
+                        "reported_complete": outcome.believed,
+                        "step_verdicts": list(outcome.step_verdicts),
                         "correct": task_is_correct(task, sandbox),
-                        "artifacts_present": _artifacts_present(task, sandbox),
+                        "artifacts_present": artifacts_present(task, sandbox),
                         "requests": requests,
                         "tokens": tokens,
                         "seconds": round(time.monotonic() - step_started, 3),
-                        "verifier_rejections": outcome.get("verifier_rejections", 0),
-                        "loop_detections": outcome.get("loop_detections", 0),
+                        "verifier_rejections": outcome.verifier_rejections,
+                        "loop_detections": outcome.loop_detections,
                         "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     }
                     record["false_completion"] = (
@@ -697,6 +399,7 @@ async def run_trial(
         if halted:
             break
 
+    measured = sum(float(cell.get("seconds", 0.0) or 0.0) for cell in cells)
     payload = {
         "simulated": False,
         "real_model_trial": True,
@@ -712,7 +415,11 @@ async def run_trial(
         "conditions": list(conditions),
         "tasks_per_cell": per_cell,
         "halted": halted,
+        # The wall clock of this session, and the time the calls took in
+        # total (which also covers the cells of the previous sessions of a
+        # resumed run).
         "wall_seconds": round(time.monotonic() - started, 2),
+        "measured_seconds": round(measured, 3),
         "model_stats": {model: stat.to_dict() for model, stat in stats.items()},
         "cells": cells,
         "summary": summarise(cells),
