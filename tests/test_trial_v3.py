@@ -349,3 +349,30 @@ async def test_the_runner_runs_the_four_arms_of_the_v3(tmp_path: Path) -> None:
     for cell in payload["cells"]:
         assert "false_completion" in cell
         assert cell["requests"] >= 1
+
+
+async def test_a_stop_is_not_swallowed_by_the_arms(tmp_path: Path) -> None:
+    """The stop of the daily cap must stop the run, not empty the cells.
+
+    The arms catch the exceptions of a call (a timeout, a transport error)
+    and carry on.  A *stop* must not be carried on: the first run of the
+    trial v3 wrote 136 empty cells because the arms swallowed it.
+    """
+    from trial import TrialHalt
+
+    task = make_task()
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    memory = tmp_path / "memory"
+    memory.mkdir()
+
+    class StoppingCaller:
+        async def call(self, prompt: str) -> Any:
+            raise TrialHalt("the cap of the day is reached")
+
+    with pytest.raises(TrialHalt):
+        await run_arm_agentether(task, sandbox, memory, StoppingCaller(), "natural", 0)
+    with pytest.raises(TrialHalt):
+        await run_arm_naive(task, sandbox, StoppingCaller(), "natural", 0)
+    with pytest.raises(TrialHalt):
+        await run_arm_simple_retry(task, sandbox, StoppingCaller(), "natural", 0)

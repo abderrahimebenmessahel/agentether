@@ -24,6 +24,7 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -31,14 +32,14 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from harness import fault_for, run_check
+from harness import FAULTS, fault_for, run_check
 from tasks import TASKS, TaskSpec
 
 #: The faults that damage the artifacts of an answer.
 DAMAGING_FAULTS = ("drop_file_block", "truncate_file", "lie", "replay_previous")
 
 #: The arms of the trial, in the order of the report.
-ARMS = ("naive", "simple-retry", "agentether")
+ARMS = ("naive", "simple-retry", "agentether-claims-only", "agentether")
 
 #: The cause codes of the analysis.
 CAUSES = {
@@ -232,6 +233,8 @@ def classify_cell(
     task: TaskSpec,
     sandbox: Path,
     memory: Path,
+    fault_seed: int | None = None,
+    faults: Sequence[str] = FAULTS,
 ) -> CellAnalysis:
     """Classify the false completion of one cell."""
     analysis = CellAnalysis(cell=cell)
@@ -245,7 +248,7 @@ def classify_cell(
         last_attempt = max(attempts) if attempts else 1
         fault = ""
         if cell.get("condition") == "injected":
-            fault = fault_for(task_index, step_index, last_attempt) or ""
+            fault = fault_for(task_index, step_index, last_attempt, fault_seed, faults) or ""
         target = sandbox / check.path
         detail = f"{check.kind} {check.path}"
         if check.value:
@@ -337,6 +340,8 @@ def analyse(
     cells: list[dict[str, Any]],
     workdirs: dict[str, Path],
     tasks: list[TaskSpec],
+    fault_seed: int | None = None,
+    faults: Sequence[str] = FAULTS,
 ) -> list[CellAnalysis]:
     """The analysis of every false completion of the run."""
     by_name = {task.name: task for task in tasks}
@@ -354,7 +359,7 @@ def analyse(
             workdir, model, str(cell.get("arm", "")), str(cell.get("condition", "")), task.name
         )
         memory = _memory_of(workdir, model, str(cell.get("condition", "")), task.name)
-        out.append(classify_cell(cell, task, sandbox, memory))
+        out.append(classify_cell(cell, task, sandbox, memory, fault_seed, faults))
     return out
 
 
@@ -613,10 +618,10 @@ def _harness_defect(analyses: list[CellAnalysis]) -> list[str]:
     return lines
 
 
-def build_markdown(analyses: list[CellAnalysis]) -> str:
+def build_markdown(analyses: list[CellAnalysis], title: str = "the trial v2") -> str:
     """The document of the analysis."""
     lines: list[str] = [
-        "# The cause of every false completion of the trial v2",
+        f"# The cause of every false completion of {title}",
         "",
         "> This document is **generated** by `benchmarks/analyze_false.py` from",
         "> the raw cells, the sandboxes and the attempt logs of the run.  No",
@@ -668,6 +673,29 @@ def main(argv: list[str] | None = None) -> int:
         help="the work directories of the providers",
     )
     parser.add_argument("--out", default="docs/false-completions.md")
+    parser.add_argument(
+        "--fault-seed",
+        type=int,
+        default=None,
+        help="the seed of the fault schedule of the run",
+    )
+    parser.add_argument(
+        "--faults",
+        nargs="*",
+        default=list(FAULTS),
+        help="the faults of the schedule of the run",
+    )
+    parser.add_argument(
+        "--task-set",
+        choices=("v2", "v3"),
+        default="v2",
+        help="the task set of the run",
+    )
+    parser.add_argument(
+        "--title",
+        default="the trial v2",
+        help="the title of the document",
+    )
     args = parser.parse_args(argv)
 
     cells: list[dict[str, Any]] = []
@@ -677,12 +705,21 @@ def main(argv: list[str] | None = None) -> int:
                 cells.append(json.loads(line))
     workdirs: dict[str, Path] = {}
     for name in args.workdir:
-        path = Path(name)
-        workdirs[path.name.replace("trial-v2-", "")] = path
-    analyses = analyse(cells, workdirs, TASKS)
+        provider, _, path = name.partition("=")
+        if not path:
+            provider = Path(name).name.replace("trial-v2-", "").replace("trial-v3-", "")
+            path = name
+        workdirs[provider] = Path(path)
+    if args.task_set == "v3":
+        from tasks_v3 import TASKS_V3
+
+        tasks = TASKS_V3
+    else:
+        tasks = TASKS
+    analyses = analyse(cells, workdirs, tasks, args.fault_seed, tuple(args.faults))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(build_markdown(analyses), encoding="utf-8")
+    out.write_text(build_markdown(analyses, args.title), encoding="utf-8")
     print(f"false completions: {len(analyses)}")
     print(f"written: {out}")
     return 0

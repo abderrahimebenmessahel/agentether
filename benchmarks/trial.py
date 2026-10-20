@@ -94,8 +94,15 @@ DEFAULT_MODEL_CAP = 400
 DEFAULT_RATE_LIMIT = 15
 
 
-class TrialHalt(Exception):
-    """Raised when the trial must stop."""
+class TrialHalt(BaseException):
+    """Raised when the trial must stop.
+
+    It is a :class:`BaseException` and not an :class:`Exception` on
+    purpose: the arms of the harness catch the exceptions of a call (a
+    timeout, a transport error) and carry on, and a *stop* must not be
+    carried on.  The first run of the trial v3 wrote 136 empty cells
+    because the arms swallowed the stop of the daily cap.
+    """
 
 
 def _usage_path(provider: str) -> Path:
