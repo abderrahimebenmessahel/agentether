@@ -3,31 +3,41 @@
 > **A tiny sample from free models on a single day.**  This is not a
 > benchmark and it does not show that AgenTether works in general.  The
 > protocol was pre-registered and committed before the first result file
-> existed: [`docs/trial-protocol.md`](trial-protocol.md).
+> existed: [`docs/trial-protocol-v2.md`](trial-protocol-v2.md).
 
-## Run 1 (2026-10-20)
+## Trial v2 (2026-10-20)
 
-> **Status: NOT a valid comparison of the three arms: two of them were hobbled by defects of the harness, and the numbers below must not be read as a comparison of the policies.**
-
-> The `wall_seconds` of the committed payload of run 1 was 0.  The time the calls really took is the sum of the per cell seconds: it is reported below as the measured time.
+> **Status: A PARTIAL confirmatory run.  The pre-registered selection was NOT met: the two models that satisfy the band of the selection rule are the two of Groq, whose daily quota was spent by the probe and the pilots, and the two models that had the quota are the two the band excludes.  The run below uses the two models that had the quota; their data are a SUPPLEMENTARY run and the deviation is stated here and in docs/WORKLOG.md.**
 
 ## What was run
 
-- Tasks per cell: 10
-- Cells completed: 60
-- Time the calls took: 4039.1 s
-- Model calls: 291
+- Cells completed: 144
+- Time the calls took: 10527.1 s
+- Model calls: 450
 - Fault rate: 0.2 (the injected condition only)
 - Attempt cap per step: 3
-- Halted: the free tier returned HTTP 429 (free-models-per-day) after the first model; the other two planned models were not run
+- Halted: no
+
+## The models of the run
+
+| Provider | Model | Pilot (naive, natural) | Qualifies | N per cell | MDE of the paired difference |
+| --- | --- | --- | --- | --- | --- |
+| cerebras | gpt-oss-120b | 19/20 = 0.950 | excluded (0.95 > 0.85) | 12 | 0.404 |
+| google | gemini-3.5-flash-lite | 17/20 = 0.850 | excluded (0.85 is the limit of the band; the pilot ended at 0.944) | 12 | 0.404 |
+| groq | qwen/qwen3.8-27b | 7/10 = 0.700 | qualifies | 0 | not measured |
+| groq | openai/gpt-oss-20b | 17/20 = 0.850 | qualifies | 0 | not measured |
+
+- **gpt-oss-120b**: the model solves the tasks of the pilot too well for the band of the selection rule; it is reported as a supplementary run.  The daily quota of the provider is 1 000 000 tokens; the pilot, the probe and this run stay under half of it.
+- **gemini-3.5-flash-lite**: the quota of the free tier of this model is per model: gemini-3.6-flash was refused by the provider during its pilot (HTTP 429) and the rate limit of the free tier is not published.
+- **qwen/qwen3.8-27b**: the model satisfies the rule, but the daily quota of Groq (200 000 tokens) was spent by the probe and the pilots: 130 000 tokens were already used, and the rule of the maintainer forbids going over half of the daily quota of the provider.  No cell of this model was run.
+- **openai/gpt-oss-20b**: the model satisfies the rule, but the daily quota of Groq was spent by the probe and the pilots (see above).  No cell of this model was run.
 
 ## The request and token totals
 
-| Model | Requests | Input tokens | Output tokens |
+| Model | Requests | Tokens | Wall clock (s) |
 | --- | --- | --- | --- |
-| minimax/minimax-m3.1-flash:free | 291 | not recorded | not recorded |
-
-> The runner of run 1 had `tokens = 0` hard-coded (commit 64266c1), so the token columns of this run are empty.  A live probe of the same endpoint on 2026-10-20 confirmed that the server does report the usage (`usage.prompt_tokens` and `usage.completion_tokens`), so the zeros were a defect of the runner and not of the provider.  The runner counts the tokens since then.
+| gemini-3.5-flash-lite | 261 | 188346 | 7930.1 |
+| gpt-oss-120b | 189 | 206605 | 2597.0 |
 
 ## The arms
 
@@ -37,21 +47,27 @@
 | simple-retry | The baseline most people would write: retry on a contract failure, an exception or a timeout. No verification, no loop detection, no drift check. |
 | agentether | The full library: the contract, the drift checks, the verifiers, the loop detector, the budget and the breaker. |
 
-## Condition: natural
-
-| Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| minimax/minimax-m3.1-flash:free | naive | 10 | 0.400 [0.168, 0.687] | 0.000 [0.000, 0.278] | 4 | 35 | 415.6 | 0 | 0 |
-| minimax/minimax-m3.1-flash:free | simple-retry | 10 | 0.100 [0.018, 0.404] | 0.000 [0.000, 0.278] | 1 | 65 | 839.44 | 0 | 0 |
-| minimax/minimax-m3.1-flash:free | agentether | 10 | 0.300 [0.108, 0.603] | 0.000 [0.000, 0.278] | 3 | 48 | 803.91 | 2 | 0 |
-
 ## Condition: injected
 
 | Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| minimax/minimax-m3.1-flash:free | naive | 10 | 0.300 [0.108, 0.603] | 0.000 [0.000, 0.278] | 3 | 35 | 437.48 | 0 | 0 |
-| minimax/minimax-m3.1-flash:free | simple-retry | 10 | 0.200 [0.057, 0.510] | 0.000 [0.000, 0.278] | 2 | 65 | 873.44 | 0 | 0 |
-| minimax/minimax-m3.1-flash:free | agentether | 10 | 0.300 [0.108, 0.603] | 0.000 [0.000, 0.278] | 3 | 43 | 669.24 | 4 | 0 |
+| gemini-3.5-flash-lite | agentether | 12 | 0.833 [0.552, 0.953] | 0.167 [0.047, 0.448] | 12 | 47 | 1679.36 | 3 | 0 |
+| gemini-3.5-flash-lite | naive | 12 | 0.583 [0.320, 0.807] | 0.167 [0.047, 0.448] | 9 | 42 | 1166.01 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 12 | 0.833 [0.552, 0.953] | 0.167 [0.047, 0.448] | 12 | 46 | 1611.07 | 0 | 0 |
+| gpt-oss-120b | agentether | 12 | 0.667 [0.391, 0.862] | 0.083 [0.015, 0.354] | 9 | 34 | 458.93 | 2 | 0 |
+| gpt-oss-120b | naive | 12 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 420.83 | 0 | 0 |
+| gpt-oss-120b | simple-retry | 12 | 0.417 [0.193, 0.680] | 0.333 [0.138, 0.609] | 9 | 31 | 449.62 | 0 | 0 |
+
+## Condition: natural
+
+| Model | Arm | N | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | agentether | 12 | 0.917 [0.646, 0.985] | 0.083 [0.015, 0.354] | 12 | 42 | 1325.62 | 0 | 0 |
+| gemini-3.5-flash-lite | naive | 12 | 1.000 [0.757, 1.000] | 0.000 [0.000, 0.243] | 12 | 42 | 963.31 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 12 | 0.917 [0.646, 0.985] | 0.083 [0.015, 0.354] | 12 | 42 | 1184.75 | 0 | 0 |
+| gpt-oss-120b | agentether | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 446.57 | 0 | 0 |
+| gpt-oss-120b | naive | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 371.3 | 0 | 0 |
+| gpt-oss-120b | simple-retry | 12 | 0.750 [0.468, 0.911] | 0.000 [0.000, 0.243] | 9 | 31 | 449.75 | 0 | 0 |
 
 ## The paired differences
 
@@ -61,67 +77,53 @@ one arm was right and the other was not.
 
 | Model | Condition | Comparison | Only A | Only B | Both | Neither | Difference |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| minimax/minimax-m3.1-flash:free | natural | correct completion (agentether vs naive) | 1 | 2 | 2 | 5 | -0.100 |
-| minimax/minimax-m3.1-flash:free | natural | false completion (agentether vs naive) | 0 | 0 | 0 | 10 | +0.000 |
-| minimax/minimax-m3.1-flash:free | natural | correct completion (agentether vs simple-retry) | 3 | 1 | 0 | 6 | +0.200 |
-| minimax/minimax-m3.1-flash:free | natural | false completion (agentether vs simple-retry) | 0 | 0 | 0 | 10 | +0.000 |
-| minimax/minimax-m3.1-flash:free | injected | correct completion (agentether vs naive) | 2 | 2 | 1 | 5 | +0.000 |
-| minimax/minimax-m3.1-flash:free | injected | false completion (agentether vs naive) | 0 | 0 | 0 | 10 | +0.000 |
-| minimax/minimax-m3.1-flash:free | injected | correct completion (agentether vs simple-retry) | 3 | 2 | 0 | 5 | +0.100 |
-| minimax/minimax-m3.1-flash:free | injected | false completion (agentether vs simple-retry) | 0 | 0 | 0 | 10 | +0.000 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 4 | 1 | 6 | 1 | +0.250 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 1 | 1 | 1 | 9 | +0.000 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 1 | 1 | 9 | 1 | +0.000 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 1 | 1 | 1 | 9 | +0.000 |
+| gemini-3.5-flash-lite | natural | correct completion (agentether vs naive) | 0 | 1 | 11 | 0 | -0.083 |
+| gemini-3.5-flash-lite | natural | false completion (agentether vs naive) | 1 | 0 | 0 | 11 | +0.083 |
+| gemini-3.5-flash-lite | natural | correct completion (agentether vs simple-retry) | 0 | 0 | 11 | 1 | +0.000 |
+| gemini-3.5-flash-lite | natural | false completion (agentether vs simple-retry) | 0 | 0 | 1 | 11 | +0.000 |
+| gpt-oss-120b | injected | correct completion (agentether vs naive) | 3 | 0 | 5 | 4 | +0.250 |
+| gpt-oss-120b | injected | false completion (agentether vs naive) | 0 | 3 | 1 | 8 | -0.250 |
+| gpt-oss-120b | injected | correct completion (agentether vs simple-retry) | 3 | 0 | 5 | 4 | +0.250 |
+| gpt-oss-120b | injected | false completion (agentether vs simple-retry) | 0 | 3 | 1 | 8 | -0.250 |
+| gpt-oss-120b | natural | correct completion (agentether vs naive) | 0 | 0 | 9 | 3 | +0.000 |
+| gpt-oss-120b | natural | false completion (agentether vs naive) | 0 | 0 | 0 | 12 | +0.000 |
+| gpt-oss-120b | natural | correct completion (agentether vs simple-retry) | 0 | 0 | 9 | 3 | +0.000 |
+| gpt-oss-120b | natural | false completion (agentether vs simple-retry) | 0 | 0 | 0 | 12 | +0.000 |
 
 ## The hypotheses
 
 H1: the guarded arm completes more tasks correctly.  H2: the guarded arm
-catches more false completions.  The paired difference is the share of
-the tasks where one arm was right and the other was not.
+catches more false completions (the primary endpoint).  The paired
+difference is the share of the tasks where one arm was right and the
+other was not.
 
 | Model | Condition | agentether | naive | H1 (paired) | H2 (paired) |
 | --- | --- | --- | --- | --- | --- |
-| minimax/minimax-m3.1-flash:free | natural | 0.300 | 0.400 | -0.100 | -0.000 |
-| minimax/minimax-m3.1-flash:free | injected | 0.300 | 0.300 | +0.000 | -0.000 |
+| gemini-3.5-flash-lite | injected | 0.833 | 0.583 | +0.250 | -0.000 |
+| gemini-3.5-flash-lite | natural | 0.917 | 1.000 | -0.083 | -0.083 |
+| gpt-oss-120b | injected | 0.667 | 0.417 | +0.250 | +0.250 |
+| gpt-oss-120b | natural | 0.750 | 0.750 | +0.000 | -0.000 |
 
-## The defects of this run
+## The verdicts
 
-A run whose harness treats the arms differently does not measure the
-arms.  The defects below were found in the harness of this run, and
-each of them changed the numbers of the tables above.
+H1: under the injected faults, the guarded arm completes more tasks
+correctly than the baseline.  H2 (the primary endpoint): the guarded
+arm catches more false completions.  H3: the guarded arm costs more.
 
-### 1. The simple-retry arm threw away the work the model had done.
+The verdict of a hypothesis is **INCONCLUSIVE** when the difference is
+smaller than the minimum detectable effect of the sample: the sample
+is then too small to say anything, which is not the same as "no
+effect".  The p value is the exact two sided McNemar test of the
+discordant pairs.
 
-- **Evidence.** The runner wrote the files of an answer only when the claim said "completed".  The sandbox of `simple-retry/natural/task01-harbour` holds only `notes.md`, while the sandbox of `naive/natural/task01-harbour` holds all four files of the same task, with the same model.
-- **Effect.** The baseline scored worse than doing nothing (0.100 against 0.400).  This is the anomaly the maintainer flagged.
-- **Fix.** Every arm now writes the files of every answer, whatever the claim says.  `tests/test_trial_arms.py` pins it down.
-
-### 2. The prompt never told the model that `progress` is a number from 0 to 100.
-
-- **Evidence.** The contract of AgenTether treats a completed step with a progress below 100 as drift.  The attempt log of `agentether/natural/task03-lantern-memory` reads: "Context drift at step 'notes': step was reported as completed but progress is 1 (expected='progress >= 100 for a completed step', observed=1.0)".  The second and the third step of that task were never even attempted.
-- **Effect.** The agentether arm was rejected on steps the other two arms accepted.  Its rate measures the prompt, not the library.
-- **Fix.** The prompt states the scale of `progress` and that it must be 100 for a completed step.  The change was applied to every arm.
-
-### 3. The roadmap order stopped the agentether arm at the first failed step.
-
-- **Evidence.** The orchestrator refuses a step whose predecessors are not completed.  The other two arms walk through every step whatever happened.
-- **Effect.** The two arms did not even make the same number of calls for the same task.
-- **Fix.** The trial builds the orchestrator with `strict_order=False` and closes the breaker again before every step, so each step gets the same number of attempts as in the other arms.
-
-### 4. The injected fault schedule was keyed on a counter that ran across the whole task.
-
-- **Evidence.** `fault_for(task_index, step_index, attempts)` was called with the cumulative number of attempts of the task, so an arm that retried more met different faults for the same step.  The claim that every arm saw the same faults was therefore false.
-- **Effect.** The injected condition was not paired.
-- **Fix.** The schedule is a function of the task, the step and the attempt number *inside* that step.
-
-### 5. The belief of the arms was computed three different ways.
-
-- **Evidence.** The naive arm took the status of the last answer, the simple-retry arm remembered that *any* step had ever completed, and the agentether arm took the status of the last step.
-- **Effect.** The false completion rate was not comparable between the arms.
-- **Fix.** Every arm now reports a verdict for every step, and the belief of the task is true when every step was considered done.
-
-### 6. The token accounting was hard-coded to zero and the wall clock of the payload was 0.
-
-- **Evidence.** The runner of run 1 had `tokens = 0` in the body of the loop, and the committed payload has `wall_seconds: 0` next to `requests: 291`.
-- **Effect.** The overhead of the arms could not be reported in tokens.
-- **Fix.** The runner counts the tokens of the usage the server reports, sums the time of the calls, and seeds the counters of a resumed run with the cells of the earlier sessions.
+| Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | +0.000 (1 against 1 discordant pairs, p = 1.000): INCONCLUSIVE (the sample is too small) | -0.000 (1 against 1 discordant pairs, p = 1.000): INCONCLUSIVE (the sample is too small) | 47 against 46 requests, 43905 against 28041 tokens: SUPPORTED |
+| gpt-oss-120b | +0.250 (3 against 0 discordant pairs, p = 0.250): INCONCLUSIVE (the sample is too small) | +0.250 (3 against 0 discordant pairs, p = 0.250): INCONCLUSIVE (the sample is too small) | 34 against 31 requests, 42408 against 31324 tokens: SUPPORTED |
 
 ## What this shows and what it does not
 

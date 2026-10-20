@@ -242,10 +242,43 @@ slightly.  That is the trade, stated plainly.  The result is reproducible
 
 ### The real model trial (tiny sample, one day)
 
-See [`docs/evidence.md`](docs/evidence.md) for the full tables, the request
-and token counts, the Wilson intervals and the paired differences.  The
-protocol was **pre-registered and committed before the first result file
-exists** ([`docs/trial-protocol.md`](docs/trial-protocol.md)).
+The trial v2 ran two free models of two providers, three arms (naive,
+simple-retry, agentether) and two conditions (natural and injected faults
+of 20 %), N = 12 tasks per cell.  The protocol was **pre-registered and
+committed before the first result file exists**
+([`docs/trial-protocol-v2.md`](docs/trial-protocol-v2.md)).
+
+Under the injected faults, with the model `cerebras/gpt-oss-120b`:
+
+| Arm | correct completion | false completion | requests | tokens |
+| --- | --- | --- | --- | --- |
+| naive | 0.417 | 0.333 | 31 | 30 999 |
+| simple-retry | 0.417 | 0.333 | 31 | 31 324 |
+| **agentether** | **0.667** | **0.083** | 34 | 42 408 |
+
+The guarded arm caught three of the four false completions of the baseline
+and completed three more tasks, at the price of three more requests and
+11 000 more tokens.  The second model (`google/gemini-3.5-flash-lite`) did
+**not** show that difference: all three arms had the same false completion
+rate.
+
+**The verdicts are INCONCLUSIVE** for the first two hypotheses: with N = 12
+the minimum detectable effect of the sample is 0.404, and the observed
+differences are 0.25 and 0.00.  The overhead (H3) is **supported**: the
+guarded arm costs more.
+
+Two things this does **not** show: that the library makes agents reliable
+in general, and that the selection rule of the protocol was met.  It was
+not: the two models that satisfy the rule are the two of Groq, whose daily
+quota was spent by the probe and the pilots, and the two models that had
+the quota are the two the rule excludes.  The run is therefore a
+**supplementary** run, and the deviation is stated in
+[`docs/evidence.md`](docs/evidence.md) and in
+[`docs/WORKLOG.md`](docs/WORKLOG.md).
+
+See [`docs/evidence.md`](docs/evidence.md) for the full tables, the
+request and token counts, the Wilson intervals, the paired differences and
+the p values.
 
 ## When **not** to use AgenTether
 
@@ -288,8 +321,12 @@ The full comparison, with what each project does better, is in
 * **`command_succeeds` runs a subprocess** with your privileges.  Only
   verify commands you trust, and keep them outside the agent writable work
   directory (the default rejects an executable inside it).
-* **The evidence is small.**  The trial is a tiny sample from three free
-  models on one day.
+* **The evidence is small.**  The trial is a tiny sample from two free
+  models on one day, and the hypotheses it tests came out **inconclusive**
+  (the sample is too small to reach the minimum detectable effect).  The
+  run is also a *supplementary* one: the selection rule of the protocol
+  was not met, for the reason given in
+  [`docs/evidence.md`](docs/evidence.md).
 * **The audit was written by an AI.**  There is no independent human review
   of this code yet.
 
@@ -317,7 +354,7 @@ How to add a verifier: write an async function that takes a
 [`docs/verifiers.md`](docs/verifiers.md).
 
 How to reproduce the evidence: see
-[`docs/trial-protocol.md`](docs/trial-protocol.md) and
+[`docs/trial-protocol-v2.md`](docs/trial-protocol-v2.md) and
 [`docs/evidence.md`](docs/evidence.md).
 
 ## Documentation
@@ -332,7 +369,10 @@ How to reproduce the evidence: see
 | [`docs/spec/`](docs/spec/) | The draft specs for other implementations. |
 | [`docs/comparison.md`](docs/comparison.md) | How AgenTether differs from the alternatives. |
 | [`docs/faq.md`](docs/faq.md) | "Why not X?" |
-| [`docs/trial-protocol.md`](docs/trial-protocol.md) | The pre-registration of the trial. |
+| [`docs/trial-protocol.md`](docs/trial-protocol.md) | The pre-registration of the first trial (run 1). |
+| [`docs/trial-protocol-v2.md`](docs/trial-protocol-v2.md) | The pre-registration of the trial v2. |
+| [`docs/providers.md`](docs/providers.md) | The providers of the free tier and their limits. |
+| [`docs/final-report-2026-10-20.md`](docs/final-report-2026-10-20.md) | The report of the audit of 2026-10-20. |
 | [`docs/evidence.md`](docs/evidence.md) | The results of the trial. |
 
 ## Examples

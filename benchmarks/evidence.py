@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -244,6 +245,118 @@ def _runs_section(runs: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def _mcnemar(discordant: int, favours_a: int) -> float:
+    """The exact two sided p value of a McNemar test.
+
+    The null hypothesis is that the discordant pairs are split at random:
+    the p value is the probability of a binomial with p = 0.5.
+    """
+    if discordant <= 0:
+        return 1.0
+    small = min(favours_a, discordant - favours_a)
+    total = 0.0
+    for count in range(small + 1):
+        total += _binomial(discordant, count)
+    return min(1.0, 2.0 * total)
+
+
+def _binomial(n: int, k: int) -> float:
+    """The probability of ``k`` successes in ``n`` trials with p = 0.5."""
+    return math.comb(n, k) / (2**n)
+
+
+def _verdict(difference: float, p_value: float, mde: float, expected: int = 1) -> str:
+    """The verdict of a hypothesis.
+
+    The rule is the one of the pre-registration: a difference that is
+    smaller than the minimum detectable effect of the sample is
+    **inconclusive** (the sample is too small to say anything, which is
+    not the same as "no effect"), and a difference that is at least as
+    large as the minimum detectable effect is only **supported** when the
+    exact McNemar test rejects the null hypothesis.
+
+    Args:
+        difference: The observed difference of the paired rates.
+        p_value: The exact two sided p value of the discordant pairs.
+        mde: The minimum detectable effect of the sample.
+        expected: The sign the hypothesis expects: 1 for "more", -1 for
+            "less".
+    """
+    if abs(difference) < mde:
+        return "INCONCLUSIVE (the sample is too small)"
+    if expected * difference > 0 and p_value < 0.05:
+        return "SUPPORTED"
+    return "NOT SUPPORTED"
+
+
+def _verdicts_section(
+    cells: list[dict[str, Any]],
+    summary: dict[str, Any],
+    models: list[str],
+    runs: list[dict[str, Any]],
+) -> list[str]:
+    """The verdict of H1, H2 and H3, per model."""
+    mdes: dict[str, float] = {}
+    for run in runs:
+        try:
+            mdes[str(run.get("model"))] = float(run.get("mde", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            mdes[str(run.get("model"))] = 0.0
+    lines = [
+        "## The verdicts",
+        "",
+        "H1: under the injected faults, the guarded arm completes more tasks",
+        "correctly than the baseline.  H2 (the primary endpoint): the guarded",
+        "arm catches more false completions.  H3: the guarded arm costs more.",
+        "",
+        "The verdict of a hypothesis is **INCONCLUSIVE** when the difference is",
+        "smaller than the minimum detectable effect of the sample: the sample",
+        'is then too small to say anything, which is not the same as "no',
+        'effect".  The p value is the exact two sided McNemar test of the',
+        "discordant pairs.",
+        "",
+        "| Model | H1: correct completion | H2: false completion (primary) | H3: the overhead |",
+        "| --- | --- | --- | --- |",
+    ]
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
+    for model in models:
+        mde = mdes.get(model, 0.0)
+        h1_text = "no data"
+        h2_text = "no data"
+        h3_text = "no data"
+        for condition in conditions:
+            if condition != "injected":
+                continue
+            key = f"{model}|{condition}"
+            a = summary.get(f"{key}|agentether")
+            b = summary.get(f"{key}|simple-retry")
+            if a and b:
+                h1 = paired_difference(cells, key, "agentether", "simple-retry", "correct")
+                h2 = paired_difference(cells, key, "agentether", "simple-retry", "false_completion")
+                p1 = _mcnemar(h1["discordant"], h1["only_agentether"])
+                p2 = _mcnemar(h2["discordant"], h2["only_simple-retry"])
+                h1_text = (
+                    f"{h1['difference']:+.3f} ({h1['only_agentether']} against "
+                    f"{h1['only_simple-retry']} discordant pairs, p = {p1:.3f}): "
+                    f"{_verdict(h1['difference'], p1, mde, 1)}"
+                )
+                h2_text = (
+                    f"{-h2['difference']:+.3f} ({h2['only_simple-retry']} against "
+                    f"{h2['only_agentether']} discordant pairs, p = {p2:.3f}): "
+                    f"{_verdict(-h2['difference'], p2, mde, -1)}"
+                )
+                if b["requests"] and a["requests"]:
+                    more = a["requests"] > b["requests"] or a["tokens"] > b["tokens"]
+                    h3_text = (
+                        f"{a['requests']} against {b['requests']} requests, "
+                        f"{a['tokens']} against {b['tokens']} tokens: "
+                        f"{'SUPPORTED' if more else 'NOT SUPPORTED'}"
+                    )
+        lines.append(f"| {model} | {h1_text} | {h2_text} | {h3_text} |")
+    lines.append("")
+    return lines
+
+
 def _defects_section(defects: list[dict[str, Any]]) -> list[str]:
     """The defects of the harness, with the evidence for each."""
     if not defects:
@@ -326,6 +439,7 @@ def build_markdown(cells: list[dict[str, Any]], meta: dict[str, Any]) -> str:
     lines.extend(_condition_tables(cells, summary, models))
     lines.extend(_paired_tables(cells, models))
     lines.extend(_hypotheses(cells, summary, models))
+    lines.extend(_verdicts_section(cells, summary, models, list(meta.get("runs") or [])))
     lines.extend(_defects_section(list(meta.get("defects") or [])))
     lines.extend(
         [

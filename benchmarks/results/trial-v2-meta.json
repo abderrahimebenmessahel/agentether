@@ -8,16 +8,24 @@
     {
       "provider": "cerebras",
       "model": "gpt-oss-120b",
-      "pilot": {"n": 20, "correct": 19, "rate": 0.95},
+      "pilot": {
+        "n": 20,
+        "correct": 19,
+        "rate": 0.95
+      },
       "qualification": "excluded (0.95 > 0.85)",
-      "n": 9,
-      "mde": "0.467",
+      "n": 12,
+      "mde": "0.404",
       "note": "the model solves the tasks of the pilot too well for the band of the selection rule; it is reported as a supplementary run.  The daily quota of the provider is 1 000 000 tokens; the pilot, the probe and this run stay under half of it."
     },
     {
       "provider": "google",
       "model": "gemini-3.5-flash-lite",
-      "pilot": {"n": 20, "correct": 17, "rate": 0.85},
+      "pilot": {
+        "n": 20,
+        "correct": 17,
+        "rate": 0.85
+      },
       "qualification": "excluded (0.85 is the limit of the band; the pilot ended at 0.944)",
       "n": 12,
       "mde": "0.404",
@@ -26,7 +34,11 @@
     {
       "provider": "groq",
       "model": "qwen/qwen3.8-27b",
-      "pilot": {"n": 10, "correct": 7, "rate": 0.7},
+      "pilot": {
+        "n": 10,
+        "correct": 7,
+        "rate": 0.7
+      },
       "qualification": "qualifies",
       "n": 0,
       "mde": "not measured",
@@ -35,7 +47,11 @@
     {
       "provider": "groq",
       "model": "openai/gpt-oss-20b",
-      "pilot": {"n": 20, "correct": 17, "rate": 0.85},
+      "pilot": {
+        "n": 20,
+        "correct": 17,
+        "rate": 0.85
+      },
       "qualification": "qualifies",
       "n": 0,
       "mde": "not measured",

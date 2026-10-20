@@ -348,11 +348,59 @@ is gone) and the guarded arm catches three of the four false completions
 of the injected condition.  The cost is 3 requests and 11 000 tokens
 more.
 
+### The trial v2 — the result
+
+Both runs are finished: 144 cells, 450 model calls, 10 527 s of calls.
+
+**The injected condition** (20 % of the attempts get a fault):
+
+| Model | Arm | N | correct | false completion | requests | tokens |
+| --- | --- | --- | --- | --- | --- | --- |
+| cerebras gpt-oss-120b | naive | 12 | 0.417 | 0.333 | 31 | 30 999 |
+| cerebras gpt-oss-120b | simple-retry | 12 | 0.417 | 0.333 | 31 | 31 324 |
+| cerebras gpt-oss-120b | **agentether** | 12 | **0.667** | **0.083** | 34 | 42 408 |
+| google gemini-3.5-flash-lite | naive | 12 | 0.583 | 0.167 | 42 | 25 892 |
+| google gemini-3.5-flash-lite | simple-retry | 12 | 0.833 | 0.167 | 46 | 28 041 |
+| google gemini-3.5-flash-lite | **agentether** | 12 | 0.833 | 0.167 | 47 | 43 905 |
+
+The naive arm and the baseline are now **identical** (the anomaly of run 1
+is gone).  With the Cerebras model the guarded arm caught **three of the
+four** false completions of the baseline and completed three more tasks,
+for three more requests and 11 000 more tokens.  With the Google model it
+caught none.
+
+**The verdicts are INCONCLUSIVE** for H1 and H2, by the rule of the
+pre-registration: with N = 12 the minimum detectable effect is 0.404 and
+the observed differences are 0.25 (Cerebras) and 0.00 (Google).  The
+effect of the Cerebras model is in the expected direction (three
+discordant pairs, all in favour of the guarded arm, p = 0.25) but three
+events cannot reach p < 0.05.  **H3 (the overhead) is SUPPORTED** for the
+two models.
+
+`docs/evidence.md` is regenerated from the raw cells and carries the
+tables, the Wilson intervals, the paired differences, the p values and the
+verdicts.  The raw cells of the run and of the pilots are committed in
+`benchmarks/results/`.
+
+### The hygiene
+
+* `pytest` on Windows: **406 passed, 2 skipped**; in WSL on CPython
+  3.10, 3.11, 3.12 and 3.13: **406 passed, 2 skipped** on each.
+* `mypy --strict` clean on 58 files, `ruff check` and
+  `ruff format --check` clean on 91 files, on both systems.
+* The GitHub CI is **green on the ten cells** and on the dependency audit.
+* The wheel and the sdist of `0.3.0a1` are built, `twine check` passes,
+  and the wheel works in a fresh venv on Windows and on Linux.
+* `scan_secrets.py` finds **0** in the tree, **0** in the history and
+  nothing in the wheel.
+
 ### NEXT ACTION
 
-The run of Google is still going (the free tier of that model is slow).
-Then: the evidence document, the README, the matrix, the secret scan and
-the final report.
+The final report is written
+(`docs/final-report-2026-10-20.md`).  What is left is the decision of
+the maintainer: make the repository public, tag, publish to PyPI, change
+the WSL password.  Nothing of that was done.
+
 
 
 
