@@ -19,11 +19,19 @@ mkdir -p "$TARGET"
 rm -rf "$TARGET/src" "$TARGET/tests" "$TARGET/benchmarks" "$TARGET/docs" "$TARGET/examples"
 cp -r "$SOURCE/src" "$SOURCE/tests" "$SOURCE/benchmarks" "$SOURCE/docs" "$SOURCE/examples" "$TARGET/"
 cp "$SOURCE/pyproject.toml" "$SOURCE/CHANGELOG.md" "$SOURCE/README.md" "$TARGET/"
+# The copy comes from a Windows checkout: the line endings are normalized
+# here, because ruff format --check expects the endings of the platform.
+find "$TARGET" -name "*.py" -o -name "*.md" -o -name "*.toml" | while read -r file; do
+  sed -i 's/$//' "$file"
+done
 cd "$TARGET" || exit 1
 if [ ! -d "$VENV" ]; then
   uv venv --python "$PY" "$VENV" 2>&1 | tail -1
-  uv pip install --python "$VENV/bin/python" -q -e ".[dev]" 2>&1 | tail -2
 fi
+# The install is refreshed every time: the version of the metadata of an
+# editable install follows the version of pyproject.toml, and the tests
+# compare it with the version of the source.
+uv pip install --python "$VENV/bin/python" -q -e ".[dev]" 2>&1 | tail -2
 "$VENV/bin/python" -V
 echo "--- pytest ---"
 "$VENV/bin/python" -m pytest -q --cov=src/agentether --cov-report=term 2>&1 | tail -4

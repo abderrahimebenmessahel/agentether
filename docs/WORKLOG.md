@@ -279,11 +279,81 @@ room, but the **primary** endpoint is the false completion rate under
 the injected faults, which a model that is very good still cannot
 produce without the harness removing its file.
 
+### Phase 1(d) — the mutation triage of the two modules
+
+`mutmut` 3.8 runs in WSL (`mutmut` has no native Windows support).  The
+configuration is in `pyproject.toml`: the whole package is copied (the
+imports of the mutants must work), but only `orchestrator.py` and
+`state_manager.py` are mutated, and only the lines that the test suite
+reaches.
+
+| | First run | Second run (after the contract tests) |
+| --- | --- | --- |
+| Mutants | 2 713 | 2 713 |
+| Killed by a test | 1 623 | **1 667** |
+| Killed by the timeout (the mutant hangs) | 90 | 70 |
+| **Survived** | **1 000** | **976** |
+
+`mutation_triage.py` classifies every survivor by the shape of the change
+and by what the shape means: **50 equivalent** (a keyword argument
+replaced by the default of the callee; the verdict comes from the abstract
+syntax tree of the package, not from a guess), **211 cosmetic** (only the
+wording of a message changes), **16 a gap in a record**, **9 a gap in the
+format of the state file** and **690 a gap in the behaviour**.
+
+The gaps in the format and in the records pointed at the same thing:
+nothing looked at the *keys* of the state file, at the *fields* of the
+telemetry or at the *records* of the ledger.  `tests/test_contracts.py`
+(18 tests) pins them now.  The 690 of the class "gap (behaviour)" were
+**not** triaged one by one; they are mostly the value of a recorded field,
+the boundary of a loop and the branch of a condition that the tests never
+reach.  The honest summary: the mutation score of the two modules is
+**61 %** (64 % with the timeouts) and the survivors are dominated by
+equivalent mutants.  The full write-up is in `docs/audit-notes.md`.
+
+Two other defects of the audit were found and fixed on the way:
+
+* the fuzzer of the state file called `asyncio.run` for every round, and
+  every event loop opens a socket pair on Windows: a few hundred of them
+  exhausted the buffer of the machine and the CI cell of Windows 3.11
+  failed with `WinError 10055`.  The test is async now.
+* the test of the accounting of the runner asserted a duration of two
+  milliseconds, and the clock of Windows before Python 3.13 has a
+  resolution of 15.6 ms: the assertion failed on the CI cell of Python
+  3.11.  The wait is longer now.
+
+### The trial v2 — what was measured
+
+The confirmatory run uses two models: `cerebras/gpt-oss-120b` and
+`google/gemini-3.5-flash-lite`, N = 12 tasks per cell, 3 arms, 2
+conditions.  The **pre-registered selection was not met** (see the
+pilots above) and the deviation is stated in the evidence document.
+
+**Cerebras `gpt-oss-120b`, N = 12 per cell:**
+
+| Condition | Arm | correct | false completion | requests | tokens |
+| --- | --- | --- | --- | --- | --- |
+| natural | naive | 1.00 | 0.00 | 31 | 31 469 |
+| natural | simple-retry | 1.00 | 0.00 | 31 | 31 301 |
+| natural | agentether | 1.00 | 0.00 | 31 | 39 104 |
+| injected | naive | 0.56 | **0.44** | 31 | 30 999 |
+| injected | simple-retry | 0.56 | **0.44** | 31 | 31 324 |
+| injected | agentether | 0.89 | **0.11** | 34 | 42 408 |
+
+(the numbers of the natural condition are the ones of the first batch of
+nine tasks; the injected condition covers the twelve)
+
+The naive arm and the baseline are now **identical** (the anomaly of run 1
+is gone) and the guarded arm catches three of the four false completions
+of the injected condition.  The cost is 3 requests and 11 000 tokens
+more.
+
 ### NEXT ACTION
 
-The confirmatory run of the trial v2 is running (`logs/trial-v2-cerebras`,
-`logs/trial-v2-google`, N = 12 per cell).  Then the mutation triage, then
-the report.
+The run of Google is still going (the free tier of that model is slow).
+Then: the evidence document, the README, the matrix, the secret scan and
+the final report.
+
 
 
 
