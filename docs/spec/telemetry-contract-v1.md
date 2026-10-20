@@ -5,7 +5,7 @@
 > with AgenTether: the same telemetry, the same file layout, the same
 > semantics.  It is not a standard and it is not stable yet.
 
-Version: 1.0 (draft) -- applies to AgenTether 0.3.0-alpha.
+Version: 1.0 (draft) -- applies to AgenTether 0.3.0a1.
 
 ## The object
 

@@ -10,7 +10,7 @@ cross-file consistency is what makes the tasks harder than "write a file with
 three headings": a script and a README that must mention the real function
 name, a report that must repeat the number of the data file.
 
-.. versionadded:: 0.3.0-alpha
+.. versionadded:: 0.3.0a1
 """
 
 from __future__ import annotations

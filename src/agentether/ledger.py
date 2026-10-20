@@ -17,7 +17,7 @@ Two ideas live here:
    hash is recomputed, so a full rewrite produces a consistent chain again.
    It is a tripwire, not a signature.
 
-.. versionadded:: 0.3.0-alpha
+.. versionadded:: 0.3.0a1
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # The state file format, version 2 (draft)
 
-> **Status: draft.**  This is the format AgenTether 0.3.0-alpha reads and
+> **Status: draft.**  This is the format AgenTether 0.3.0a1 reads and
 > writes.  It is documented so that another implementation could interoperate
 > with it.  It is not a standard and it may still change.
 

@@ -83,7 +83,7 @@ from .verifier import (
     python_syntax_valid,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0a1"
 
 __all__ = [
     "ALLOWED_STATUSES",

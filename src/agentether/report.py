@@ -7,7 +7,7 @@ the detected loops and the budget.
 The HTML variant escapes everything that comes from the model, so a report can
 never carry a script into the browser of whoever reads it.
 
-.. versionadded:: 0.3.0-alpha
+.. versionadded:: 0.3.0a1
 """
 
 from __future__ import annotations

@@ -13,7 +13,7 @@ with the same command.
    This module talks to a *real* model through OpenRouter.  Neither is a
    measure of real world effectiveness; see ``docs/trial-protocol.md``.
 
-.. versionadded:: 0.3.0-alpha
+.. versionadded:: 0.3.0a1
 """
 
 from __future__ import annotations

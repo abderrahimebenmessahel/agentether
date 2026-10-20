@@ -4,7 +4,7 @@ The point is to prove that the *packaged* library works: the console script,
 the quickstart and the CLI, from an installed wheel, in an environment that
 knows nothing about the source tree.
 
-    python packaging_check.py --wheel dist/agentether-0.2.0-py3-none-any.whl
+    python packaging_check.py --wheel dist/agentether-0.3.0a1-py3-none-any.whl
 """
 
 from __future__ import annotations

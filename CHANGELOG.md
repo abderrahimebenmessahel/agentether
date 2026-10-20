@@ -5,9 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0-alpha] - unreleased
+## [0.3.0a1] - unreleased
 
-Status: **Alpha**.
+Status: **Alpha**.  The version follows PEP 440: `0.3.0a1` is the first
+alpha of the 0.3.0 series.
 
 ### Changed
 
@@ -122,10 +123,10 @@ breaking changes. They are listed below.
   the key from the environment, never logs it, never puts it in an error
   message, retries a rate limit with `Retry-After` and jittered backoff and
   never retries a rejected key.
-- **The distribution is published as `agentether`.**  The shorter name
-  `agentether` is taken on PyPI by an unrelated project.  The import name
-  stays `agentether`; the command is installed as `agentether` and
-  `agentether`.
+- **The distribution was published as `context-guard`.**  The shorter name
+  `contextguard` is taken on PyPI by an unrelated project.  The import name
+  stays `context_guard`; the command is installed as `context-guard`.  (The
+  whole project was renamed to AgenTether in 0.3.0a1, below.)
 - `GuardPolicy` with `loop`, `stall`, `budget`, `retry` and `breaker`
   sub-policies.  The flat constructor arguments of 0.1 still work and are
   mapped onto the policy.

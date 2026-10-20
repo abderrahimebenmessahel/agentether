@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from agentether import AutoOrchestrator, StateManager, Telemetry
+from agentether import AutoOrchestrator, StateManager, Telemetry, __version__
 from agentether.cli import main
 
 
@@ -216,7 +216,7 @@ def test_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
     code = main(["--version"])
     out = capsys.readouterr().out.strip()
     assert code == 0
-    assert out == "0.2.0"
+    assert out == __version__
 
 
 def test_no_command_prints_the_help(capsys: pytest.CaptureFixture[str]) -> None:

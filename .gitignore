@@ -39,6 +39,9 @@ project-memory/
 benchmarks/results/*.tmp
 benchmarks/results/*.log
 
+# Working logs of the audit sessions (raw command output, never a secret)
+logs/
+
 # Editors and OS
 .idea/
 .vscode/

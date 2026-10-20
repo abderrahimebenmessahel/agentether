@@ -14,4 +14,4 @@ def test_the_module_can_be_run() -> None:
         check=False,
     )
     assert result.returncode == 0
-    assert result.stdout.strip() == "0.2.0"
+    assert result.stdout.strip() == "0.3.0a1"

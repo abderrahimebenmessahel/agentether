@@ -2,14 +2,17 @@
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# The name "agentether" is TAKEN on PyPI (an unrelated project, v0.1.2), so
+# The name "contextguard" is TAKEN on PyPI (an unrelated project, v0.1.2), so
 # the distribution is published as "agentether".  The import package stays
-# "agentether".  Both spellings were checked on PyPI and on GitHub:
-# "agentether", "agentether", "agentether-lite", "agentether-lite"
-# and "agentether-core" are all free at the time of writing.
+# "agentether".  The spelling was checked on PyPI, on npm and on GitHub:
+# "agentether", "agent-guard", "context-guard", "contextguard-lite",
+# "context-guard-lite" and "contextguard-core" were all free at the time of
+# writing.  A near neighbour, "agent-tether", is a different project (chat
+# platform bridges for AI agent supervision); the similarity was accepted by
+# the maintainer.
 [project]
 name = "agentether"
-version = "0.2.0"
+version = "0.3.0a1"
 description = "A tiny supervisor for LLM agent steps: verified claims, semantic loop detection and a human-editable Markdown project memory."
 readme = "README.md"
 requires-python = ">=3.10"

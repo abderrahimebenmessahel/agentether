@@ -1,7 +1,7 @@
 # Audit notes
 
 > **This is an AI audit, not an independent human review.**  It was written
-> by an AI assistant that read the source of AgenTether 0.3.0-alpha line by
+> by an AI assistant that read the source of AgenTether 0.3.0a1 line by
 > line and wrote the tests that the invariants were missing.  It has not
 > been reviewed by a human being who did not write the code.  Treat it as a
 > checklist of claims and their evidence -- not as a certification.
