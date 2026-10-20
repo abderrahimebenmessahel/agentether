@@ -29,24 +29,20 @@ ROUNDS = 200
 _ALPHABET = b'{}[]":,\n\\/<>-_ abcXYZ0123\x00\xff'
 
 
-def build_valid_file(directory: Path) -> bytes:
+async def build_valid_file(directory: Path) -> bytes:
     """Write a valid memory file and return its bytes."""
-    import asyncio
-
     manager = StateManager(directory)
-    asyncio.run(
-        manager.record_step(
-            "research",
-            Telemetry(
-                step="research",
-                status="completed",
-                summary='a summary with <!-- a marker and a " quote',
-                progress=100,
-                next_step="write",
-                artifacts=["notes.md"],
-            ),
-            "raw output",
-        )
+    await manager.record_step(
+        "research",
+        Telemetry(
+            step="research",
+            status="completed",
+            summary='a summary with <!-- a marker and a " quote',
+            progress=100,
+            next_step="write",
+            artifacts=["notes.md"],
+        ),
+        "raw output",
     )
     return (directory / "PROJECT_MEMORY.md").read_bytes()
 
@@ -76,13 +72,17 @@ def mutate(data: bytes, rng: random.Random) -> bytes:
     return data[:index] + noise + data[end:]
 
 
-def test_the_parser_survives_mutated_files(tmp_path: Path) -> None:
-    """Mutated files may only lead to a StateCorruptionError."""
-    import asyncio
+async def test_the_parser_survives_mutated_files(tmp_path: Path) -> None:
+    """Mutated files may only lead to a StateCorruptionError.
 
+    The test is **async** and not a loop of ``asyncio.run``: an event
+    loop per round opens a socket pair on Windows, and a few hundred of
+    them exhaust the buffer of the machine (the CI cell of Windows
+    failed with ``WinError 10055``).
+    """
     source = tmp_path / "source"
     source.mkdir()
-    original = build_valid_file(source)
+    original = await build_valid_file(source)
 
     rng = random.Random(20261020)
     deadline = time.monotonic() + SECONDS
@@ -95,7 +95,7 @@ def test_the_parser_survives_mutated_files(tmp_path: Path) -> None:
         (target / "PROJECT_MEMORY.md").write_bytes(data)
         manager = StateManager(target)
         try:
-            state = asyncio.run(manager.load())
+            state = await manager.load()
         except StateCorruptionError:
             continue
         except Exception as exc:

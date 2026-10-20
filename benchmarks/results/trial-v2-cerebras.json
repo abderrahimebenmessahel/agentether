@@ -1379,6 +1379,574 @@
       "tokens": 3587,
       "ts": "2026-10-20T14:58:39Z",
       "verifier_rejections": 0
+    },
+    {
+      "arm": "naive",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: the call failed (TrialHalt)",
+        "data: the call failed (TrialHalt)",
+        "script: the call failed (TrialHalt)",
+        "report: the call failed (TrialHalt)"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task10-almanac",
+      "task_index": 9,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "naive",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: the call failed (TrialHalt)",
+        "data: the call failed (TrialHalt)",
+        "script: the call failed (TrialHalt)"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "task": "task11-vellum",
+      "task_index": 10,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "naive",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: the call failed (TrialHalt)",
+        "data: the call failed (TrialHalt)",
+        "script: the call failed (TrialHalt)",
+        "report: the call failed (TrialHalt)"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task12-cinder",
+      "task_index": 11,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "simple-retry",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: the contract was not satisfied",
+        "data: the contract was not satisfied",
+        "script: the contract was not satisfied",
+        "report: the contract was not satisfied"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task10-almanac",
+      "task_index": 9,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "simple-retry",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: the contract was not satisfied",
+        "data: the contract was not satisfied",
+        "script: the contract was not satisfied"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "task": "task11-vellum",
+      "task_index": 10,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "simple-retry",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: the contract was not satisfied",
+        "data: the contract was not satisfied",
+        "script: the contract was not satisfied",
+        "report: the contract was not satisfied"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task12-cinder",
+      "task_index": 11,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "agentether",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: CircuitBreakerOpenError: Circuit breaker is open for step 'notes' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "notes: the step was not completed",
+        "data: CircuitBreakerOpenError: Circuit breaker is open for step 'data' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "data: the step was not completed",
+        "script: CircuitBreakerOpenError: Circuit breaker is open for step 'script' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "script: the step was not completed",
+        "report: CircuitBreakerOpenError: Circuit breaker is open for step 'report' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "report: the step was not completed"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.125,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task10-almanac",
+      "task_index": 9,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "agentether",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: CircuitBreakerOpenError: Circuit breaker is open for step 'notes' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "notes: the step was not completed",
+        "data: CircuitBreakerOpenError: Circuit breaker is open for step 'data' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "data: the step was not completed",
+        "script: CircuitBreakerOpenError: Circuit breaker is open for step 'script' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "script: the step was not completed"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.089,
+      "step_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "task": "task11-vellum",
+      "task_index": 10,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "agentether",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "natural",
+      "correct": false,
+      "failures": [
+        "notes: CircuitBreakerOpenError: Circuit breaker is open for step 'notes' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "notes: the step was not completed",
+        "data: CircuitBreakerOpenError: Circuit breaker is open for step 'data' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "data: the step was not completed",
+        "script: CircuitBreakerOpenError: Circuit breaker is open for step 'script' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "script: the step was not completed",
+        "report: CircuitBreakerOpenError: Circuit breaker is open for step 'report' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "report: the step was not completed"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|natural",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.116,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task12-cinder",
+      "task_index": 11,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "naive",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: the call failed (TrialHalt)",
+        "data: the call failed (TrialHalt)",
+        "script: the call failed (TrialHalt)",
+        "report: the call failed (TrialHalt)"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task10-almanac",
+      "task_index": 9,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "naive",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: the call failed (TrialHalt)",
+        "data: the call failed (TrialHalt)",
+        "script: the call failed (TrialHalt)"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "task": "task11-vellum",
+      "task_index": 10,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "naive",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: the call failed (TrialHalt)",
+        "data: the call failed (TrialHalt)",
+        "script: the call failed (TrialHalt)",
+        "report: the call failed (TrialHalt)"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task12-cinder",
+      "task_index": 11,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "simple-retry",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: the contract was not satisfied",
+        "data: the contract was not satisfied",
+        "script: the contract was not satisfied",
+        "report: the contract was not satisfied"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task10-almanac",
+      "task_index": 9,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "simple-retry",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: the contract was not satisfied",
+        "data: the contract was not satisfied",
+        "script: the contract was not satisfied"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "task": "task11-vellum",
+      "task_index": 10,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "simple-retry",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: the contract was not satisfied",
+        "data: the contract was not satisfied",
+        "script: the contract was not satisfied",
+        "report: the contract was not satisfied"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.0,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task12-cinder",
+      "task_index": 11,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "agentether",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: CircuitBreakerOpenError: Circuit breaker is open for step 'notes' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "notes: the step was not completed",
+        "data: CircuitBreakerOpenError: Circuit breaker is open for step 'data' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "data: the step was not completed",
+        "script: CircuitBreakerOpenError: Circuit breaker is open for step 'script' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "script: the step was not completed",
+        "report: CircuitBreakerOpenError: Circuit breaker is open for step 'report' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "report: the step was not completed"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.123,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task10-almanac",
+      "task_index": 9,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "agentether",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: CircuitBreakerOpenError: Circuit breaker is open for step 'notes' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "notes: the step was not completed",
+        "data: CircuitBreakerOpenError: Circuit breaker is open for step 'data' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "data: the step was not completed",
+        "script: CircuitBreakerOpenError: Circuit breaker is open for step 'script' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "script: the step was not completed"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.099,
+      "step_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "task": "task11-vellum",
+      "task_index": 10,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
+    },
+    {
+      "arm": "agentether",
+      "artifacts_present": false,
+      "attempts": 0,
+      "condition": "injected",
+      "correct": false,
+      "failures": [
+        "notes: CircuitBreakerOpenError: Circuit breaker is open for step 'notes' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "notes: the step was not completed",
+        "data: CircuitBreakerOpenError: Circuit breaker is open for step 'data' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "data: the step was not completed",
+        "script: CircuitBreakerOpenError: Circuit breaker is open for step 'script' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "script: the step was not completed",
+        "report: CircuitBreakerOpenError: Circuit breaker is open for step 'report' after 3 attempts (reason=execution_error, last error: Previous attempt raised TrialHalt: the request cap of 100 was reached for gpt-oss-120b; fix the error and try again)",
+        "report: the step was not completed"
+      ],
+      "false_completion": false,
+      "key": "gpt-oss-120b|injected",
+      "loop_detections": 0,
+      "model": "gpt-oss-120b",
+      "reported_complete": false,
+      "requests": 0,
+      "seconds": 0.114,
+      "step_verdicts": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "task": "task12-cinder",
+      "task_index": 11,
+      "tokens": 0,
+      "ts": "2026-10-20T15:05:32Z",
+      "verifier_rejections": 0
     }
   ],
   "conditions": [
@@ -1387,15 +1955,15 @@
   ],
   "fault_rate": 0.2,
   "fault_seed": 20261020,
-  "generated_at": "2026-10-20T14:58:39Z",
+  "generated_at": "2026-10-20T15:05:32Z",
   "halted": "",
-  "measured_seconds": 2596.333,
-  "model_request_cap": 240,
+  "measured_seconds": 2596.999,
+  "model_request_cap": 100,
   "model_stats": {
     "gpt-oss-120b": {
-      "input_tokens": 106223,
+      "input_tokens": 0,
       "model": "gpt-oss-120b",
-      "output_tokens": 100382,
+      "output_tokens": 0,
       "requests": 189
     }
   },
@@ -1411,40 +1979,40 @@
     "gpt-oss-120b|injected|agentether": {
       "correct": 8,
       "correct_ci": [
-        0.5649937852319398,
-        0.9801096286728695
+        0.3906175873976139,
+        0.8618821601026386
       ],
-      "correct_rate": 0.8888888888888888,
+      "correct_rate": 0.6666666666666666,
       "false_ci": [
-        0.019890371327130518,
-        0.4350062147680602
+        0.014864709450773488,
+        0.35388592179859524
       ],
       "false_completions": 1,
-      "false_rate": 0.1111111111111111,
+      "false_rate": 0.08333333333333333,
       "loop_detections": 0,
-      "n": 9,
+      "n": 12,
       "reported": 9,
       "requests": 34,
       "retries": 25,
-      "seconds": 458.59,
+      "seconds": 458.93,
       "tokens": 42408,
       "verifier_rejections": 2
     },
     "gpt-oss-120b|injected|naive": {
       "correct": 5,
       "correct_ci": [
-        0.26664734574402965,
-        0.8112245705280859
+        0.19325746190524656,
+        0.6804926643446271
       ],
-      "correct_rate": 0.5555555555555556,
+      "correct_rate": 0.4166666666666667,
       "false_ci": [
-        0.188775429471914,
-        0.7333526542559703
+        0.13811783989736134,
+        0.609382412602386
       ],
       "false_completions": 4,
-      "false_rate": 0.4444444444444444,
+      "false_rate": 0.3333333333333333,
       "loop_detections": 0,
-      "n": 9,
+      "n": 12,
       "reported": 9,
       "requests": 31,
       "retries": 22,
@@ -1455,18 +2023,18 @@
     "gpt-oss-120b|injected|simple-retry": {
       "correct": 5,
       "correct_ci": [
-        0.26664734574402965,
-        0.8112245705280859
+        0.19325746190524656,
+        0.6804926643446271
       ],
-      "correct_rate": 0.5555555555555556,
+      "correct_rate": 0.4166666666666667,
       "false_ci": [
-        0.188775429471914,
-        0.7333526542559703
+        0.13811783989736134,
+        0.609382412602386
       ],
       "false_completions": 4,
-      "false_rate": 0.4444444444444444,
+      "false_rate": 0.3333333333333333,
       "loop_detections": 0,
-      "n": 9,
+      "n": 12,
       "reported": 9,
       "requests": 31,
       "retries": 22,
@@ -1477,40 +2045,40 @@
     "gpt-oss-120b|natural|agentether": {
       "correct": 9,
       "correct_ci": [
-        0.7008472464490406,
-        1.0
+        0.4676896608793401,
+        0.9110599603710388
       ],
-      "correct_rate": 1.0,
+      "correct_rate": 0.75,
       "false_ci": [
         0.0,
-        0.2991527535509594
+        0.2425007574992425
       ],
       "false_completions": 0,
       "false_rate": 0.0,
       "loop_detections": 0,
-      "n": 9,
+      "n": 12,
       "reported": 9,
       "requests": 31,
       "retries": 22,
-      "seconds": 446.24,
+      "seconds": 446.57,
       "tokens": 39104,
       "verifier_rejections": 0
     },
     "gpt-oss-120b|natural|naive": {
       "correct": 9,
       "correct_ci": [
-        0.7008472464490406,
-        1.0
+        0.4676896608793401,
+        0.9110599603710388
       ],
-      "correct_rate": 1.0,
+      "correct_rate": 0.75,
       "false_ci": [
         0.0,
-        0.2991527535509594
+        0.2425007574992425
       ],
       "false_completions": 0,
       "false_rate": 0.0,
       "loop_detections": 0,
-      "n": 9,
+      "n": 12,
       "reported": 9,
       "requests": 31,
       "retries": 22,
@@ -1521,18 +2089,18 @@
     "gpt-oss-120b|natural|simple-retry": {
       "correct": 9,
       "correct_ci": [
-        0.7008472464490406,
-        1.0
+        0.4676896608793401,
+        0.9110599603710388
       ],
-      "correct_rate": 1.0,
+      "correct_rate": 0.75,
       "false_ci": [
         0.0,
-        0.2991527535509594
+        0.2425007574992425
       ],
       "false_completions": 0,
       "false_rate": 0.0,
       "loop_detections": 0,
-      "n": 9,
+      "n": 12,
       "reported": 9,
       "requests": 31,
       "retries": 22,
@@ -1541,6 +2109,6 @@
       "verifier_rejections": 0
     }
   },
-  "tasks_per_cell": 9,
-  "wall_seconds": 2596.45
+  "tasks_per_cell": 12,
+  "wall_seconds": 0.69
 }
