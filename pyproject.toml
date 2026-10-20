@@ -116,7 +116,7 @@ disallow_any_explicit = false
 show_error_codes = true
 namespace_packages = true
 explicit_package_bases = true
-mypy_path = ["src", "tests"]
+mypy_path = ["src", "tests", "benchmarks"]
 
 [[tool.mypy.overrides]]
 module = [

@@ -96,8 +96,11 @@ others.  No model is assumed to exist.
 ## Sample size and what the numbers mean
 
 The free tier limits the run, not the design.  The cap is **400 requests per
-model per day** and a global limiter of 15 requests per minute (the observed
-limit of the tier was higher, but the run does not use more than the cap).
+model per day** and a global limiter of 15 requests per minute by default.
+The limiter is configurable; the run below used **30 requests per minute**
+because a capacity probe (25 requests, no 429) showed the tier tolerated
+about 58 per minute.  The binding constraint is the per-model cap, not the
+limiter.
 
 * Task set: 20 tasks.
 * Tasks per cell: **10** (the first 10 of the task set, the same 10 for
