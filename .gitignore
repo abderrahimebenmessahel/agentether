@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Secrets: never commit a key or a .env file
+.env
+.env.*
+*.pem
+*.key
+
+# ContextGuard project memories (they are runtime data, not source)
+memory/
+memory*/
+project-memory/
+*.memory/
+
+# Benchmark scratch files
+benchmarks/results/*.tmp
+benchmarks/results/*.log
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

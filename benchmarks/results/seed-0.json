@@ -1,0 +1,55 @@
+{
+  "config": {
+    "max_attempts": 4,
+    "p_unrecoverable_step": 0.15,
+    "probabilities": {
+      "drift": 0.15,
+      "hang": 0.1,
+      "lie": 0.15,
+      "loop": 0.15,
+      "malformed": 0.25,
+      "partial": 0.1
+    },
+    "seconds_per_attempt": 2.0,
+    "seed": 0,
+    "steps": 3,
+    "tokens_per_attempt": 800,
+    "trials": 1000
+  },
+  "runners": {
+    "guarded": {
+      "completed": 438,
+      "completion_rate": 0.438,
+      "correct_completion_rate": 0.438,
+      "correct_completions": 438,
+      "false_completion_rate": 0.0,
+      "false_completions": 0,
+      "mean_attempts_per_step": 1.8083333333333333,
+      "mean_time_to_halt_seconds": 10.85,
+      "name": "guarded",
+      "repeated_attempts": 1276,
+      "simulated_cost": 4340000,
+      "tasks": 1000,
+      "total_attempts": 5425,
+      "total_steps": 3000
+    },
+    "naive": {
+      "completed": 597,
+      "completion_rate": 0.597,
+      "correct_completion_rate": 0.294,
+      "correct_completions": 294,
+      "false_completion_rate": 0.303,
+      "false_completions": 303,
+      "mean_attempts_per_step": 1.696,
+      "mean_time_to_halt_seconds": 10.176,
+      "name": "naive",
+      "repeated_attempts": 1140,
+      "simulated_cost": 4070400,
+      "tasks": 1000,
+      "total_attempts": 5088,
+      "total_steps": 3000
+    }
+  },
+  "simulated": true,
+  "warning": "SIMULATED benchmark: no LLM was called, the failure schedules are produced by a seeded random number generator."
+}

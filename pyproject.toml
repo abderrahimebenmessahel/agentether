@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# NAME_CHECK_REQUIRED: the distribution name below was chosen by the author.
+# The availability of "contextguard" on PyPI has NOT been verified -- check it
+# (https://pypi.org/project/contextguard/ and the simple index) before
+# publishing, and pick a different name if it is taken.
+[project]
+name = "contextguard"
+version = "0.2.0"
+description = "A tiny supervisor for LLM agent steps: verified claims, semantic loop detection and a human-editable Markdown project memory."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["llm", "agent", "supervisor", "verification", "reliability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.34"]
+openai = ["openai>=1.40"]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.8",
+]
+
+[project.scripts]
+contextguard = "context_guard.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+context_guard = ["py.typed"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra"
+filterwarnings = ["error::RuntimeWarning"]
+
+[tool.coverage.run]
+source = ["src/context_guard"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "examples"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["B008", "RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src", "tests", "examples"]
+warn_unreachable = true
+disallow_any_explicit = false
+show_error_codes = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = [
+    "conftest",
+    "test_benchmark",
+    "test_cli",
+    "test_parser",
+    "test_state_manager",
+    "test_orchestrator",
+    "tests.*",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
