@@ -98,7 +98,7 @@ def test_the_parser_survives_mutated_files(tmp_path: Path) -> None:
             state = asyncio.run(manager.load())
         except StateCorruptionError:
             continue
-        except Exception as exc:  # noqa: BLE001 - this is the finding
+        except Exception as exc:
             raise AssertionError(
                 f"the parser raised {type(exc).__name__} for a mutated file: {exc}"
             ) from exc

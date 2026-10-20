@@ -13,6 +13,7 @@ import pytest
 
 from agentether import (
     AutoOrchestrator,
+    CircuitBreakerOpenError,
     StateManager,
     StepContext,
     Telemetry,
@@ -51,7 +52,7 @@ async def test_a_failed_verification_never_marks_the_step_completed(
     async def research(ctx: StepContext) -> str:
         return telemetry_answer("research", artifacts=["never-written.md"])
 
-    with pytest.raises(Exception):
+    with pytest.raises(CircuitBreakerOpenError):
         await research()
 
     state = await StateManager(memory_dir).load()
@@ -75,7 +76,7 @@ async def test_a_lying_agent_cannot_write_under_another_step_name(
         # The agent claims to have done the *other* step.
         return telemetry_answer("write")
 
-    with pytest.raises(Exception):
+    with pytest.raises(CircuitBreakerOpenError):
         await research()
 
     state = await StateManager(memory_dir).load()
@@ -152,7 +153,7 @@ async def test_a_step_that_is_not_completed_is_never_resumed_as_completed(
     async def research(ctx: StepContext) -> str:
         return telemetry_answer("research", status="failed", summary="nope")
 
-    with pytest.raises(Exception):
+    with pytest.raises(CircuitBreakerOpenError):
         await research()
 
     state = await StateManager(memory_dir).load()
@@ -193,7 +194,7 @@ async def test_the_verification_result_is_kept_for_the_step(
     async def research(ctx: StepContext) -> str:
         return telemetry_answer("research", artifacts=["missing.md"])
 
-    with pytest.raises(Exception):
+    with pytest.raises(CircuitBreakerOpenError):
         await research()
 
     state = await StateManager(memory_dir).load()
@@ -216,7 +217,7 @@ async def test_a_verification_error_keeps_the_evidence(memory_dir: Path, work_di
     async def research(ctx: StepContext) -> str:
         return telemetry_answer("research", artifacts=["missing.md"])
 
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(CircuitBreakerOpenError) as excinfo:
         await research()
     cause = excinfo.value.__cause__
     assert isinstance(cause, VerificationFailedError)

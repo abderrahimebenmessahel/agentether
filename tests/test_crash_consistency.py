@@ -11,17 +11,13 @@ timeout, so it stays fast on both platforms.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
-import pytest
-
-from agentether import StateCorruptionError, StateManager, Telemetry
+from agentether import StateCorruptionError, StateManager
 
 #: How many kill iterations to run.  More iterations, more chances to hit a
 #: window between the write and the rename.
