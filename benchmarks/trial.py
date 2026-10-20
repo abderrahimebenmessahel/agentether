@@ -152,6 +152,7 @@ class ModelCaller:
         cap: int,
         counter: DailyCounter | None = None,
         seed: int | None = None,
+        token_cap: int | None = None,
     ) -> None:
         self.model = model
         self.spec = spec
@@ -160,11 +161,17 @@ class ModelCaller:
         self.cap = cap
         self.counter = counter
         self.seed = seed
+        self.token_cap = token_cap
 
     async def call(self, prompt: str) -> Any:
         """One request.  Raises ``TrialHalt`` when the cap is reached."""
         if self.stats.requests >= self.cap:
             raise TrialHalt(f"the request cap of {self.cap} was reached for {self.model}")
+        if self.token_cap is not None and self.stats.tokens >= self.token_cap:
+            raise TrialHalt(
+                f"the token cap of {self.token_cap} was reached for {self.model} "
+                f"({self.stats.tokens} tokens used)"
+            )
         self.stats.requests += 1
         try:
             output = await openai_compatible_complete(
@@ -367,6 +374,7 @@ async def run_trial(
     faults: tuple[str, ...] = FAULTS,
     model_seed: int | None = None,
     daily_cap: int | None = None,
+    token_cap: int | None = None,
 ) -> dict[str, Any]:
     """Run the trial and return the result payload.
 
@@ -394,10 +402,15 @@ async def run_trial(
             make.  The default is **half** of the documented daily limit
             of the provider: the rule of the maintainer is that a run
             stays under half of the daily quota.
+        token_cap: The number of tokens the run may spend.  It is a second
+            safety net for the providers whose quota is a number of
+            tokens and not a number of requests.
     """
     spec = provider_for(provider)
     limiter = TokenBucketLimiter(min(rate_limit, spec.requests_per_minute))
-    limit = spec.requests_per_day if daily_cap is None else daily_cap
+    # The rule of the maintainer: a run stays under half of the daily
+    # quota of its provider.
+    limit = spec.requests_per_day // 2 if daily_cap is None else daily_cap
     counter = DailyCounter(_usage_path(provider), limit, spec.name)
     stats = {model: ModelStats(model) for model in models}
     cells: list[dict[str, Any]] = []
@@ -415,7 +428,14 @@ async def run_trial(
     for model in models:
         if caller_factory is None:
             caller: Caller = ModelCaller(
-                model, spec, limiter, stats[model], model_cap, counter, model_seed
+                model,
+                spec,
+                limiter,
+                stats[model],
+                model_cap,
+                counter,
+                model_seed,
+                token_cap,
             )
         else:
             caller = caller_factory(model, limiter, stats[model], model_cap)
@@ -584,6 +604,12 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--token-cap",
+        type=int,
+        default=None,
+        help="the tokens the run may spend; the run stops when the cap is reached",
+    )
+    parser.add_argument(
         "--workdir",
         default=str(Path(tempfile.gettempdir()) / "agentether-trial"),
     )
@@ -639,6 +665,7 @@ def main(argv: list[str] | None = None) -> int:
             faults=faults,
             model_seed=args.model_seed,
             daily_cap=args.daily_cap,
+            token_cap=args.token_cap,
         )
     )
     output = Path(args.output)

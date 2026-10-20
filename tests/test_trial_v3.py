@@ -308,3 +308,44 @@ def test_every_fault_of_the_v3_leaves_a_valid_answer(fault: str) -> None:
     faulty = inject_fault(raw, fault, None)
     assert isinstance(faulty, str)
     assert faulty
+
+
+# ----------------------------------------------------------------------
+# the runner
+# ----------------------------------------------------------------------
+async def test_the_runner_runs_the_four_arms_of_the_v3(tmp_path: Path) -> None:
+    """The runner runs the four arms of the trial v3 on the new tasks."""
+    from trial import run_trial
+
+    def factory(model: str, limiter: Any, stats: Any, cap: int) -> Any:
+        def _answer_for(step: str, attempt: int) -> str:
+            stats.requests += 1
+            return answer(step, content="x" + chr(10))
+
+        return ScriptedCaller(_answer_for)
+
+    payload = await run_trial(
+        models=("fake/model",),
+        arms=("naive", "simple-retry", "agentether-claims-only", "agentether"),
+        conditions=("injected",),
+        tasks=TASKS_V3[:1],
+        per_cell=1,
+        rate_limit=1000,
+        model_cap=100,
+        workdir=tmp_path / "work",
+        progress_path=tmp_path / "progress.jsonl",
+        caller_factory=factory,
+        fault_seed=FAULT_SEED_V3,
+        faults=FAULTS_V3,
+    )
+    assert len(payload["cells"]) == 4
+    assert {cell["arm"] for cell in payload["cells"]} == {
+        "naive",
+        "simple-retry",
+        "agentether-claims-only",
+        "agentether",
+    }
+    assert payload["fault_seed"] == FAULT_SEED_V3
+    for cell in payload["cells"]:
+        assert "false_completion" in cell
+        assert cell["requests"] >= 1
