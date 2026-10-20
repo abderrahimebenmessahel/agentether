@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 #: Patterns that look like a leaked key.
