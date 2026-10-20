@@ -381,9 +381,15 @@ not pretend otherwise.
 | `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | **481 passed, 2 skipped** on each |
 | `mypy --strict` | clean, 65 files, on Windows and on the four Linux versions |
 | `ruff check` / `ruff format --check` | clean, 106 files |
-| GitHub CI | see the section below |
+| `pytest --cov=src/agentether` | **89 %** of the lines (the new module `expectations.py`: 97 %) |
+| GitHub CI | **green on the ten cells** and on the dependency audit (the run `39497811414`) |
 | `python -m build` + `twine check` | the wheel and the sdist of `0.3.0a1` **PASSED** |
+| the wheel in a fresh venv | works on Windows (`packaging_check.py`) and on Linux (the quickstart and the command) |
 | `scan_secrets.py` | **0** in the tree, **0** in the history, the wheel is clean |
+
+The ten cells of the CI are `ubuntu-latest` and `windows-latest` with
+CPython 3.10, 3.11, 3.12, 3.13 and 3.14; the eleventh job is the
+`pip-audit` of the dependency audit.
 
 The repository is **private**.  Nothing was published, no tag was pushed,
 no wheel was uploaded.

@@ -724,6 +724,23 @@ python benchmarks/trial.py --provider cerebras --models gpt-oss-120b \
 | `python -m build` + `twine check` | PASSED (the wheel and the sdist of `0.3.0a1`) |
 | `scan_secrets.py` | 0 in the tree, 0 in the history, the wheel is clean |
 
+### NEXT ACTION (the end of the session of 2026-10-20)
+
+The five phases of the brief are done.  What is left is the decision of
+the maintainer:
+
+* make the repository **public**?  (it is private, nothing was published)
+* **tag** and release `0.3.0a1`?  (the CHANGELOG entry is ready, no tag
+  was pushed)
+* publish on **PyPI**?  (the wheel and the sdist pass `twine check`)
+* change the **WSL password** (the brief says it is `0`)
+* **continue the trial v3** on the next days: the runner is resumable, the
+  protocol is pre-registered, and sixty tasks per cell (the MDE of 0.181)
+  would make the verdict of the primary endpoint decidable.  The command
+  is in the section of the trial v3 above.
+* continue the **mutation triage** (the class "gap (behaviour)" needs one
+  test per branch).
+
 ### NEXT ACTION
 
 The final report is written
