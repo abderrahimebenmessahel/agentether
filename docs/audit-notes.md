@@ -128,13 +128,34 @@ and is named here.  A test that only *partly* covers the claim says so.
 | The state survives a hard kill. | A subprocess writes the state and is killed (SIGKILL / TerminateProcess) at random moments. | `tests/test_crash_consistency.py::test_the_state_survives_a_hard_kill` |
 | A mutated state file only leads to a corruption error. | A bounded random mutation loop over a valid file. | `tests/test_fuzz_state.py::test_the_parser_survives_mutated_files` |
 
+## The mutation testing
+
+`mutmut` was installed (no sudo needed) and run on the package.  It mutates
+the **whole** package, because a mutant of one file is only importable when
+the rest of the package is there.
+
+* Mutants that survived: **2,365**.
+* Per module: cli 502, benchmark 368, adapters 318, report 302, verifier 261,
+  models 190, ledger 144, state_manager 95, orchestrator 79, exceptions 34,
+  loop_detector 30, logging_utils 18, events 15, parser 9.
+* One survivor was inspected in detail: the default value of an optional
+  keyword argument (`set_breaker(..., attempts: int = 0)` -> `1`).  That is an
+  **equivalent mutant** -- every caller passes the value -- and the survivors
+  are dominated by that kind: default values, string literals, docstrings.
+* `mutmut show` crashes on this version, so the survivors could not be
+  triaged one by one.  **The surviving count is therefore a weak signal**:
+  it says that the test suite does not distinguish many mutations, not that
+  the code has many bugs.  A per-mutant triage is still to be done.
+
 ## The bugs the property and fuzz tests found
 
 | Bug | Found by | Fix |
 | --- | --- | --- |
 | A memory file that is not valid UTF-8 raised `UnicodeDecodeError`. | The fuzzer. | `StateCorruptionError` with an actionable message. |
-| The universal newline mode translated a `` inside the human section, so it was **not** preserved byte for byte. | The property test (a hypothesis case with a carriage return). | The file is read with `newline=""`. |
-| A file that a Windows editor saved with CRLF line endings could not be read at all. | The same property test, after the read fix. | The marker regexes accept a trailing ``. |
+| The universal newline mode translated a `
+` inside the human section, so it was **not** preserved byte for byte. | The property test (a hypothesis case with a carriage return). | The file is read with `newline=""`. |
+| A file that a Windows editor saved with CRLF line endings could not be read at all. | The same property test, after the read fix. | The marker regexes accept a trailing `
+`. |
 
 ## Bugs this audit found
 
