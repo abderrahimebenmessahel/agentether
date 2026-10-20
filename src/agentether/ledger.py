@@ -22,6 +22,7 @@ Two ideas live here:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -51,6 +52,35 @@ GENESIS_HASH = "0" * 64
 def chain_hash(line: str) -> str:
     """Return the SHA-256 of a log line (without its trailing newline)."""
     return hashlib.sha256(line.encode("utf-8")).hexdigest()
+
+
+def head_path(path: Path) -> Path:
+    """The file that holds the hash of the last line of a log."""
+    return path.with_name(path.name + ".head")
+
+
+def write_head(path: Path, digest: str) -> None:
+    """Write the hash of the last line of a log.
+
+    The head is what makes a change to the *last* line detectable: the chain
+    alone cannot tell that the final line was edited.
+    """
+    target = head_path(path)
+    temporary = target.with_name(target.name + ".tmp")
+    try:
+        temporary.write_text(digest + "\n", encoding="utf-8")
+        os.replace(temporary, target)
+    except OSError:  # pragma: no cover - unwritable directory
+        with contextlib.suppress(OSError):
+            temporary.unlink()
+
+
+def read_head(path: Path) -> str:
+    """Read the hash of the last line of a log (empty when there is none)."""
+    try:
+        return head_path(path).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 @dataclass
@@ -116,6 +146,16 @@ def verify_chain(path: Path) -> tuple[int, list[ChainBreak]]:
                     )
                 )
             previous_hash = chain_hash(line)
+    head = read_head(path)
+    if head and previous_hash != head:
+        breaks.append(
+            ChainBreak(
+                number,
+                head,
+                previous_hash,
+                "the last line does not match the recorded head hash",
+            )
+        )
     return number, breaks
 
 
@@ -279,6 +319,8 @@ class ClaimsLedger:
                             self._last_hash = chain_hash(line)
             except OSError:  # pragma: no cover - unreadable ledger
                 pass
+        else:
+            write_head(self.path, GENESIS_HASH)
 
     def append(
         self,
@@ -286,6 +328,7 @@ class ClaimsLedger:
         step: str,
         attempt: int,
         claimed_status: str,
+        claimed_summary: str = "",
         claimed_artifacts: list[str] | None = None,
         model: str | None = None,
         verification: Mapping[str, Any] | None = None,
@@ -297,6 +340,7 @@ class ClaimsLedger:
             "step": step,
             "attempt": attempt,
             "claimed_status": claimed_status,
+            "claimed_summary": claimed_summary,
             "claimed_artifacts": list(claimed_artifacts or []),
             "model": model,
             "verification": dict(verification) if verification is not None else None,
@@ -312,4 +356,5 @@ class ClaimsLedger:
         except OSError:  # pragma: no cover - unwritable directory
             return record
         self._last_hash = chain_hash(line)
+        write_head(self.path, self._last_hash)
         return record

@@ -42,6 +42,7 @@ from .exceptions import (
     TelemetryParseError,
     VerificationFailedError,
 )
+from .ledger import ClaimsLedger, ClaimStats, verify_chain
 from .logging_utils import ColorFormatter, configure_logging, logger
 from .loop_detector import LoopDetector, StallDetector, fingerprint, jaccard, normalize
 from .models import (
@@ -67,6 +68,7 @@ from .policy import (
     StallPolicy,
     approximate_token_count,
 )
+from .report import build_report, render_html, render_markdown
 from .state_manager import StateManager
 from .verifier import (
     artifacts_exist,
@@ -75,7 +77,10 @@ from .verifier import (
     file_contains,
     file_exists,
     json_file_valid,
+    json_schema_subset,
     llm_judge,
+    markdown_has_headings,
+    python_syntax_valid,
 )
 
 __version__ = "0.2.0"
@@ -92,6 +97,8 @@ __all__ = [
     "BudgetPolicy",
     "BudgetTracker",
     "CircuitBreakerOpenError",
+    "ClaimStats",
+    "ClaimsLedger",
     "ColorFormatter",
     "ConfigurationError",
     "ContextDriftError",
@@ -123,6 +130,7 @@ __all__ = [
     "__version__",
     "approximate_token_count",
     "artifacts_exist",
+    "build_report",
     "callable_verifier",
     "command_succeeds",
     "configure_logging",
@@ -133,8 +141,14 @@ __all__ = [
     "guard_step",
     "jaccard",
     "json_file_valid",
+    "json_schema_subset",
     "llm_judge",
     "logger",
+    "markdown_has_headings",
     "normalize",
     "parse_telemetry",
+    "python_syntax_valid",
+    "render_html",
+    "render_markdown",
+    "verify_chain",
 ]

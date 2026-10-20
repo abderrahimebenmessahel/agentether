@@ -24,7 +24,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from .ledger import GENESIS_HASH, chain_hash
+from .ledger import GENESIS_HASH, chain_hash, write_head
 
 __all__ = ["EVENT_NAMES", "EventBus", "EventLog", "EventName"]
 
@@ -200,6 +200,7 @@ class EventLog:
             logger.warning("Supervisor: could not write the event log: %s", exc)
             return record
         self._last_hash = chain_hash(line.rstrip("\n"))
+        write_head(self.path, self._last_hash)
         return record
 
     def _rotate_if_needed(self, incoming: int) -> None:

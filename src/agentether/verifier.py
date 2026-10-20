@@ -27,7 +27,7 @@ import re
 import shutil
 import signal
 import subprocess
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +40,10 @@ __all__ = [
     "file_contains",
     "file_exists",
     "json_file_valid",
+    "json_schema_subset",
     "llm_judge",
+    "markdown_has_headings",
+    "python_syntax_valid",
     "resolve_within",
 ]
 
@@ -413,6 +416,173 @@ def command_succeeds(
         )
 
     return verify
+
+
+def python_syntax_valid(path: str) -> Verifier:
+    """Verify that a Python file *compiles*.
+
+    The file is only compiled, never executed: compiling proves that the
+    syntax is valid, it runs no code and starts no process.  A file that
+    imports something dangerous is still harmless here.
+
+    Args:
+        path: Path relative to the work directory.
+
+    Returns:
+        A verifier that fails with a readable reason.
+    """
+
+    async def verify(ctx: VerifyContext) -> VerifyResult:
+        try:
+            resolved = resolve_within(ctx.workdir, path)
+        except PathNotAllowedError as exc:
+            return _verifier_error(str(exc), path=path)
+        if not resolved.is_file():
+            return _verifier_error(f"expected file does not exist: {path}", path=path)
+        source = resolved.read_text(encoding="utf-8", errors="replace")
+        try:
+            compile(source, str(path), "exec")
+        except SyntaxError as exc:
+            return _verifier_error(
+                f"{path} is not valid Python: {exc.msg} (line {exc.lineno})",
+                path=path,
+                line=exc.lineno,
+            )
+        return VerifyResult.success(path=path)
+
+    return verify
+
+
+def markdown_has_headings(path: str, headings: Sequence[str]) -> Verifier:
+    """Verify that a Markdown file contains the given headings.
+
+    The headings are compared literally, so the caller decides whether
+    "## Findings" or "Findings" is the right form.
+
+    Args:
+        path: Path relative to the work directory.
+        headings: The headings that must appear.
+
+    Returns:
+        A verifier that fails with a readable reason.
+    """
+    wanted = list(headings)
+
+    async def verify(ctx: VerifyContext) -> VerifyResult:
+        try:
+            resolved = resolve_within(ctx.workdir, path)
+        except PathNotAllowedError as exc:
+            return _verifier_error(str(exc), path=path)
+        if not resolved.is_file():
+            return _verifier_error(f"expected file does not exist: {path}", path=path)
+        content = resolved.read_text(encoding="utf-8", errors="replace")
+        missing = [heading for heading in wanted if heading not in content]
+        if missing:
+            return _verifier_error(
+                f"{path} is missing the headings: {', '.join(missing)}",
+                path=path,
+                missing=missing,
+            )
+        return VerifyResult.success(path=path, headings=wanted)
+
+    return verify
+
+
+def json_schema_subset(path: str, schema: Mapping[str, Any]) -> Verifier:
+    """Verify a JSON file against a small subset of JSON Schema.
+
+    Only the keywords below are understood; anything else in the schema is
+    ignored.  This is deliberately not a general JSON Schema implementation
+    (that would need a dependency).
+
+    Supported keywords: ``type`` (``object``, ``array``, ``string``,
+    ``number``, ``integer``, ``boolean``, ``null``), ``required``,
+    ``properties``, ``items``, ``enum``, ``minimum``, ``maximum``.
+
+    Args:
+        path: Path relative to the work directory.
+        schema: The subset schema.
+
+    Returns:
+        A verifier that fails with a readable reason.
+    """
+    rules = dict(schema)
+
+    async def verify(ctx: VerifyContext) -> VerifyResult:
+        try:
+            resolved = resolve_within(ctx.workdir, path)
+        except PathNotAllowedError as exc:
+            return _verifier_error(str(exc), path=path)
+        if not resolved.is_file():
+            return _verifier_error(f"expected file does not exist: {path}", path=path)
+        try:
+            data = json.loads(resolved.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return _verifier_error(f"{path} is not valid JSON: {exc}", path=path)
+        problems = _check_schema(data, rules, path)
+        if problems:
+            return _verifier_error(
+                f"{path} does not match the schema: {'; '.join(problems)}",
+                path=path,
+                problems=problems,
+            )
+        return VerifyResult.success(path=path)
+
+    return verify
+
+
+def _check_schema(data: Any, schema: Mapping[str, Any], path: str) -> list[str]:
+    """Check a value against the supported subset of JSON Schema."""
+    problems: list[str] = []
+    expected_type = schema.get("type")
+    if isinstance(expected_type, str):
+        types = expected_type.split(",")
+        if not any(_is_type(data, name) for name in types):
+            problems.append(f"expected the type {expected_type}, got {type(data).__name__}")
+            return problems
+    if "enum" in schema and data not in (schema["enum"] or []):
+        problems.append(f"the value {data!r} is not one of {schema['enum']!r}")
+    if isinstance(data, (int, float)) and not isinstance(data, bool):
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if isinstance(minimum, (int, float)) and data < minimum:
+            problems.append(f"{data} is smaller than the minimum {minimum}")
+        if isinstance(maximum, (int, float)) and data > maximum:
+            problems.append(f"{data} is bigger than the maximum {maximum}")
+    if isinstance(data, dict):
+        for key in schema.get("required", []) or []:
+            if key not in data:
+                problems.append(f"the key {key!r} is missing")
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            for key, sub_schema in properties.items():
+                if key in data and isinstance(sub_schema, dict):
+                    problems.extend(_check_schema(data[key], sub_schema, f"{path}.{key}"))
+    if isinstance(data, list):
+        items = schema.get("items")
+        if isinstance(items, dict):
+            for index, item in enumerate(data):
+                problems.extend(_check_schema(item, items, f"{path}[{index}]"))
+    return problems
+
+
+def _is_type(data: Any, name: str) -> bool:
+    """Whether a value has the JSON type of the name."""
+    if name == "object":
+        return isinstance(data, dict)
+    if name == "array":
+        return isinstance(data, list)
+    if name == "string":
+        return isinstance(data, str)
+    if name == "integer":
+        return isinstance(data, int) and not isinstance(data, bool)
+    if name == "number":
+        return isinstance(data, (int, float)) and not isinstance(data, bool)
+    if name == "boolean":
+        return isinstance(data, bool)
+    if name == "null":
+        return data is None
+    return True
 
 
 def callable_verifier(

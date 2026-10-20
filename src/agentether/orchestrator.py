@@ -633,6 +633,7 @@ class AutoOrchestrator:
                     step=step_name,
                     attempt=attempt,
                     claimed_status=outcome.telemetry.status,
+                    claimed_summary=outcome.telemetry.summary,
                     claimed_artifacts=list(outcome.telemetry.artifacts),
                     model=outcome.model,
                     verification=outcome.verification,
@@ -1043,6 +1044,9 @@ class AutoOrchestrator:
             if failure is not None:
                 error = failure.exception
                 return _AttemptResult(
+                    # The claim itself is kept: the agent *did* claim to be
+                    # done, and that claim is what the ledger records.
+                    telemetry=telemetry,
                     verification={
                         "ok": False,
                         "reason": str(getattr(error, "reason", error)),

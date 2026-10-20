@@ -68,6 +68,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     verify.add_argument("--json", action="store_true", help="machine readable output")
 
+    stats = sub.add_parser("stats", help="report the claims of a run and the false claim rate")
+    stats.add_argument("memory_dir", help="the project memory directory")
+    stats.add_argument("--json", action="store_true", help="machine readable output")
+
+    audit = sub.add_parser("audit", help="verify the hash chain of the event and claim logs")
+    audit.add_argument("memory_dir", help="the project memory directory")
+    audit.add_argument("--json", action="store_true", help="machine readable output")
+
+    report = sub.add_parser("report", help="build a report of a run")
+    report.add_argument("memory_dir", help="the project memory directory")
+    report.add_argument("--format", choices=("md", "html"), default="md", help="the output format")
+    report.add_argument("--json", action="store_true", help="machine readable output")
+    report.add_argument("--output", default=None, help="write the report to this file")
+
     benchmark = sub.add_parser(
         "benchmark",
         help="run the simulated benchmark (SIMULATED, not a real world measurement)",
@@ -351,6 +365,111 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return EXIT_PROBLEM if problems else EXIT_OK
 
 
+def cmd_stats(args: argparse.Namespace) -> int:
+    """Report the claims of a run and the false claim rate."""
+    from .ledger import compute_stats, read_claims
+
+    memory_dir = Path(args.memory_dir)
+    claims = read_claims(memory_dir)
+    stats = compute_stats(claims)
+    payload = {
+        "ok": True,
+        "memory_dir": str(memory_dir),
+        "overall": stats.to_dict(),
+    }
+    if args.json:
+        _print_json(payload)
+        return EXIT_OK
+    print(f"claims recorded : {stats.total_claims}")
+    print(f"claims completed: {stats.completed_claims}")
+    print(f"verified true   : {stats.verified_true}")
+    print(f"verified false  : {stats.verified_false}")
+    print(f"false claim rate: {stats.false_claim_rate:.3f}")
+    if stats.by_step:
+        print("\nper step:")
+        for step, bucket in sorted(stats.by_step.items()):
+            print(
+                f"  {step}: claims={bucket['claims']} completed={bucket['completed']} "
+                f"verified_true={bucket['verified_true']} "
+                f"verified_false={bucket['verified_false']}"
+            )
+    if stats.by_model:
+        print("\nper model:")
+        for model, bucket in sorted(stats.by_model.items()):
+            print(
+                f"  {model}: claims={bucket['claims']} completed={bucket['completed']} "
+                f"verified_true={bucket['verified_true']} "
+                f"verified_false={bucket['verified_false']}"
+            )
+    return EXIT_OK
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    """Verify the hash chain of the event and the claim log."""
+    from .ledger import CLAIMS_FILENAME, verify_chain
+
+    memory_dir = Path(args.memory_dir)
+    files = [memory_dir / "events.jsonl", memory_dir / CLAIMS_FILENAME]
+    results: list[dict[str, Any]] = []
+    broken = 0
+    for path in files:
+        lines, breaks = verify_chain(path)
+        broken += len(breaks)
+        results.append(
+            {
+                "file": path.name,
+                "exists": path.exists(),
+                "lines": lines,
+                "breaks": [item.to_dict() for item in breaks],
+            }
+        )
+    payload = {
+        "ok": broken == 0,
+        "memory_dir": str(memory_dir),
+        "files": results,
+        "note": (
+            "the chain detects accidental or naive tampering; it does not protect "
+            "against an attacker who rewrites the whole log"
+        ),
+    }
+    if args.json:
+        _print_json(payload)
+        return EXIT_OK if broken == 0 else EXIT_PROBLEM
+    for item in results:
+        name = str(item["file"])
+        breaks = item["breaks"]
+        if not item["exists"]:
+            print(f"{name}: not present")
+        elif isinstance(breaks, list) and breaks:
+            first = breaks[0]
+            if isinstance(first, dict):
+                print(f"{name}: BROKEN at line {first.get('line')}: {first.get('reason')}")
+            else:
+                print(f"{name}: BROKEN: {first}")
+        else:
+            print(f"{name}: the chain is intact ({item['lines']} lines)")
+    if broken:
+        print("\nwarning: the chain detects naive tampering, not a full rewrite")
+    return EXIT_PROBLEM if broken else EXIT_OK
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    """Build a report of a run."""
+    from .report import build_report, render_html, render_markdown
+
+    report = build_report(args.memory_dir)
+    if args.json:
+        _print_json(report)
+        return EXIT_OK
+    text = render_html(report) if args.format == "html" else render_markdown(report)
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        print(f"report written to {args.output}")
+    else:
+        print(text)
+    return EXIT_OK
+
+
 def cmd_benchmark(args: argparse.Namespace) -> int:
     """Run the simulated benchmark."""
     result: BenchmarkResult = run_benchmark(trials=args.trials, seed=args.seed)
@@ -393,6 +512,9 @@ def main(argv: list[str] | None = None) -> int:
         "reset-breaker": cmd_reset_breaker,
         "doctor": cmd_doctor,
         "verify": cmd_verify,
+        "stats": cmd_stats,
+        "audit": cmd_audit,
+        "report": cmd_report,
         "benchmark": cmd_benchmark,
     }
     handler = handlers[args.command]
