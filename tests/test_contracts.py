@@ -45,9 +45,7 @@ STATE_KEYS = frozenset(
 )
 
 #: The keys of a telemetry object.  They are the contract.
-TELEMETRY_KEYS = frozenset(
-    {"step", "status", "summary", "progress", "next_step", "artifacts"}
-)
+TELEMETRY_KEYS = frozenset({"step", "status", "summary", "progress", "next_step", "artifacts"})
 
 #: The keys of a line of the claims ledger.
 CLAIM_KEYS = frozenset(

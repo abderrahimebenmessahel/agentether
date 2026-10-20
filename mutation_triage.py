@@ -250,7 +250,7 @@ def _is_state_format(removed: str) -> bool:
     ``docs/spec/state-file-format-v2.md``: a change there is a change of
     a documented contract, not a detail.
     """
-    if re.search(r'state\[', removed) or re.search(r'state\.get\(', removed):
+    if re.search(r"state\[", removed) or re.search(r"state\.get\(", removed):
         return True
     return bool(re.search(r"json\.dumps\(state", removed))
 
