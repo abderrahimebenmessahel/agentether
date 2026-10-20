@@ -42,6 +42,7 @@ from .exceptions import (
     TelemetryParseError,
     VerificationFailedError,
 )
+from .ledger import ClaimsLedger
 from .logging_utils import logger
 from .loop_detector import LoopDetector, StallDetector
 from .models import (
@@ -122,6 +123,8 @@ class _AttemptResult:
     telemetry: Telemetry | None = None
     raw_output: str = ""
     usage: Usage | None = None
+    model: str | None = None
+    verification: dict[str, Any] | None = None
     failure: _Failure | None = None
 
 
@@ -257,6 +260,9 @@ class AutoOrchestrator:
             enabled=self._policy.events_enabled,
         )
         self._loop_retries: dict[str, int] = {}
+        # The claims ledger: what the agent claimed and what the verification
+        # said about it.
+        self._claims = ClaimsLedger(self._state.memory_dir)
         # One lock per step: two concurrent calls to the same step are
         # serialised, and the second one sees the cached result.
         self._step_locks: dict[str, tuple[asyncio.AbstractEventLoop, asyncio.Lock]] = {}
@@ -622,6 +628,15 @@ class AutoOrchestrator:
             )
 
             outcome = await self._attempt(step_name, func, args, kwargs, context, verifiers)
+            if outcome.telemetry is not None:
+                self._claims.append(
+                    step=step_name,
+                    attempt=attempt,
+                    claimed_status=outcome.telemetry.status,
+                    claimed_artifacts=list(outcome.telemetry.artifacts),
+                    model=outcome.model,
+                    verification=outcome.verification,
+                )
             self._budget.record_attempt(
                 text=outcome.raw_output,
                 usage=outcome.usage,
@@ -817,7 +832,7 @@ class AutoOrchestrator:
         verifiers: list[Verifier],
     ) -> _AttemptResult:
         try:
-            raw_output, usage = await self._invoke(func, context, args, kwargs)
+            raw_output, usage, model = await self._invoke(func, context, args, kwargs)
         except AgentTimeoutError as exc:
             return _AttemptResult(
                 failure=_Failure(
@@ -1022,17 +1037,32 @@ class AutoOrchestrator:
                 usage=usage,
             )
 
+        verification: dict[str, Any] | None = None
         if telemetry.status == "completed" and verifiers:
-            verification = await self._verify(step_name, telemetry, raw_output, verifiers)
-            if verification is not None:
+            failure = await self._verify(step_name, telemetry, raw_output, verifiers)
+            if failure is not None:
+                error = failure.exception
                 return _AttemptResult(
-                    failure=verification,
+                    verification={
+                        "ok": False,
+                        "reason": str(getattr(error, "reason", error)),
+                        "evidence": dict(getattr(error, "evidence", {})),
+                    },
+                    model=model,
+                    failure=failure,
                     raw_output=raw_output,
                     usage=usage,
                 )
+            verification = {"ok": True, "reason": "", "evidence": {}}
 
         if telemetry.status == "completed":
-            return _AttemptResult(telemetry=telemetry, raw_output=raw_output, usage=usage)
+            return _AttemptResult(
+                telemetry=telemetry,
+                raw_output=raw_output,
+                usage=usage,
+                model=model,
+                verification=verification,
+            )
 
         if telemetry.status == "in_progress":
             return _AttemptResult(
@@ -1139,7 +1169,7 @@ class AutoOrchestrator:
         context: StepContext,
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
-    ) -> tuple[str, Usage | None]:
+    ) -> tuple[str, Usage | None, str | None]:
         target = func
         timeout = self._timeout_seconds
         try:
@@ -1165,10 +1195,10 @@ class AutoOrchestrator:
         except Exception as exc:
             raise AgentExecutionError(context.step_name, exc) from exc
         if isinstance(raw, WorkerOutput):
-            return raw.text, raw.usage
+            return raw.text, raw.usage, raw.model
         if isinstance(raw, str):
-            return raw, None
-        return str(raw), None
+            return raw, None, None
+        return str(raw), None, None
 
     # ------------------------------------------------------------------
     # helpers

@@ -24,6 +24,8 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, Literal
 
+from .ledger import GENESIS_HASH, chain_hash
+
 __all__ = ["EVENT_NAMES", "EventBus", "EventLog", "EventName"]
 
 logger = logging.getLogger("agentether")
@@ -121,6 +123,7 @@ class EventLog:
         self.max_bytes = int(max_bytes)
         self.enabled = enabled
         self._sequence = self._last_sequence()
+        self._last_hash = self._last_hash_of_the_log()
 
     @property
     def path(self) -> Path:
@@ -155,18 +158,39 @@ class EventLog:
                 continue
         return highest
 
+    def _last_hash_of_the_log(self) -> str:
+        """The hash of the last line of the log (the chain continues)."""
+        last = GENESIS_HASH
+        for candidate in (self.path, self.rotated_path):
+            if not candidate.exists():
+                continue
+            try:
+                with candidate.open("r", encoding="utf-8") as handle:
+                    for raw in handle:
+                        line = raw.rstrip("\n")
+                        if line.strip():
+                            last = chain_hash(line)
+            except OSError:  # pragma: no cover - unreadable log
+                continue
+        return last
+
     def append(self, event: str, **payload: Any) -> dict[str, Any]:
-        """Append one event and return the record that was written."""
+        """Append one event and return the record that was written.
+
+        Every line carries the SHA-256 of the previous line, so a changed or
+        removed line breaks the chain (see :func:`agentether.ledger.verify_chain`).
+        """
         self._sequence += 1
         record: dict[str, Any] = {
             "seq": self._sequence,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + "Z",
             "event": event,
+            "prev": self._last_hash,
         }
         record.update(payload)
         if not self.enabled:
             return record
-        line = json.dumps(record, ensure_ascii=False, default=str) + "\n"
+        line = json.dumps(record, ensure_ascii=False, sort_keys=True, default=str) + "\n"
         self._rotate_if_needed(len(line.encode("utf-8")))
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
@@ -174,6 +198,8 @@ class EventLog:
                 handle.write(line)
         except OSError as exc:  # pragma: no cover - unwritable directory
             logger.warning("Supervisor: could not write the event log: %s", exc)
+            return record
+        self._last_hash = chain_hash(line.rstrip("\n"))
         return record
 
     def _rotate_if_needed(self, incoming: int) -> None:

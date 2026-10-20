@@ -88,11 +88,13 @@ class WorkerOutput:
 
     A worker may simply return the answer as a string; returning a
     :class:`WorkerOutput` additionally reports how much the call cost, which
-    is what makes token and cost budgets possible.
+    is what makes token and cost budgets possible, and which model answered,
+    which is what makes per-model claim rates possible.
     """
 
     text: str
     usage: Usage | None = None
+    model: str | None = None
 
 
 @dataclass(frozen=True)
