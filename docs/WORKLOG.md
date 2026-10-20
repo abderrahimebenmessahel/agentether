@@ -384,8 +384,11 @@ verdicts.  The raw cells of the run and of the pilots are committed in
 
 ### The hygiene
 
-* `pytest` on Windows: **406 passed, 2 skipped**; in WSL on CPython
-  3.10, 3.11, 3.12 and 3.13: **406 passed, 2 skipped** on each.
+* `pytest` on Windows: **405 passed, 3 skipped**; in WSL on CPython
+  3.10, 3.11, 3.12 and 3.13: **406 passed, 2 skipped** on each.  (The
+  difference is the test of the symbolic links, which Windows does not
+  support, and the test of the installed distribution, which is skipped
+  when the package is not installed.)
 * `mypy --strict` clean on 58 files, `ruff check` and
   `ruff format --check` clean on 91 files, on both systems.
 * The GitHub CI is **green on the ten cells** and on the dependency audit.

@@ -325,7 +325,7 @@ mutation score of the two modules is **61 %** (64 % with the timeouts).
 
 | Check | Result |
 | --- | --- |
-| `pytest` on Windows (CPython 3.14.7) | **406 passed, 2 skipped** |
+| `pytest` on Windows (CPython 3.14.7) | **405 passed, 3 skipped** |
 | `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | **406 passed, 2 skipped** on each |
 | `mypy --strict` | clean, 58 files, on Windows and on the four Linux versions |
 | `ruff check` / `ruff format --check` | clean, 91 files |
