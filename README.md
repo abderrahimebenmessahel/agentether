@@ -279,48 +279,61 @@ slightly.  That is the trade, stated plainly.  The result is reproducible
 
 ### The real model trial (tiny sample, one day)
 
-Two trials were run on free models of two providers, with the protocol
-**pre-registered and committed before the first result file exists**
+Three trials were run, with the protocol **pre-registered and committed
+before the first result file exists**
 ([`docs/trial-protocol-v2.md`](docs/trial-protocol-v2.md),
-[`docs/trial-protocol-v3.md`](docs/trial-protocol-v3.md)).  The full
-tables, the Wilson intervals, the paired differences and the p values are
-in [`docs/evidence.md`](docs/evidence.md), which is **generated from the
+[`docs/trial-protocol-v3.md`](docs/trial-protocol-v3.md) and its
+[addendum](docs/trial-protocol-v3-addendum.md)).  The full tables, the
+Wilson intervals, the paired differences and the p values are in
+[`docs/evidence.md`](docs/evidence.md), which is **generated from the
 raw cells** and checked by a test.
 
 **The trial v3 (the confirmatory run).**  Four arms (naive, simple-retry,
 agentether-claims-only and agentether with the **declarative
-expectations**), the injected faults (20 % of the attempts), six tasks per
-cell for the model `cerebras/gpt-oss-120b`:
+expectations**), the injected faults (20 % of the attempts) and **three
+models**: two of a free tier (`cerebras/gpt-oss-120b` and
+`google/gemini-3.5-flash-lite`) and one **local** (`ollama/qwen2.5:3b-instruct`,
+which has **no quota** at all).  Every rate below is computed on the
+**common set** of the tasks of the cell: the tasks that every arm of the
+cell completed.
 
-| Arm | correct completion | false completion | requests | tokens |
-| --- | --- | --- | --- | --- |
-| naive | 0.500 | 0.500 | 21 | 20 936 |
-| simple-retry | 0.500 | 0.500 | 22 | 21 872 |
-| agentether-claims-only | 0.667 | 0.167 | 26 | 34 594 |
-| **agentether** (with `expects`) | 0.500 | **0.000** | 27 | 34 976 |
+The **injected** condition, the primary endpoint:
 
-The arm that declares what the step must produce caught **every** false
-completion of the baseline, and the arm that only checks the claimed files
-caught two of the three.  The second model (`google/gemini-3.5-flash-lite`)
-shows the same direction.
+| Model | N | naive | simple-retry | agentether-claims-only | **agentether** (with `expects`) |
+| --- | --- | --- | --- | --- | --- |
+| `cerebras/gpt-oss-120b` | 23 | 0.565 | 0.565 | 0.174 | **0.000** |
+| `ollama/qwen2.5:3b-instruct` | 35 | 0.543 | 0.829 | 0.200 | **0.114** |
+| `google/gemini-3.5-flash-lite` | 6 | 0.500 | 0.167 | 0.167 | **0.000** |
 
-**The verdicts are INCONCLUSIVE.**  With N = 6 the minimum detectable
-effect of the sample is 0.571, and the observed difference of the false
-completion rate is 0.500 (three tasks in favour of the guarded arm, the
-exact McNemar test gives p = 0.250).  **The run of the day could not
-reach the sixty tasks per cell of the protocol**: the quota of the free
-tier of the day was spent by the probe, the pilots and the trial v2, and
-the provider of Google refused the calls of the afternoon with
-`HTTP 429`.  The overhead (H3) is **supported**: the guarded arm costs
-more requests and more tokens.
+(the false completion rate; the correct completion rate, the Wilson
+intervals, the paired differences and the p values are in
+[`docs/evidence.md`](docs/evidence.md))
 
-**What the data do NOT show.**  Six tasks per cell cannot make a
-statistical result, and the report does not pretend otherwise.  The
-direction is consistent (in the trial v3 and in the trial v2, the guarded
-arm caught every false completion of the baseline that the claims-only
-arm did not), but the verdict is inconclusive, and the sample is small,
-the tasks are synthetic and the models are free tier models with their own
-limits.
+**Two of the three cells decide the primary endpoint.**  For the
+Cerebras model the guarded arm has **no** false completion against 0.565
+of the baseline (13 tasks in favour of the guarded arm, the exact
+McNemar test gives p < 0.001, and the difference is above the minimum
+detectable effect of the sample): **H2 is SUPPORTED**.  For the local
+model the difference is -0.714 (26 tasks in favour, p < 0.001) and the
+correct completion rate is also better (+0.543, p < 0.001): **H1 and H2
+are SUPPORTED**.  For the Google model the sample is still too small
+(N = 6): every verdict is **INCONCLUSIVE**.
+
+**The cost of honesty is in the evidence.**  The guard does not make a
+task succeed; it makes a false "done" visible.  For the Cerebras model
+the guarded arm ends **7** tasks of the 23 as an honest "not completed"
+(the ground truth says they were not finished and the arm says so), and
+**4** of them were false completions of the baseline.  The naive arm has
+**0** honest failures and **13** false completions: the same tasks,
+reported as successes.
+
+**What the data do NOT show.**  The sample is still small (23 to 35
+tasks per cell, not the 60 of the protocol), the tasks are synthetic, the
+ground truth checks are the ones the author of the library wrote, and two
+of the three models are free tier models with their own limits.  The
+local model is **not deterministic** at temperature 0 (the GPU is not),
+so the comparison is paired on the task and the fault schedule and not
+on the answer of the model.
 
 **The trial v2 (the supplementary run).**  Three arms and two conditions,
 N = 12 tasks per cell, two models.  The selection rule of that protocol
