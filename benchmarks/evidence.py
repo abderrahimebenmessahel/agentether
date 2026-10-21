@@ -568,7 +568,74 @@ def _verdicts_section(run: Run, level: int) -> list[str]:
                     )
         lines.append(f"| {model} | {achieved_n} | {mde:.3f} | {h1_text} | {h2_text} | {h3_text} |")
     lines.append("")
+    lines.extend(_naive_verdicts_section(run, level))
     lines.extend(_expectations_section(run, level))
+    return lines
+
+
+def _naive_verdicts_section(run: Run, level: int) -> list[str]:
+    """The verdicts of H1 and H2 against the **naive** arm.
+
+    The hypotheses of the protocol are stated against the simple-retry
+    baseline, and they are the ones of the table above.  The naive arm
+    (one call per step, the claim is trusted) is the second comparator,
+    and it matters: a baseline that retries writes the files of **every**
+    answer, and the last one wins.  With a model that is not
+    deterministic, a retry can therefore overwrite a good file with a
+    worse one, and the baseline ends up worse than the naive arm.  The
+    comparison against the naive arm does not have that bias.
+    """
+    cells = run.cells
+    summary = summarise(cells)
+    models = sorted({str(cell.get("model", "")) for cell in cells})
+    head = "#" * level
+    lines = [
+        f"{head} The verdicts against the naive arm",
+        "",
+        "The hypotheses of the protocol are stated against the simple-retry",
+        "baseline, and the table above is the verdict against it.  The **naive**",
+        "arm (one call per step, the claim is trusted) is the second",
+        "comparator, and it is reported here because the baseline is not always",
+        "a fair one: a baseline that retries writes the files of **every**",
+        "answer, and the last one wins, so with a model that is not",
+        "deterministic a retry can overwrite a good file with a worse one.",
+        "",
+        "| Model | N | MDE | H1: correct completion | H2: false completion (primary) |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    conditions = sorted({str(cell.get("condition", "")) for cell in cells})
+    for model in models:
+        h1_text = "no data"
+        h2_text = "no data"
+        achieved_n = 0
+        mde = 0.0
+        for condition in conditions:
+            if condition != "injected":
+                continue
+            key = f"{model}|{condition}"
+            a = summary.get(f"{key}|agentether")
+            b = summary.get(f"{key}|naive")
+            if a and b:
+                achieved_n = a["n"]
+                mde = mde_for(achieved_n)
+                h1 = paired_difference(cells, key, "agentether", "naive", "correct")
+                h2 = paired_difference(cells, key, "agentether", "naive", "false_completion")
+                p1 = _mcnemar(h1["discordant"], h1["only_agentether"])
+                p2 = _mcnemar(h2["discordant"], h2["only_agentether"])
+                h1_text = (
+                    f"{h1['difference']:+.3f} (in {_plural(h1['only_agentether'], 'task')} "
+                    f"only the guarded arm completed, in "
+                    f"{_plural(h1['only_naive'], 'task')} only the naive arm; "
+                    f"p = {p1:.3f}): {_verdict(h1['difference'], p1, mde, 1)}"
+                )
+                h2_text = (
+                    f"{h2['difference']:+.3f} (in {_plural(h2['only_agentether'], 'task')} "
+                    f"only the guarded arm falsely completed, in "
+                    f"{_plural(h2['only_naive'], 'task')} only the naive arm; "
+                    f"p = {p2:.3f}): {_verdict(h2['difference'], p2, mde, -1)}"
+                )
+        lines.append(f"| {model} | {achieved_n} | {mde:.3f} | {h1_text} | {h2_text} |")
+    lines.append("")
     return lines
 
 
