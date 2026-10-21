@@ -733,7 +733,8 @@ the maintainer:
 * **tag** and release `0.3.0a1`?  (the CHANGELOG entry is ready, no tag
   was pushed)
 * publish on **PyPI**?  (the wheel and the sdist pass `twine check`)
-* change the **WSL password** (the brief says it is `0`)
+* rotate the **local credentials of the WSL session** (the brief asks
+  for it)
 * **continue the trial v3** on the next days: the runner is resumable, the
   protocol is pre-registered, and sixty tasks per cell (the MDE of 0.181)
   would make the verdict of the primary endpoint decidable.  The command
@@ -746,7 +747,7 @@ the maintainer:
 The final report is written
 (`docs/final-report-2026-10-20.md`).  What is left is the decision of
 the maintainer: make the repository public, tag, publish to PyPI, change
-the WSL password.  Nothing of that was done.
+the local credentials of the WSL session.  Nothing of that was done.
 
 
 
@@ -1188,7 +1189,7 @@ runs, rebuild `docs/evidence.md`, `docs/natural-frequency.md` and
 `docs/false-completions-v3.md`, fill the report again
 (`python benchmarks/fill_report.py docs/final-report-<date>.md`) and run
 the gates.  The decisions of the maintainer (public, tag, PyPI, the
-WSL password) are in the section 9 of the report.
+local credentials) are in the section 9 of the report.
 
 ### The end of the session
 
@@ -1210,4 +1211,5 @@ October 2026:
 
 **The decisions of the maintainer** are in the section 9 of the report:
 make the repository public, tag and release `0.3.0a1`, publish on PyPI
-and change the WSL password.  **None of them was done.**
+and rotate the local credentials of the WSL session.  **None of them
+was done.**

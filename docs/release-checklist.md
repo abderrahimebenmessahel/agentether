@@ -32,8 +32,9 @@
    a Markdown file and PyPI renders it, and a broken link or a broken
    table is visible forever.  The wheel and the sdist pass `twine
    check`.
-4. **The WSL password.**  The brief of the session says it is `0`.  It
-   should be changed, and it is not written anywhere in this repository.
+4. **The local credentials of the WSL session.**  The brief of the
+   session asks that they be rotated.  It should be done, and no
+   credential is written anywhere in this repository.
 
 ## The commands of the release, in the order they would run
 

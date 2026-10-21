@@ -470,7 +470,8 @@ no wheel was uploaded.
    was pushed.
 3. **Publish to PyPI?**  The name `agentether` was checked and is free;
    the wheel and the sdist pass `twine check`; nothing was uploaded.
-4. **The WSL password**: the brief says it is `0`.  It should be changed.
+4. **The local credentials of the WSL session**: they should be
+   rotated, and no credential is written anywhere in this repository.
 5. The README says *"no independent human review yet"* about the
    AI-assisted development; if that is not accurate for their process,
    they should change it.
