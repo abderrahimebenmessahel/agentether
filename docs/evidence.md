@@ -29,33 +29,33 @@ tables of the report.
 
 ### What was run
 
-- Cells completed: 601
-- Time the calls took: 66446.3 s
-- Model calls: 2664
+- Cells completed: 621
+- Time the calls took: 66937.2 s
+- Model calls: 2746
 - Fault rate: 0.2 (the injected condition only)
 - Attempt cap per step: 3
-- Halted: the token cap of the day of the Cerebras model (500198 of the 500000 tokens that the rule of the maintainer allows), and the daily quota of the Google model: the provider refused the calls with HTTP 429 (quota exceeded for model: gemini-3.5-flash-lite, limit: 500) and the day of the provider turns at midnight Pacific time
+- Halted: the token cap of the day of the Cerebras model (500198 of the 500000 tokens that the rule of the maintainer allows), and the daily quota of the Google model: the provider refused the calls with HTTP 429 twice (quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 500, model: gemini-3.5-flash-lite), once three minutes after the UTC day had turned over and once at 07:30 UTC, the day of the provider turning at midnight Pacific time and the window of the 500 requests being longer than a UTC day
 
 ### The models of the run
 
 | Provider | Model | Pilot (naive, natural) | Qualifies | N per cell | MDE of the paired difference |
 | --- | --- | --- | --- | --- | --- |
 | cerebras | gpt-oss-120b | 19/20 = 0.950 | passes the capability probe; no band (the rule of the v3) | 23 | 0.292 |
-| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 6 | 0.572 |
+| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 11 | 0.422 |
 | ollama | qwen2.5:3b-instruct | not run | passes the capability probe (1.000 on the telemetry, the name of the step, the progress, the file blocks and the artifacts); no band and no quota: the compute is local and free | 60 | 0.181 |
 
 - **gpt-oss-120b**: the free tier of the provider: 1000 requests and 1000000 tokens per day; the rule of the maintainer is half of it, and the run of the 21st of October stopped at the token cap (500198 tokens) after 415 requests
-- **gemini-3.5-flash-lite**: the daily limit of the free tier is 500 requests PER MODEL, and the answer of the provider says so when the quota is spent; the day of the provider turns at midnight Pacific time (07:00 UTC), not at midnight UTC, so the run of the 21st of October met the quota of the day that was ending and was stopped for the day
+- **gemini-3.5-flash-lite**: the daily limit of the free tier is 500 requests PER MODEL, and the answer of the provider says so when the quota is spent; the day of the provider turns at midnight Pacific time (07:00 UTC), not at midnight UTC, and the window of the 500 requests is longer than a UTC day, so the run of the 21st of October was refused twice and the model stays at 11 tasks per cell
 - **qwen2.5:3b-instruct**: a local model on the GeForce RTX 3050 of the machine: a download of 1.9 GB, no quota, no key, and the comparison is paired on the task and the fault schedule and not on the answer of the model, because it is not deterministic at temperature 0 (the GPU is not)
 
 ### The request and token totals
 
 | Model | Requests | Tokens | Wall clock (s) |
 | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | 104 | 76145 | 1279.0 |
+| gemini-3.5-flash-lite | 186 | 145475 | 1769.8 |
 | gpt-oss-120b | 412 | 496363 | 6345.9 |
 | qwen2.5:3b-instruct | 2148 | 1713435 | 58821.4 |
-| **total** | **2664** | **2285943** | **66446.3** |
+| **total** | **2746** | **2355273** | **66937.1** |
 
 ### The arms
 
@@ -75,10 +75,10 @@ beyond that set.
 
 | Model | Arm | N | Dropped | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | agentether | 6 | 0 | 1.000 [0.610, 1.000] | 0.000 [0.000, 0.390] | 6 | 23 | 319.96 | 1 | 0 |
-| gemini-3.5-flash-lite | agentether-claims-only | 6 | 0 | 0.833 [0.436, 0.970] | 0.167 [0.030, 0.564] | 6 | 22 | 231.29 | 0 | 0 |
-| gemini-3.5-flash-lite | naive | 6 | 1 | 0.333 [0.097, 0.700] | 0.500 [0.188, 0.812] | 5 | 21 | 346.29 | 0 | 0 |
-| gemini-3.5-flash-lite | simple-retry | 6 | 2 | 0.833 [0.436, 0.970] | 0.167 [0.030, 0.564] | 6 | 22 | 232.48 | 0 | 0 |
+| gemini-3.5-flash-lite | agentether | 11 | 0 | 0.909 [0.623, 0.984] | 0.000 [0.000, 0.259] | 10 | 46 | 454.76 | 7 | 0 |
+| gemini-3.5-flash-lite | agentether-claims-only | 11 | 0 | 0.727 [0.434, 0.903] | 0.273 [0.097, 0.566] | 11 | 43 | 365.18 | 2 | 0 |
+| gemini-3.5-flash-lite | naive | 11 | 1 | 0.364 [0.152, 0.646] | 0.455 [0.213, 0.720] | 9 | 38 | 475.57 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 11 | 2 | 0.636 [0.354, 0.848] | 0.273 [0.097, 0.566] | 10 | 44 | 373.65 | 0 | 0 |
 | gpt-oss-120b | agentether | 23 | 0 | 0.696 [0.491, 0.844] | 0.000 [0.000, 0.143] | 15 | 120 | 1776.36 | 39 | 0 |
 | gpt-oss-120b | agentether-claims-only | 23 | 0 | 0.609 [0.408, 0.778] | 0.174 [0.070, 0.371] | 17 | 123 | 1887.15 | 39 | 0 |
 | gpt-oss-120b | naive | 23 | 1 | 0.435 [0.256, 0.632] | 0.565 [0.368, 0.744] | 22 | 80 | 1180.71 | 0 | 0 |
@@ -112,12 +112,12 @@ set of the tasks of the cell, the same set the rates above use.
 
 | Model | Condition | Comparison | N | Only A | Only B | Both | Neither | Difference |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs agentether-claims-only) | 6 | 1 | 0 | 5 | 0 | +0.167 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs agentether-claims-only) | 6 | 0 | 1 | 0 | 5 | -0.167 |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 6 | 4 | 0 | 2 | 0 | +0.667 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 6 | 0 | 3 | 0 | 3 | -0.500 |
-| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 6 | 1 | 0 | 5 | 0 | +0.167 |
-| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 6 | 0 | 1 | 0 | 5 | -0.167 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs agentether-claims-only) | 11 | 2 | 0 | 8 | 1 | +0.182 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs agentether-claims-only) | 11 | 0 | 3 | 0 | 8 | -0.273 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs naive) | 11 | 6 | 0 | 4 | 1 | +0.545 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs naive) | 11 | 0 | 5 | 0 | 6 | -0.455 |
+| gemini-3.5-flash-lite | injected | correct completion (agentether vs simple-retry) | 11 | 3 | 0 | 7 | 1 | +0.273 |
+| gemini-3.5-flash-lite | injected | false completion (agentether vs simple-retry) | 11 | 0 | 3 | 0 | 8 | -0.273 |
 | gpt-oss-120b | injected | correct completion (agentether vs agentether-claims-only) | 23 | 6 | 4 | 10 | 3 | +0.087 |
 | gpt-oss-120b | injected | false completion (agentether vs agentether-claims-only) | 23 | 0 | 4 | 0 | 19 | -0.174 |
 | gpt-oss-120b | injected | correct completion (agentether vs naive) | 23 | 9 | 3 | 7 | 4 | +0.261 |
@@ -147,7 +147,7 @@ and a **negative** H2 is an improvement.
 
 | Model | Condition | agentether | naive | H1 (paired) | H2 (paired) |
 | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | 1.000 | 0.333 | +0.667 | -0.500 |
+| gemini-3.5-flash-lite | injected | 0.909 | 0.364 | +0.545 | -0.455 |
 | gpt-oss-120b | injected | 0.696 | 0.435 | +0.261 | -0.565 |
 | qwen2.5:3b-instruct | injected | 0.750 | 0.117 | +0.633 | -0.483 |
 | qwen2.5:3b-instruct | natural | 0.667 | 0.083 | +0.583 | -0.417 |
@@ -169,7 +169,7 @@ number of the tasks that every arm of the cell completed.
 
 | Model | N | MDE | H1: correct completion | H2: false completion (primary) | H3: the overhead |
 | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | 6 | 0.572 | +0.167 (in 1 task only the guarded arm completed, in 0 tasks only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 task only the comparator; p = 1.000): INCONCLUSIVE (the sample is too small) | 23 against 22 requests, 22438 against 14503 tokens: SUPPORTED |
+| gemini-3.5-flash-lite | 11 | 0.422 | +0.273 (in 3 tasks only the guarded arm completed, in 0 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | -0.273 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 46 against 44 requests, 45438 against 25418 tokens: SUPPORTED |
 | gpt-oss-120b | 23 | 0.292 | +0.261 (in 9 tasks only the guarded arm completed, in 3 tasks only the comparator; p = 0.146): INCONCLUSIVE (the sample is too small) | -0.565 (in 0 tasks only the guarded arm falsely completed, in 13 tasks only the comparator; p = 0.000): SUPPORTED | 120 against 81 requests, 160091 against 83277 tokens: SUPPORTED |
 | qwen2.5:3b-instruct | 60 | 0.181 | +0.617 (in 38 tasks only the guarded arm completed, in 1 task only the comparator; p = 0.000): SUPPORTED | -0.733 (in 1 task only the guarded arm falsely completed, in 45 tasks only the comparator; p = 0.000): SUPPORTED | 326 against 251 requests, 293990 against 164874 tokens: SUPPORTED |
 
@@ -185,7 +185,7 @@ deterministic a retry can overwrite a good file with a worse one.
 
 | Model | N | MDE | H1: correct completion | H2: false completion (primary) |
 | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | 6 | 0.572 | +0.667 (in 4 tasks only the guarded arm completed, in 0 tasks only the naive arm; p = 0.125): NOT SUPPORTED | -0.500 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the naive arm; p = 0.250): INCONCLUSIVE (the sample is too small) |
+| gemini-3.5-flash-lite | 11 | 0.422 | +0.545 (in 6 tasks only the guarded arm completed, in 0 tasks only the naive arm; p = 0.031): SUPPORTED | -0.455 (in 0 tasks only the guarded arm falsely completed, in 5 tasks only the naive arm; p = 0.062): NOT SUPPORTED |
 | gpt-oss-120b | 23 | 0.292 | +0.261 (in 9 tasks only the guarded arm completed, in 3 tasks only the naive arm; p = 0.146): INCONCLUSIVE (the sample is too small) | -0.565 (in 0 tasks only the guarded arm falsely completed, in 13 tasks only the naive arm; p = 0.000): SUPPORTED |
 | qwen2.5:3b-instruct | 60 | 0.181 | +0.633 (in 40 tasks only the guarded arm completed, in 2 tasks only the naive arm; p = 0.000): SUPPORTED | -0.483 (in 2 tasks only the guarded arm falsely completed, in 31 tasks only the naive arm; p = 0.000): SUPPORTED |
 
@@ -199,7 +199,7 @@ improvement.
 
 | Model | Condition | H4 (paired) | The verdict |
 | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | -0.167 (in 0 tasks only the guarded arm falsely completed, in 1 only the claims-only arm; p = 1.000) | INCONCLUSIVE (the sample is too small) |
+| gemini-3.5-flash-lite | injected | -0.273 (in 0 tasks only the guarded arm falsely completed, in 3 only the claims-only arm; p = 0.250) | INCONCLUSIVE (the sample is too small) |
 | gpt-oss-120b | injected | -0.174 (in 0 tasks only the guarded arm falsely completed, in 4 only the claims-only arm; p = 0.125) | INCONCLUSIVE (the sample is too small) |
 | qwen2.5:3b-instruct | injected | -0.050 (in 3 tasks only the guarded arm falsely completed, in 6 only the claims-only arm; p = 0.508) | INCONCLUSIVE (the sample is too small) |
 | qwen2.5:3b-instruct | natural | -0.017 (in 8 tasks only the guarded arm falsely completed, in 9 only the claims-only arm; p = 1.000) | INCONCLUSIVE (the sample is too small) |
@@ -220,10 +220,10 @@ a visible failure.
 
 | Model | Condition | Arm | N | Correct | False completion | Honest "not completed" | Converted | Rate of the honest failures (95% CI) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | agentether | 6 | 6 | 0 | 0 | 0 | 0.000 [0.000, 0.390] |
-| gemini-3.5-flash-lite | injected | agentether-claims-only | 6 | 5 | 1 | 0 | 0 | 0.000 [0.000, 0.390] |
-| gemini-3.5-flash-lite | injected | naive | 6 | 2 | 3 | 1 | 0 | 0.167 [0.030, 0.564] |
-| gemini-3.5-flash-lite | injected | simple-retry | 6 | 5 | 1 | 0 | 0 | 0.000 [0.000, 0.390] |
+| gemini-3.5-flash-lite | injected | agentether | 11 | 10 | 0 | 1 | 1 | 0.091 [0.016, 0.377] |
+| gemini-3.5-flash-lite | injected | agentether-claims-only | 11 | 8 | 3 | 0 | 0 | 0.000 [0.000, 0.259] |
+| gemini-3.5-flash-lite | injected | naive | 11 | 4 | 5 | 2 | 1 | 0.182 [0.051, 0.477] |
+| gemini-3.5-flash-lite | injected | simple-retry | 11 | 7 | 3 | 1 | 0 | 0.091 [0.016, 0.377] |
 | gpt-oss-120b | injected | agentether | 23 | 16 | 0 | 7 | 4 | 0.304 [0.156, 0.509] |
 | gpt-oss-120b | injected | agentether-claims-only | 23 | 14 | 4 | 5 | 3 | 0.217 [0.097, 0.419] |
 | gpt-oss-120b | injected | naive | 23 | 10 | 13 | 0 | 0 | 0.000 [0.000, 0.143] |

@@ -1,43 +1,43 @@
 {
-  "label": "Trial v3 (2026-10-20 and 2026-10-21)",
-  "status": "A PARTIAL confirmatory run, continued on the 21st of October.  The protocol of the trial v3 is docs/trial-protocol-v3.md and its addendum is docs/trial-protocol-v3-addendum.md; both were committed before the first result file.  The selection rule of the protocol v2 (a band on the naive success rate) was NOT satisfiable by the models that had quota, and the rule of the v3 is the capability probe and the quota, with no band; the deviation was decided BEFORE the new data.  The task set was extended from twenty to sixty tasks by a seeded procedural generator, and the first twenty tasks and the data collected on them are untouched.  Every rate is computed on the COMMON SET of the tasks that every arm of a cell completed.  The verdicts that depend on the size of the sample are INCONCLUSIVE, and the data show the direction only.",
-  "fault_rate": 0.2,
   "attempt_cap": 3,
-  "halted": "the token cap of the day of the Cerebras model (500198 of the 500000 tokens that the rule of the maintainer allows), and the daily quota of the Google model: the provider refused the calls with HTTP 429 (quota exceeded for model: gemini-3.5-flash-lite, limit: 500) and the day of the provider turns at midnight Pacific time",
+  "fault_rate": 0.2,
+  "halted": "the token cap of the day of the Cerebras model (500198 of the 500000 tokens that the rule of the maintainer allows), and the daily quota of the Google model: the provider refused the calls with HTTP 429 twice (quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 500, model: gemini-3.5-flash-lite), once three minutes after the UTC day had turned over and once at 07:30 UTC, the day of the provider turning at midnight Pacific time and the window of the 500 requests being longer than a UTC day",
+  "label": "Trial v3 (2026-10-20 and 2026-10-21)",
   "runs": [
     {
-      "provider": "cerebras",
+      "mde": "0.292",
       "model": "gpt-oss-120b",
+      "n": 24,
+      "note": "the free tier of the provider: 1000 requests and 1000000 tokens per day; the rule of the maintainer is half of it, and the run of the 21st of October stopped at the token cap (500198 tokens) after 415 requests",
       "pilot": {
-        "n": 20,
         "correct": 19,
+        "n": 20,
         "rate": 0.95
       },
-      "qualification": "passes the capability probe; no band (the rule of the v3)",
-      "n": 24,
-      "mde": "0.292",
-      "note": "the free tier of the provider: 1000 requests and 1000000 tokens per day; the rule of the maintainer is half of it, and the run of the 21st of October stopped at the token cap (500198 tokens) after 415 requests"
+      "provider": "cerebras",
+      "qualification": "passes the capability probe; no band (the rule of the v3)"
     },
     {
-      "provider": "google",
+      "mde": "0.529",
       "model": "gemini-3.5-flash-lite",
+      "n": 7,
+      "note": "the daily limit of the free tier is 500 requests PER MODEL, and the answer of the provider says so when the quota is spent; the day of the provider turns at midnight Pacific time (07:00 UTC), not at midnight UTC, and the window of the 500 requests is longer than a UTC day, so the run of the 21st of October was refused twice and the model stays at 11 tasks per cell",
       "pilot": {
-        "n": 20,
         "correct": 17,
+        "n": 20,
         "rate": 0.85
       },
-      "qualification": "passes the capability probe; no band (the rule of the v3)",
-      "n": 7,
-      "mde": "0.529",
-      "note": "the daily limit of the free tier is 500 requests PER MODEL, and the answer of the provider says so when the quota is spent; the day of the provider turns at midnight Pacific time (07:00 UTC), not at midnight UTC, so the run of the 21st of October met the quota of the day that was ending and was stopped for the day"
+      "provider": "google",
+      "qualification": "passes the capability probe; no band (the rule of the v3)"
     },
     {
-      "provider": "ollama",
-      "model": "qwen2.5:3b-instruct",
-      "qualification": "passes the capability probe (1.000 on the telemetry, the name of the step, the progress, the file blocks and the artifacts); no band and no quota: the compute is local and free",
-      "n": 15,
       "mde": "0.361",
-      "note": "a local model on the GeForce RTX 3050 of the machine: a download of 1.9 GB, no quota, no key, and the comparison is paired on the task and the fault schedule and not on the answer of the model, because it is not deterministic at temperature 0 (the GPU is not)"
+      "model": "qwen2.5:3b-instruct",
+      "n": 15,
+      "note": "a local model on the GeForce RTX 3050 of the machine: a download of 1.9 GB, no quota, no key, and the comparison is paired on the task and the fault schedule and not on the answer of the model, because it is not deterministic at temperature 0 (the GPU is not)",
+      "provider": "ollama",
+      "qualification": "passes the capability probe (1.000 on the telemetry, the name of the step, the progress, the file blocks and the artifacts); no band and no quota: the compute is local and free"
     }
-  ]
+  ],
+  "status": "A PARTIAL confirmatory run, continued on the 21st of October.  The protocol of the trial v3 is docs/trial-protocol-v3.md and its addendum is docs/trial-protocol-v3-addendum.md; both were committed before the first result file.  The selection rule of the protocol v2 (a band on the naive success rate) was NOT satisfiable by the models that had quota, and the rule of the v3 is the capability probe and the quota, with no band; the deviation was decided BEFORE the new data.  The task set was extended from twenty to sixty tasks by a seeded procedural generator, and the first twenty tasks and the data collected on them are untouched.  Every rate is computed on the COMMON SET of the tasks that every arm of a cell completed.  The verdicts that depend on the size of the sample are INCONCLUSIVE, and the data show the direction only."
 }

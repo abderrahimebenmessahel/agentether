@@ -1123,3 +1123,69 @@ and it resumes the work directory of the first session.  After it: the
 cells are collected, the evidence document and the analysis of the false
 completions are rebuilt, the report is filled again and the gates are
 run for the last time.
+
+### The run of the Google model was refused twice
+
+The run of the Google model started at **07:05 UTC**, when the quota of
+the provider was supposed to turn over, and it was refused again at
+07:30 with the same answer:
+
+```text
+HTTP 429 - "Quota exceeded for metric:
+generativelanguage.googleapis.com/generate_content_free_tier_requests,
+limit: 500, model: gemini-3.5-flash-lite.
+Please retry in 6h56m14.06411813s."
+```
+
+The message names the same duration as the refusal of the 20th of
+October (6h56m14s, at two different moments), so it is **not** a live
+countdown: the window of the 500 requests is **longer than a UTC day**,
+and it still holds the requests of the evening of the 20th of October.
+The cell of the Google model therefore stays at **11 tasks per cell**,
+and the natural condition of that model was not run.
+
+**The state of the runs at the end of the session:**
+
+| Run | Model | N (injected) | N (natural) | The verdicts |
+| --- | --- | --- | --- | --- |
+| local | `qwen2.5:3b-instruct` | **60** | **60** | H1 SUPPORTED, H2 SUPPORTED, H3 SUPPORTED, H4 INCONCLUSIVE |
+| cerebras | `gpt-oss-120b` | 23 | 0 | H2 SUPPORTED, H3 SUPPORTED, H1 INCONCLUSIVE |
+| google | `gemini-3.5-flash-lite` | 11 | 0 | every verdict INCONCLUSIVE |
+
+### The command to continue the trial v3
+
+```bash
+# the local model (no quota): the grid is complete, this command adds
+# the tasks of the next window
+python benchmarks/trial.py --provider ollama --models qwen2.5:3b-instruct \
+    --task-set v3 --arms naive simple-retry agentether-claims-only agentether \
+    --conditions injected natural --tasks 60 --rate-limit 600 \
+    --model-cap 100000 --daily-cap 100000 --token-cap 100000000 \
+    --model-seed 20261021 --timeout 300 \
+    --workdir logs/trial-v3-local2/shard0 --output logs/trial-v3-local2/shard0.json
+
+# the Cerebras model (the half of the documented daily quota)
+python benchmarks/trial.py --provider cerebras --models gpt-oss-120b \
+    --task-set v3 --arms naive simple-retry agentether-claims-only agentether \
+    --conditions injected natural --tasks 60 --rate-limit 5 --model-cap 500 \
+    --daily-cap 500 --token-cap 500000 --model-seed 20261021 \
+    --workdir logs/trial-v3-cerebras --output benchmarks/results/trial-v3-cerebras.json
+
+# the Google model (the half of the 500 requests per model that the
+# provider publishes; the window of the quota is longer than a day, so
+# the run must wait for it)
+python benchmarks/trial.py --provider google --models gemini-3.5-flash-lite \
+    --task-set v3 --arms naive simple-retry agentether-claims-only agentether \
+    --conditions injected natural --tasks 60 --rate-limit 15 --model-cap 250 \
+    --daily-cap 250 --token-cap 150000 --model-seed 20261021 \
+    --workdir logs/trial-v3-google --output benchmarks/results/trial-v3-google.json
+```
+
+### NEXT ACTION
+
+The session is over.  The next session must: collect the cells of the
+runs, rebuild `docs/evidence.md`, `docs/natural-frequency.md` and
+`docs/false-completions-v3.md`, fill the report again
+(`python benchmarks/fill_report.py docs/final-report-<date>.md`) and run
+the gates.  The decisions of the maintainer (public, tag, PyPI, the
+WSL password) are in the section 9 of the report.

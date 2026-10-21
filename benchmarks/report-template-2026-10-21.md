@@ -274,10 +274,15 @@ claimed files:
   gives p < 0.001.  **H1 and H2 are SUPPORTED.**
 * For the **Cerebras model**, the primary endpoint is decided as well
   (N = 23, the difference is above the MDE of the sample and p < 0.001):
-  **H2 is SUPPORTED**.  H1 is INCONCLUSIVE: the difference is above the
-  MDE but the test does not reject (p = 0.146).
-* For the **Google model**, the sample is still six tasks and every
-  verdict is **INCONCLUSIVE**.
+  **H2 is SUPPORTED** (the guarded arm has no false completion at all
+  against 0.565 of the baseline, 13 tasks in favour of the guarded arm).
+  H1 is INCONCLUSIVE: the difference is above the MDE but the test does
+  not reject (p = 0.146).
+* For the **Google model**, the sample is eleven tasks and every
+  verdict is **INCONCLUSIVE** (the false completion rate of the guarded
+  arm is 0.000 against 0.273 of the baseline, and the difference is
+  above the MDE of the sample but the exact McNemar test of the three
+  discordant pairs does not reject: p = 0.250).
 * **H3 (the overhead) is SUPPORTED** everywhere: the guarded arm costs
   more requests and more tokens than the baseline, and that is the price
   of the supervision.
@@ -390,8 +395,8 @@ cell is computed from the N it reached.
 
 | Check | Result |
 | --- | --- |
-| `pytest` on Windows (CPython 3.14.7) | **GATES-WINDOWS** |
-| `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | **GATES-LINUX** |
+| `pytest` on Windows (CPython 3.14.7) | **512 passed, 4 skipped** |
+| `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | **512 passed, 2 skipped** on each of the four versions |
 | `mypy --strict` | clean, 66 files, on Windows and on the four Linux versions |
 | `ruff check` / `ruff format --check` | clean, 110 files (Windows), 106 (Linux) |
 | `pytest --cov=src/agentether` | **89 %** of the lines |
@@ -443,7 +448,49 @@ no wheel was uploaded.
 
 ## 8. What was skipped and what could not be verified
 
-<!--SKIPPED-->
+**The Google model could not be extended.**  The free tier of Google AI
+Studio gives **500 requests per model**, and the window of those 500
+requests is **longer than a UTC day**: the provider refused the calls of
+the 21st of October **twice**, once three minutes after the UTC day had
+turned over and once at 07:30 UTC, after the run had waited for the
+quota of the provider to reset at 07:05.  The cell of the Google model
+therefore stays at **11 tasks per cell** and the natural condition of
+that model was not run at all.
+
+**The natural condition of the Cerebras model was not run.**  The budget
+of the day of the free tier went to the injected condition, which
+carries the primary endpoint, and the run stopped at the token cap
+(500 198 of the 500 000 tokens that the rule allows).  The natural
+condition of the local model **is** complete (60 tasks per cell), and it
+is the one the natural frequency is computed on.
+
+**The first local model was discarded.**  `qwen2.5:1.5b-instruct` passed
+the capability probe on paper but never produced a valid telemetry on
+the tasks: all 86 cells it produced say that no arm ever believed a
+task was done, and the false completion rate was 0 for the four arms.
+The cells are kept, labelled, in
+`benchmarks/results/trial-v3-local-discarded-cells.jsonl`.
+
+**The commits of the session that added the data are red in the CI.**
+The test of the consistency of the evidence document compares the
+document with the raw cells and the report with the cells too: the
+commits that added the cells of a run that was still going failed that
+test on purpose, because the document and the report are rebuilt when
+the run is over.  The **last** commit of the session is green on the ten
+cells and on the dependency audit.
+
+**Other things that were not done.**
+
+* The **stretch** of the protocol (a twelve step long task, N = 1) was
+  not run: the budget of the day went to the real cells.
+* The **token limit of the free tier of Google AI Studio is still
+  UNVERIFIED**: the answer of the provider names the request metric and
+  the number of requests, and not a number of tokens.  The runs of this
+  project impose a token cap of their own.
+* The **mutation triage** was not continued (the class "gap (behaviour)"
+  of the survivors is still not triaged one by one).
+* The **Groq models** were not called at all: the daily quota of Groq
+  was spent by the probe and the pilots of the 20th of October.
 
 ---
 

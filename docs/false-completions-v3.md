@@ -37,6 +37,10 @@ completion: the arm does not believe the task is done.
 | gemini-3.5-flash-lite | injected | task04-forge | headings notes.md '## Next steps' | truncate_file | **(i)** | the injected fault 'truncate_file' of the attempt 1 removed the file |
 | gemini-3.5-flash-lite | injected | task04-forge | python_valid build.py | none | **(iii)** | the file exists but its content does not satisfy the check |
 | gemini-3.5-flash-lite | injected | task07-nursery | headings notes.md '## Next steps' | truncate_file | **(i)** | the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer |
+| gemini-3.5-flash-lite | injected | task09-refinery | file_exists data.json | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | json_keys data.json 'a,b,c' | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | json_value data.json 'a=40' | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | json_value data.json 'b=refinery' | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
 | gpt-oss-120b | injected | task02-clinic | file_exists report.md | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
 | gpt-oss-120b | injected | task02-clinic | headings report.md '## Summary' | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
 | gpt-oss-120b | injected | task02-clinic | contains report.md '33' | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
@@ -536,6 +540,20 @@ completion: the arm does not believe the task is done.
 | Model | Condition | Task | The check that failed | The fault | Cause | Why |
 | --- | --- | --- | --- | --- | --- | --- |
 | gemini-3.5-flash-lite | injected | task04-forge | headings notes.md '## Next steps' | truncate_file | **(i)** | the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer |
+| gemini-3.5-flash-lite | injected | task09-refinery | file_exists data.json | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | json_keys data.json 'a,b,c' | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | json_value data.json 'a=40' | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | json_value data.json 'b=refinery' | hide_file | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | python_valid build.py | none | **(iii)** | the file exists but its content does not satisfy the check |
+| gemini-3.5-flash-lite | injected | task09-refinery | file_exists README.md | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | contains README.md 'build_refinery' | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task09-refinery | contains README.md '40' | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
+| gemini-3.5-flash-lite | injected | task11-tannery | file_exists build.py | lie | **(i)** | the injected fault 'lie' of the attempt 1 removed the file |
+| gemini-3.5-flash-lite | injected | task11-tannery | python_valid build.py | lie | **(i)** | the injected fault 'lie' of the attempt 1 removed the file |
+| gemini-3.5-flash-lite | injected | task12-vineyard | python_valid build.py | drop_file_block | **(iii)** | the file exists but its content does not satisfy the check (the content looks cut in the middle) |
+| gemini-3.5-flash-lite | injected | task12-vineyard | file_exists report.md | replay_previous | **(i)** | the injected fault 'replay_previous' of the attempt 1 removed the file |
+| gemini-3.5-flash-lite | injected | task12-vineyard | headings report.md '## Summary' | replay_previous | **(i)** | the injected fault 'replay_previous' of the attempt 1 removed the file |
+| gemini-3.5-flash-lite | injected | task12-vineyard | contains report.md '43' | replay_previous | **(i)** | the injected fault 'replay_previous' of the attempt 1 removed the file |
 | gpt-oss-120b | injected | task02-clinic | file_exists report.md | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
 | gpt-oss-120b | injected | task02-clinic | headings report.md '## Summary' | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
 | gpt-oss-120b | injected | task02-clinic | contains report.md '33' | none | **(ii)** | no fault was injected in the last attempt of the step: the model never produced the file |
@@ -1100,6 +1118,9 @@ completion: the arm does not believe the task is done.
 | Model | Condition | Task | The check that failed | The fault | Cause | Why |
 | --- | --- | --- | --- | --- | --- | --- |
 | gemini-3.5-flash-lite | injected | task04-forge | headings notes.md '## Next steps' | truncate_file | **(i)** | the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer |
+| gemini-3.5-flash-lite | injected | task07-nursery | headings notes.md '## Next steps' | truncate_file | **(i)** | the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer |
+| gemini-3.5-flash-lite | injected | task11-tannery | file_exists build.py | lie | **(i)** | the injected fault 'lie' of the attempt 1 removed the file |
+| gemini-3.5-flash-lite | injected | task11-tannery | python_valid build.py | lie | **(i)** | the injected fault 'lie' of the attempt 1 removed the file |
 | gpt-oss-120b | injected | task04-forge | headings notes.md '## Next steps' | truncate_file | **(i)** | the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer |
 | gpt-oss-120b | injected | task07-nursery | headings notes.md '## Next steps' | truncate_file | **(i)** | the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer |
 | gpt-oss-120b | injected | task11-tannery | file_exists build.py | lie | **(i)** | the injected fault 'lie' of the attempt 1 removed the file |
@@ -1228,9 +1249,9 @@ completion: the arm does not believe the task is done.
 
 | Cause | The false completions | The failing checks |
 | --- | --- | --- |
-| (i) an injected fault damaged an artifact and the arm did not catch it | 50 | 231 |
-| (ii) a required file was never produced and the claim did not mention it | 101 | 570 |
-| (iii) something else | 86 | 378 |
+| (i) an injected fault damaged an artifact and the arm did not catch it | 54 | 239 |
+| (ii) a required file was never produced and the claim did not mention it | 103 | 581 |
+| (iii) something else | 86 | 380 |
 
 ## What the guarded arm caught, and what it could not
 
@@ -1240,7 +1261,7 @@ arm, task by task, on the same tasks and the same fault schedule.
 
 | Model | Condition | The false completions of the naive arm | The guarded arm caught | It could not catch | The guarded arm added |
 | --- | --- | --- | --- | --- | --- |
-| gemini-3.5-flash-lite | injected | 4 | task02-clinic (iii), task03-depot (iii), task04-forge (i), task07-nursery (i) | none | none |
+| gemini-3.5-flash-lite | injected | 5 | task02-clinic (iii), task03-depot (iii), task04-forge (i), task07-nursery (i), task09-refinery (ii) | none | none |
 | gpt-oss-120b | injected | 14 | task02-clinic (ii), task03-depot (ii), task04-forge (i), task07-nursery (i), task09-refinery (ii), task11-tannery (i), task12-vineyard (i), task14-wharf (i), task18-brewery (i), task20-distillery (i), task21-factory (ii), task22-boatyard (i), task23-elevator (ii), task24-gristmill (i) | none | none |
 | qwen2.5:3b-instruct | injected | 34 | task02-clinic (ii), task05-garden (iii), task07-nursery (i), task09-refinery (ii), task13-warehouse (ii), task14-wharf (i), task15-yardarm (ii), task16-ziggurat (ii), task17-apiary (ii), task19-cannery (ii), task22-boatyard (i), task23-elevator (ii), task24-gristmill (ii), task25-bookshop (i), task27-customs (ii), task28-pottery (ii), task29-hearth (iii), task30-glasshouse (ii), task35-workshop (ii), task36-taphouse (i), task38-woodyard (i), task47-cardroom (i), task49-parlour (iii), task51-tinsmith (ii), task52-moor (ii), task53-quern (ii), task54-brickyard (ii), task55-millrace (ii), task57-maltings (i), task59-oilfield (ii), task60-armature (i) | task08-paddock (iii), task18-brewery (i), task46-laundry (ii) | task21-factory (iii), task39-ironworks (iii) |
 | qwen2.5:3b-instruct | natural | 37 | task02-clinic (ii), task07-nursery (ii), task09-refinery (iii), task11-tannery (ii), task12-vineyard (ii), task13-warehouse (ii), task14-wharf (iii), task15-yardarm (ii), task17-apiary (ii), task18-brewery (iii), task19-cannery (ii), task22-boatyard (ii), task26-weaver (ii), task28-pottery (iii), task29-hearth (ii), task31-foundry (ii), task34-lighthouse (ii), task35-workshop (iii), task38-woodyard (ii), task44-turret (iii), task47-cardroom (iii), task48-packhouse (ii), task51-tinsmith (ii), task52-moor (ii), task53-quern (iii), task54-brickyard (ii), task55-millrace (ii), task57-maltings (ii), task58-cobbler (ii), task59-oilfield (ii) | task05-garden (iii), task06-mill (ii), task21-factory (ii), task23-elevator (ii), task36-taphouse (ii), task46-laundry (ii), task49-parlour (ii) | task10-sawmill (iii), task20-distillery (iii), task24-gristmill (iii), task42-anchorage (iii), task43-cartage (iii) |
@@ -1268,6 +1289,7 @@ Three cases follow, and they are the whole explanation:
   * the false completion of task03-depot was **caught**: the file exists but its content does not satisfy the check (the content looks cut in the middle).
   * the false completion of task04-forge was **caught**: the injected fault 'truncate_file' of the attempt 1 removed the file.
   * the false completion of task07-nursery was **caught**: the injected fault 'truncate_file' of the attempt 1 cut the answer, and the file on disk is a faithful copy of the cut answer.
+  * the false completion of task09-refinery was **caught**: no fault was injected in the last attempt of the step: the model never produced the file.
 * **gpt-oss-120b, injected.**
   * the false completion of task02-clinic was **caught**: no fault was injected in the last attempt of the step: the model never produced the file.
   * the false completion of task03-depot was **caught**: no fault was injected in the last attempt of the step: the model never produced the file.

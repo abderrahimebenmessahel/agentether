@@ -16,10 +16,10 @@ the tasks that every arm of that model and of that condition completed.
 
 | Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
 | --- | --- | --- | --- | --- |
-| agentether | 6 | 0 | 0 | 0.000 [0.000, 0.390] |
-| agentether-claims-only | 6 | 1 | 0 | 0.000 [0.000, 0.390] |
-| naive | 6 | 3 | 0 | 0.000 [0.000, 0.390] |
-| simple-retry | 6 | 1 | 0 | 0.000 [0.000, 0.390] |
+| agentether | 11 | 0 | 0 | 0.000 [0.000, 0.259] |
+| agentether-claims-only | 11 | 3 | 0 | 0.000 [0.000, 0.259] |
+| naive | 11 | 5 | 1 | 0.091 [0.016, 0.377] |
+| simple-retry | 11 | 3 | 1 | 0.091 [0.016, 0.377] |
 
 ## gpt-oss-120b -- injected
 
