@@ -50,3 +50,6 @@ agentether-packaging-*/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# The scratch archive of a local snapshot of the tree
+.pre-commit-config.zip

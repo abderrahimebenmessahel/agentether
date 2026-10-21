@@ -6,3 +6,11 @@
 *.toml text eol=lf
 *.json text eol=lf
 *.yml text eol=lf
+# The two root files that had no rule and drifted with the
+# local configuration of the machine.
+LICENSE text eol=lf
+.gitignore text eol=lf
+# The configuration files are read by git and by the hooks:
+# they must not depend on the local configuration of the machine.
+.gitattributes text eol=lf
+.pre-commit-config.yaml text eol=lf
