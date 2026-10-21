@@ -149,7 +149,164 @@ the half of the daily quota does not apply to it.
 
 ## 4. Phase 4 — the runs of the day
 
-<!--RESULTS-->
+### 4.1 What was run
+
+Three runs of the protocol of the trial v3 and of its addendum, on the
+same tasks, with the same prompt, the same fault schedule and the same
+four arms.  The **tasks run in a fixed order** and the **arms run inside
+the tasks**, so a run that stops at the cap of the day leaves the tasks
+that are done complete and the arms of a task are always comparable.
+
+| Run | Provider | Model | The cap of the day | What it reached |
+| --- | --- | --- | --- | --- |
+| the local model | ollama | `qwen2.5:3b-instruct` | none (a safety net of 100 000 requests) | the **whole grid of the injected condition** (60 tasks per cell) and the natural condition |
+| cerebras | cerebras | `gpt-oss-120b` | 500 requests and 500 000 tokens (the half of the documented daily quota) | 24 tasks per arm of the injected condition, then the token cap |
+| google | google | `gemini-3.5-flash-lite` | 250 requests and 150 000 tokens (the half of the 500 requests per model that the provider publishes) | stopped by the **provider** (HTTP 429) |
+
+**The rule of the maintainer was respected.**  The counters of the day
+are on disk and are keyed by the UTC day; the run of the Cerebras model
+stopped at **500 198 tokens of the 500 000** that the rule allows, and
+the run of the Google model was stopped by the provider itself, which
+answered `HTTP 429 - "Quota exceeded for metric:
+generativelanguage.googleapis.com/generate_content_free_tier_requests,
+limit: 500, model: gemini-3.5-flash-lite"`.  The local model costs
+nothing: a download of 1.9 GB and the electricity of the machine.
+
+**The models of the run** (the N and the MDE are **computed** from the
+cells, not written down before the run):
+
+{{TABLE:V3-MODELS}}
+
+**The request and the token totals** (summed from the raw cells; the
+total is a row of its own, so a reader can add the rows and find the
+same number):
+
+{{TABLE:V3-TOTALS}}
+
+**The consistency check.**  The payload of the run of the Cerebras model
+counts **415 requests and 500 198 tokens**; the cells count **412
+requests and 496 363 tokens**.  The difference (3 requests) is the cell
+that was in flight when the token cap was reached: the run stopped in the
+middle of it, and a cell that was not measured is not a cell.  The same
+rule drops the 136 empty cells of the first session of the trial v3 and
+the 23 cells of the Google model whose calls the provider refused.
+
+### 4.2 The numbers
+
+**Every rate is computed on the common set of the tasks of the cell**:
+the tasks that every arm of that model and of that condition completed.
+The column "Dropped" is the number of tasks the arm had beyond that set.
+
+**The injected condition** (the primary endpoint):
+
+{{TABLE:V3-INJECTED}}
+
+**The natural condition** (no fault is injected; every failure is the
+failure of the model):
+
+{{TABLE:V3-NATURAL}}
+
+### 4.3 The verdicts
+
+The rule of the pre-registration: a difference smaller than the minimum
+detectable effect of the sample is **INCONCLUSIVE** (the sample is too
+small to say anything, which is not the same as "no effect"), and a
+difference that is at least as large is only **SUPPORTED** when the exact
+two-sided McNemar test of the discordant pairs rejects the null
+hypothesis.  The MDE of a cell is `1.4 / sqrt(N)` with the **achieved**
+N.
+
+{{TABLE:V3-VERDICTS}}
+
+The hypotheses of the protocol are stated against the **simple-retry**
+baseline.  The **naive** arm (one call per step, the claim is trusted)
+is the second comparator, and it is reported because the baseline is not
+always a fair one: a baseline that retries writes the files of **every**
+answer and the last one wins, so with a model that is not deterministic a
+retry can overwrite a good file with a worse one.  The example is in the
+data of the local model: the baseline has a false completion rate of
+0.8 against 0.55 of the naive arm, and on the task `task01-bakery` its
+`notes.md` is empty and its `README.md` holds the beginning of a broken
+answer, while the naive arm kept a complete `notes.md`.
+
+{{TABLE:V3-NAIVE-VERDICTS}}
+
+**The contribution of the declarative expectations (H4)** -- the arm that
+declares what the step must produce against the arm that only checks the
+claimed files:
+
+{{TABLE:V3-H4}}
+
+**What the verdicts mean, stated plainly.**
+
+* For the **local model**, the cell reached the **60 tasks per cell** of
+  the protocol and the primary endpoint is decided: the guarded arm has
+  a false completion rate of 0.117 against 0.850 of the baseline, 45
+  tasks are in favour of the guarded arm and the exact McNemar test
+  gives p < 0.001.  **H1 and H2 are SUPPORTED.**
+* For the **Cerebras model**, the primary endpoint is decided as well
+  (N = 23, the difference is above the MDE of the sample and p < 0.001):
+  **H2 is SUPPORTED**.  H1 is INCONCLUSIVE: the difference is above the
+  MDE but the test does not reject (p = 0.146).
+* For the **Google model**, the sample is still six tasks and every
+  verdict is **INCONCLUSIVE**.
+* **H3 (the overhead) is SUPPORTED** everywhere: the guarded arm costs
+  more requests and more tokens than the baseline, and that is the price
+  of the supervision.
+
+### 4.4 The mechanism and the natural frequency, separately
+
+The primary endpoint is the false completion rate **under the injected
+faults**.  The faults are designed, and one of them (`hide_file`) is
+designed to be caught **only** by the declarative expectations, so the
+evidence for the real-world value of `expects` must not rest on it.
+
+**The mechanism** (the injected condition, the table of section 4.2):
+the guarded arm catches the false completions that the injected faults
+produce.
+
+**The natural frequency**: the rate of the false completions of the kind
+**(ii)** -- *a required file was never produced and the claim did not
+mention it* -- with its Wilson interval.  In the natural condition
+nothing is injected, so every one of them is a failure of the model:
+
+{{TABLE:NATURAL-FREQUENCY}}
+
+**The number that matters for the real world is the second one.**  The
+local model of the trial, with **no fault injected at all**, falsely
+completed a large share of the tasks it was given, and the failures of
+the kind (ii) -- a file the model never produced, reported as produced --
+are frequent.  The guarded arms do not have that kind of failure at all.
+
+### 4.5 The cost of honesty
+
+The guard of AgenTether prevents false claims; it does not by itself make
+a task succeed.  A task the model cannot finish is a failure either way,
+but the naive arm reports it as a success and the guarded arm reports it
+as a failure.  The difference is honest, and it has a price.
+
+{{TABLE:V3-HONESTY}}
+
+**The price, in one line.**  The guarded arm ends more tasks as an honest
+"not completed" than the naive arm, and it converts a large share of the
+false completions of the baseline into visible failures.  That is the
+whole mechanism: the guard does not make the model better, it makes the
+lie visible.  The cost is in the requests and in the tokens (H3), and
+the gain is in the false completion rate (H2).
+
+### 4.6 The supplementary run of the trial v2
+
+The data of the trial v2 stay a **supplementary** run and are not mixed
+with the data of the trial v3.  Their totals (the same rule as above):
+
+{{TABLE:V2-TOTALS}}
+
+The verdicts of the trial v2 did not change in this session: every
+difference of that run is smaller than the minimum detectable effect of
+its sample, so every verdict was **INCONCLUSIVE** before and after.
+What changed is the **presentation**: the rates of that run are now
+computed on the common set of the tasks of the cell, and the MDE of a
+cell is computed from the N it reached.
 
 ---
 
