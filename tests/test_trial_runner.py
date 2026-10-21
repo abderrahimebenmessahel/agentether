@@ -278,3 +278,21 @@ def test_a_cell_without_a_request_is_not_a_measurement(tmp_path: Path) -> None:
     cells = _read_progress(progress)
 
     assert [cell["task"] for cell in cells] == ["t2"]
+
+
+def test_the_collector_drops_the_cells_without_a_request() -> None:
+    """The collector and the resume apply the same rule.
+
+    A cell without a request is not a measurement: the collector drops
+    it, and the next run does it again.  If the two disagreed, a cell
+    could be dropped from the evidence document and never be run.
+    """
+    from collect_cells import collect
+
+    cells = [
+        {"task": "t1", "requests": 0, "attempts": 0},
+        {"task": "t2", "requests": 3, "attempts": 1},
+    ]
+    kept, dropped = collect(cells)
+    assert [cell["task"] for cell in kept] == ["t2"]
+    assert dropped == 1

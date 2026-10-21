@@ -938,3 +938,76 @@ cells, build the result files with `benchmarks/collect_cells.py`, rebuild
 the evidence document, write the report of the day and run the rest of
 the gates (the CI, the wheel, `twine check`, the fresh venv and
 `scan_secrets.py`).
+
+### Phase 3, the second attempt — the 1.5B model was not usable
+
+The first local model, `qwen2.5:1.5b-instruct`, **passed the probe on
+paper** (12 requests, 0.917 of the telemetry, 1.000 of the file blocks)
+but was **not usable in the trial**: on the tasks it wrote **six files
+instead of one** (a file per heading, a "summary" file, an "artifacts"
+file), it never emitted the telemetry object, and its answers ran past
+the 4096 tokens of the context of the server.  **Every** cell of the 86
+that were collected says the same thing: no arm ever believed a task was
+done, so the false completion rate was 0 for the four arms and the cell
+measured nothing.  The cells are **not hidden**: they are in
+`benchmarks/results/trial-v3-local-discarded-cells.jsonl` with their
+reason.
+
+The reason was a property of the model and of the harness, not of the
+trial: the timeout of a call (60 s) was too short for the answer of the
+model, and the context of the server (4096) was too short for its
+rambling.  The runner takes a `--timeout` now, and the server was
+started with a context of 8192.
+
+**The second local model is `qwen2.5:3b-instruct`** (1.9 GB, Q4_K_M, in
+the VRAM of the 3050).  The total of the downloads of the day is
+1.47 GB (the bundle) + 0.99 GB (the 1.5B model) + 1.9 GB (the 3B model)
+= **4.36 GB**, under the 5 GB of the brief.  Its probe
+(`benchmarks/results/probe-ollama.json`):
+
+| Metric | Value |
+| --- | --- |
+| requests that answered | 12 / 12 |
+| telemetry that parses | **1.000** |
+| the name of the step is exact | **1.000** |
+| progress = 100 | **1.000** |
+| the file blocks are there | **1.000** |
+| the artifacts are claimed | **1.000** |
+| deterministic at temperature 0 | no (like the Google model) |
+| seconds per request | 8.0 |
+
+**The model is usable.**  The first cells of the grid show what the
+trial needs: the naive arm and the baseline falsely complete the tasks
+they did not finish, and the two guarded arms do not.
+
+### The exact commands of the runs of the day
+
+```bash
+# the local model (no quota), four shards of fifteen tasks
+python benchmarks/trial.py --provider ollama --models qwen2.5:3b-instruct \
+    --task-set v3 --arms naive simple-retry agentether-claims-only agentether \
+    --conditions injected natural --tasks 15 --task-offset 0 --rate-limit 600 \
+    --model-cap 100000 --daily-cap 100000 --token-cap 100000000 \
+    --model-seed 20261021 --timeout 300 \
+    --workdir logs/trial-v3-local2/shard0 --output logs/trial-v3-local2/shard0.json
+
+# the Cerebras model (500 requests and 500 000 tokens, the half of the rule)
+python benchmarks/trial.py --provider cerebras --models gpt-oss-120b \
+    --task-set v3 --arms naive simple-retry agentether-claims-only agentether \
+    --conditions injected natural --tasks 60 --rate-limit 5 --model-cap 500 \
+    --daily-cap 500 --token-cap 500000 --model-seed 20261021 \
+    --workdir logs/trial-v3-cerebras --output benchmarks/results/trial-v3-cerebras.json
+
+# the Google model (250 requests, the half of the 500 that the provider
+# itself publishes; the token limit is not published, so the cap of
+# 150 000 tokens is our own)
+python benchmarks/trial.py --provider google --models gemini-3.5-flash-lite \
+    --task-set v3 --arms naive simple-retry agentether-claims-only agentether \
+    --conditions injected natural --tasks 60 --rate-limit 15 --model-cap 250 \
+    --daily-cap 250 --token-cap 150000 --model-seed 20261021 \
+    --workdir logs/trial-v3-google --output benchmarks/results/trial-v3-google.json
+```
+
+The run of the Google model **waits for the quota of the provider**: its
+day turns at midnight **Pacific** time (07:00 UTC), and the quota of the
+day of the 20th of October was already spent.

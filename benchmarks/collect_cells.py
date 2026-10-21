@@ -25,6 +25,12 @@ __all__ = ["collect"]
 def collect(cells: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     """The cells that are measurements, and the number of the dropped ones.
 
+    A cell **without a request** is not a measurement: it is a cell the
+    arm could not measure because the run was stopped (the daily cap was
+    reached) in the middle of it.  The rule is the same as the one of the
+    resume of a run (:func:`trial._read_progress`), so a cell that the
+    collector drops is a cell the next run does again.
+
     Args:
         cells: The cells of the progress file.
 
@@ -32,7 +38,7 @@ def collect(cells: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
         The cells with at least one request, and the number of the cells
         that were dropped.
     """
-    kept = [cell for cell in cells if int(cell.get("attempts", 0) or 0) > 0]
+    kept = [cell for cell in cells if int(cell.get("requests", 0) or 0) > 0]
     return kept, len(cells) - len(kept)
 
 

@@ -161,6 +161,7 @@ class ModelCaller:
         counter: DailyCounter | None = None,
         seed: int | None = None,
         token_cap: int | None = None,
+        timeout: float = 60.0,
     ) -> None:
         self.model = model
         self.spec = spec
@@ -170,6 +171,7 @@ class ModelCaller:
         self.counter = counter
         self.seed = seed
         self.token_cap = token_cap
+        self.timeout = timeout
 
     async def call(self, prompt: str) -> Any:
         """One request.  Raises ``TrialHalt`` when the cap is reached."""
@@ -194,6 +196,7 @@ class ModelCaller:
                 limiter=self.limiter,
                 counter=self.counter,
                 seed=self.seed,
+                timeout=self.timeout,
             )
         except OpenAICompatibleTransientError as exc:
             self.stats.consecutive_429 += 1
@@ -457,6 +460,7 @@ async def run_trial(
     daily_cap: int | None = None,
     token_cap: int | None = None,
     offset: int = 0,
+    timeout: float = 60.0,
 ) -> dict[str, Any]:
     """Run the trial and return the result payload.
 
@@ -492,6 +496,9 @@ async def run_trial(
         token_cap: The number of tokens the run may spend.  It is a second
             safety net for the providers whose quota is a number of
             tokens and not a number of requests.
+        timeout: The timeout of a call, in seconds.  It is the same for
+            every arm of a cell, and a local model needs more than the
+            default: a small model on a laptop GPU writes a long answer.
     """
     spec = provider_for(provider)
     limiter = TokenBucketLimiter(min(rate_limit, spec.requests_per_minute))
@@ -523,6 +530,7 @@ async def run_trial(
                 counter,
                 model_seed,
                 token_cap,
+                timeout,
             )
         else:
             caller = caller_factory(model, limiter, stats[model], model_cap)
@@ -678,6 +686,12 @@ def main(argv: list[str] | None = None) -> int:
             "shards takes a slice of the task set with it"
         ),
     )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=60.0,
+        help="the timeout of a call, in seconds (a local model needs more)",
+    )
     parser.add_argument("--rate-limit", type=int, default=DEFAULT_RATE_LIMIT)
     parser.add_argument("--model-cap", type=int, default=DEFAULT_MODEL_CAP)
     parser.add_argument(
@@ -785,6 +799,7 @@ def main(argv: list[str] | None = None) -> int:
             model_seed=args.model_seed,
             daily_cap=args.daily_cap,
             token_cap=args.token_cap,
+            timeout=args.timeout,
         )
     )
     output = Path(args.output)
