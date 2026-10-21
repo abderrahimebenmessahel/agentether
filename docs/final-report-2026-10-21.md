@@ -11,7 +11,7 @@
 > [`docs/final-report-2026-10-20.md`](final-report-2026-10-20.md): it
 > describes the state of the trial v3 at the end of the 20th of October,
 > and the numbers it carries for that day are the numbers the run had
-> that day.  The trial v3 continued afterwards; the totals of section 3
+> that day.  The trial v3 continued afterwards; the totals of section 0
 > are the totals of the raw cells as they stand now.
 
 The repository: <https://github.com/abderrahimebenmessahel/agentether>
@@ -43,7 +43,7 @@ The trial v3 grew by 2 746 requests and 2 355 273 tokens since the report of the
 
 ---
 
-## 0. What this session did
+## The five phases, at a glance
 
 The brief of the maintainer had five phases.
 
@@ -201,8 +201,8 @@ cells, not written down before the run):
 | Provider | Model | Pilot (naive, natural) | Qualifies | N per cell | MDE of the paired difference |
 | --- | --- | --- | --- | --- | --- |
 | cerebras | gpt-oss-120b | 19/20 = 0.950 | passes the capability probe; no band (the rule of the v3) | 23 | 0.292 |
-| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 6 | 0.572 |
-| ollama | qwen2.5:3b-instruct | not run | passes the capability probe (1.000 on the telemetry, the name of the step, the progress, the file blocks and the artifacts); no band and no quota: the compute is local and free | 59 | 0.182 |
+| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 11 | 0.422 |
+| ollama | qwen2.5:3b-instruct | not run | passes the capability probe (1.000 on the telemetry, the name of the step, the progress, the file blocks and the artifacts); no band and no quota: the compute is local and free | 60 | 0.181 |
 
 **The request and the token totals** (summed from the raw cells; the
 total is a row of its own, so a reader can add the rows and find the
@@ -231,11 +231,31 @@ The column "Dropped" is the number of tasks the arm had beyond that set.
 
 **The injected condition** (the primary endpoint):
 
+| Model | Arm | N | Dropped | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | agentether | 11 | 0 | 0.909 [0.623, 0.984] | 0.000 [0.000, 0.259] | 10 | 46 | 454.76 | 7 | 0 |
+| gemini-3.5-flash-lite | agentether-claims-only | 11 | 0 | 0.727 [0.434, 0.903] | 0.273 [0.097, 0.566] | 11 | 43 | 365.18 | 2 | 0 |
+| gemini-3.5-flash-lite | naive | 11 | 1 | 0.364 [0.152, 0.646] | 0.455 [0.213, 0.720] | 9 | 38 | 475.57 | 0 | 0 |
+| gemini-3.5-flash-lite | simple-retry | 11 | 2 | 0.636 [0.354, 0.848] | 0.273 [0.097, 0.566] | 10 | 44 | 373.65 | 0 | 0 |
+| gpt-oss-120b | agentether | 23 | 0 | 0.696 [0.491, 0.844] | 0.000 [0.000, 0.143] | 15 | 120 | 1776.36 | 39 | 0 |
+| gpt-oss-120b | agentether-claims-only | 23 | 0 | 0.609 [0.408, 0.778] | 0.174 [0.070, 0.371] | 17 | 123 | 1887.15 | 39 | 0 |
+| gpt-oss-120b | naive | 23 | 1 | 0.435 [0.256, 0.632] | 0.565 [0.368, 0.744] | 22 | 80 | 1180.71 | 0 | 0 |
+| gpt-oss-120b | simple-retry | 23 | 1 | 0.435 [0.256, 0.632] | 0.565 [0.368, 0.744] | 23 | 81 | 1163.1 | 0 | 0 |
+| qwen2.5:3b-instruct | agentether | 60 | 0 | 0.750 [0.628, 0.842] | 0.083 [0.036, 0.181] | 41 | 326 | 8318.42 | 86 | 0 |
+| qwen2.5:3b-instruct | agentether-claims-only | 60 | 0 | 0.600 [0.474, 0.714] | 0.133 [0.069, 0.242] | 35 | 325 | 7032.17 | 97 | 0 |
+| qwen2.5:3b-instruct | naive | 60 | 0 | 0.117 [0.058, 0.222] | 0.567 [0.441, 0.684] | 37 | 210 | 5578.76 | 0 | 0 |
+| qwen2.5:3b-instruct | simple-retry | 60 | 0 | 0.133 [0.069, 0.242] | 0.817 [0.701, 0.894] | 55 | 251 | 7208.35 | 0 | 0 |
 
 
 **The natural condition** (no fault is injected; every failure is the
 failure of the model):
 
+| Model | Arm | N | Dropped | Correct completion rate (95% CI) | False completion rate (95% CI) | Believed done | Requests | Wall s | Rejections | Loops |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| qwen2.5:3b-instruct | agentether | 60 | 0 | 0.667 [0.541, 0.773] | 0.200 [0.118, 0.318] | 47 | 285 | 6764.19 | 73 | 0 |
+| qwen2.5:3b-instruct | agentether-claims-only | 60 | 0 | 0.550 [0.425, 0.669] | 0.217 [0.131, 0.336] | 44 | 280 | 6636.58 | 69 | 0 |
+| qwen2.5:3b-instruct | naive | 60 | 0 | 0.083 [0.036, 0.181] | 0.617 [0.490, 0.729] | 40 | 210 | 7659.87 | 0 | 0 |
+| qwen2.5:3b-instruct | simple-retry | 60 | 0 | 0.117 [0.058, 0.222] | 0.683 [0.558, 0.787] | 48 | 261 | 9623.07 | 0 | 0 |
 
 
 ### 4.3 The verdicts
@@ -248,7 +268,11 @@ two-sided McNemar test of the discordant pairs rejects the null
 hypothesis.  The MDE of a cell is `1.4 / sqrt(N)` with the **achieved**
 N.
 
-
+| Model | N | MDE | H1: correct completion | H2: false completion (primary) | H3: the overhead |
+| --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 11 | 0.422 | +0.273 (in 3 tasks only the guarded arm completed, in 0 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | -0.273 (in 0 tasks only the guarded arm falsely completed, in 3 tasks only the comparator; p = 0.250): INCONCLUSIVE (the sample is too small) | 46 against 44 requests, 45438 against 25418 tokens: SUPPORTED |
+| gpt-oss-120b | 23 | 0.292 | +0.261 (in 9 tasks only the guarded arm completed, in 3 tasks only the comparator; p = 0.146): INCONCLUSIVE (the sample is too small) | -0.565 (in 0 tasks only the guarded arm falsely completed, in 13 tasks only the comparator; p = 0.000): SUPPORTED | 120 against 81 requests, 160091 against 83277 tokens: SUPPORTED |
+| qwen2.5:3b-instruct | 60 | 0.181 | +0.617 (in 38 tasks only the guarded arm completed, in 1 task only the comparator; p = 0.000): SUPPORTED | -0.733 (in 1 task only the guarded arm falsely completed, in 45 tasks only the comparator; p = 0.000): SUPPORTED | 326 against 251 requests, 293990 against 164874 tokens: SUPPORTED |
 
 The hypotheses of the protocol are stated against the **simple-retry**
 baseline.  The **naive** arm (one call per step, the claim is trusted)
@@ -261,19 +285,30 @@ data of the local model: the baseline has a false completion rate of
 `notes.md` is empty and its `README.md` holds the beginning of a broken
 answer, while the naive arm kept a complete `notes.md`.
 
+| Model | N | MDE | H1: correct completion | H2: false completion (primary) |
+| --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 11 | 0.422 | +0.545 (in 6 tasks only the guarded arm completed, in 0 tasks only the naive arm; p = 0.031): SUPPORTED | -0.455 (in 0 tasks only the guarded arm falsely completed, in 5 tasks only the naive arm; p = 0.062): NOT SUPPORTED |
+| gpt-oss-120b | 23 | 0.292 | +0.261 (in 9 tasks only the guarded arm completed, in 3 tasks only the naive arm; p = 0.146): INCONCLUSIVE (the sample is too small) | -0.565 (in 0 tasks only the guarded arm falsely completed, in 13 tasks only the naive arm; p = 0.000): SUPPORTED |
+| qwen2.5:3b-instruct | 60 | 0.181 | +0.633 (in 40 tasks only the guarded arm completed, in 2 tasks only the naive arm; p = 0.000): SUPPORTED | -0.483 (in 2 tasks only the guarded arm falsely completed, in 31 tasks only the naive arm; p = 0.000): SUPPORTED |
 
 
 **The contribution of the declarative expectations (H4)** -- the arm that
 declares what the step must produce against the arm that only checks the
 claimed files:
 
+| Model | Condition | H4 (paired) | The verdict |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | -0.273 (in 0 tasks only the guarded arm falsely completed, in 3 only the claims-only arm; p = 0.250) | INCONCLUSIVE (the sample is too small) |
+| gpt-oss-120b | injected | -0.174 (in 0 tasks only the guarded arm falsely completed, in 4 only the claims-only arm; p = 0.125) | INCONCLUSIVE (the sample is too small) |
+| qwen2.5:3b-instruct | injected | -0.050 (in 3 tasks only the guarded arm falsely completed, in 6 only the claims-only arm; p = 0.508) | INCONCLUSIVE (the sample is too small) |
+| qwen2.5:3b-instruct | natural | -0.017 (in 8 tasks only the guarded arm falsely completed, in 9 only the claims-only arm; p = 1.000) | INCONCLUSIVE (the sample is too small) |
 
 
 **What the verdicts mean, stated plainly.**
 
 * For the **local model**, the cell reached the **60 tasks per cell** of
   the protocol and the primary endpoint is decided: the guarded arm has
-  a false completion rate of 0.117 against 0.850 of the baseline, 45
+  a false completion rate of 0.083 against 0.817 of the baseline, 45
   tasks are in favour of the guarded arm and the exact McNemar test
   gives p < 0.001.  **H1 and H2 are SUPPORTED.**
 * For the **Cerebras model**, the primary endpoint is decided as well
@@ -290,6 +325,15 @@ claimed files:
 * **H3 (the overhead) is SUPPORTED** everywhere: the guarded arm costs
   more requests and more tokens than the baseline, and that is the price
   of the supervision.
+* **One verdict is on the edge and the report says so.**  Against the
+  naive arm, the Google model has a difference of -0.455 on the false
+  completion (above the MDE of 0.422) with an exact McNemar p of 0.062:
+  the rule of the pre-registration says **NOT SUPPORTED**, and it is
+  reported as such.  The rule has three words and the middle one
+  (INCONCLUSIVE) is reserved for a difference that is **below** the MDE;
+  a p of 0.062 is not below 0.05.  The honest reading is that the cell
+  is too small to decide, and the next window of the quota of the
+  provider is what will decide it.
 
 ### 4.4 The mechanism and the natural frequency, separately
 
@@ -310,10 +354,10 @@ nothing is injected, so every one of them is a failure of the model:
 ## gemini-3.5-flash-lite -- injected
 | Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
 | --- | --- | --- | --- | --- |
-| agentether | 6 | 0 | 0 | 0.000 [0.000, 0.390] |
-| agentether-claims-only | 6 | 1 | 0 | 0.000 [0.000, 0.390] |
-| naive | 6 | 3 | 0 | 0.000 [0.000, 0.390] |
-| simple-retry | 6 | 1 | 0 | 0.000 [0.000, 0.390] |
+| agentether | 11 | 0 | 0 | 0.000 [0.000, 0.259] |
+| agentether-claims-only | 11 | 3 | 0 | 0.000 [0.000, 0.259] |
+| naive | 11 | 5 | 1 | 0.091 [0.016, 0.377] |
+| simple-retry | 11 | 3 | 1 | 0.091 [0.016, 0.377] |
 
 ## gpt-oss-120b -- injected
 | Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
@@ -334,10 +378,12 @@ nothing is injected, so every one of them is a failure of the model:
 ## qwen2.5:3b-instruct -- natural
 | Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
 | --- | --- | --- | --- | --- |
-| agentether | 59 | 12 | 0 | 0.000 [0.000, 0.061] |
-| agentether-claims-only | 59 | 12 | 0 | 0.000 [0.000, 0.061] |
-| naive | 59 | 37 | 28 | 0.475 [0.353, 0.600] |
-| simple-retry | 59 | 41 | 22 | 0.373 [0.261, 0.500] |
+| agentether | 60 | 12 | 0 | 0.000 [0.000, 0.060] |
+| agentether-claims-only | 60 | 13 | 0 | 0.000 [0.000, 0.060] |
+| naive | 60 | 37 | 28 | 0.467 [0.346, 0.591] |
+| simple-retry | 60 | 41 | 22 | 0.367 [0.256, 0.493] |
+
+## What this shows and what it does not
 
 ## What this shows and what it does not
 
@@ -354,6 +400,24 @@ a task succeed.  A task the model cannot finish is a failure either way,
 but the naive arm reports it as a success and the guarded arm reports it
 as a failure.  The difference is honest, and it has a price.
 
+| Model | Condition | Arm | N | Correct | False completion | Honest "not completed" | Converted | Rate of the honest failures (95% CI) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gemini-3.5-flash-lite | injected | agentether | 11 | 10 | 0 | 1 | 1 | 0.091 [0.016, 0.377] |
+| gemini-3.5-flash-lite | injected | agentether-claims-only | 11 | 8 | 3 | 0 | 0 | 0.000 [0.000, 0.259] |
+| gemini-3.5-flash-lite | injected | naive | 11 | 4 | 5 | 2 | 1 | 0.182 [0.051, 0.477] |
+| gemini-3.5-flash-lite | injected | simple-retry | 11 | 7 | 3 | 1 | 0 | 0.091 [0.016, 0.377] |
+| gpt-oss-120b | injected | agentether | 23 | 16 | 0 | 7 | 4 | 0.304 [0.156, 0.509] |
+| gpt-oss-120b | injected | agentether-claims-only | 23 | 14 | 4 | 5 | 3 | 0.217 [0.097, 0.419] |
+| gpt-oss-120b | injected | naive | 23 | 10 | 13 | 0 | 0 | 0.000 [0.000, 0.143] |
+| gpt-oss-120b | injected | simple-retry | 23 | 10 | 13 | 0 | 0 | 0.000 [0.000, 0.143] |
+| qwen2.5:3b-instruct | injected | agentether | 60 | 45 | 5 | 10 | 9 | 0.167 [0.093, 0.280] |
+| qwen2.5:3b-instruct | injected | agentether-claims-only | 60 | 36 | 8 | 16 | 14 | 0.267 [0.171, 0.390] |
+| qwen2.5:3b-instruct | injected | naive | 60 | 7 | 34 | 19 | 13 | 0.317 [0.213, 0.442] |
+| qwen2.5:3b-instruct | injected | simple-retry | 60 | 8 | 49 | 3 | 0 | 0.050 [0.017, 0.137] |
+| qwen2.5:3b-instruct | natural | agentether | 60 | 40 | 12 | 8 | 7 | 0.133 [0.069, 0.242] |
+| qwen2.5:3b-instruct | natural | agentether-claims-only | 60 | 33 | 13 | 14 | 12 | 0.233 [0.144, 0.354] |
+| qwen2.5:3b-instruct | natural | naive | 60 | 5 | 37 | 18 | 11 | 0.300 [0.199, 0.425] |
+| qwen2.5:3b-instruct | natural | simple-retry | 60 | 7 | 41 | 12 | 0 | 0.200 [0.118, 0.318] |
 
 
 **The price, in one line.**  The guarded arm ends more tasks as an honest
@@ -404,7 +468,7 @@ cell is computed from the N it reached.
 | `mypy --strict` | clean, 66 files, on Windows and on the four Linux versions |
 | `ruff check` / `ruff format --check` | clean, 115 files (Windows), 111 (Linux) |
 | `pytest --cov=src/agentether` | **89 %** of the lines |
-| GitHub CI | **green on the ten cells** and on the dependency audit (the run `39519899117`) |
+| GitHub CI | **green on the ten cells** and on the dependency audit (the run `39563556196`, the last of the session) |
 | `python -m build` + `twine check` | the wheel and the sdist of `0.3.0a1` **PASSED** |
 | the wheel in a fresh venv | works on **Windows** (`packaging_check.py`) and on **Linux** (the quickstart, the CLI and the benchmark) |
 | `scan_secrets.py` | **0** in the tree, **0** in the history, the wheel is clean |

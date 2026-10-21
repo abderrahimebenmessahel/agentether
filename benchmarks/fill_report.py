@@ -21,27 +21,29 @@ NATURAL = ROOT / "docs" / "natural-frequency.md"
 
 
 def section(text: str, title: str, level: str = "###") -> str:
-    """The lines of the table that follows a title."""
+    """The section that follows a title, up to the next heading."""
     marker = f"{level} {title}"
     if marker not in text:
         raise SystemExit(f"the title {title!r} is not in the document")
-    rest = text[text.index(marker) :]
-    lines = rest.splitlines()[1:]
-    table: list[str] = []
-    for line in lines:
-        if line.startswith("|") or line.startswith(">") or line.strip() == "":
-            table.append(line)
-            continue
-        break
-    while table and table[-1].strip() == "":
-        table.pop()
-    return "\n".join(table)
+    rest = text[text.index(marker) + len(marker) :]
+    block: list[str] = []
+    for line in rest.splitlines():
+        if line.startswith("#"):
+            break
+        block.append(line)
+    return "\n".join(block)
 
 
 def table(text: str, title: str, level: str = "###") -> str:
-    """The table of a section, without the prose around it."""
+    """The first table of a section, without the prose around it."""
     block = section(text, title, level)
-    rows = [line for line in block.splitlines() if line.startswith("|")]
+    rows: list[str] = []
+    for line in block.splitlines():
+        if line.startswith("|"):
+            rows.append(line)
+            continue
+        if rows:
+            break
     return "\n".join(rows)
 
 
