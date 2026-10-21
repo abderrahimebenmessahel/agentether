@@ -1011,3 +1011,61 @@ python benchmarks/trial.py --provider google --models gemini-3.5-flash-lite \
 The run of the Google model **waits for the quota of the provider**: its
 day turns at midnight **Pacific** time (07:00 UTC), and the quota of the
 day of the 20th of October was already spent.
+
+### The result of the day of the Cerebras model
+
+The run of the Cerebras model of the 21st of October stopped at the
+**token cap** of the day: 500 198 tokens of the 500 000 that the rule of
+the maintainer allows (the half of the 1 000 000 tokens per day that the
+documentation of the provider gives), after 415 requests.  The run of the
+Google model was stopped by the **provider** (HTTP 429, the quota of the
+day was spent and the day of the provider turns at midnight Pacific
+time), and the run of the local model has **no quota** at all.
+
+The **injected** condition, the primary endpoint, on the common set of
+the tasks of each cell:
+
+| Model | N | naive | simple-retry | agentether-claims-only | **agentether** |
+| --- | --- | --- | --- | --- | --- |
+| `cerebras/gpt-oss-120b` | 23 | 0.565 | 0.565 | 0.174 | **0.000** |
+| `ollama/qwen2.5:3b-instruct` | 35 | 0.543 | 0.829 | 0.200 | **0.114** |
+| `google/gemini-3.5-flash-lite` | 6 | 0.500 | 0.167 | 0.167 | **0.000** |
+
+(the false completion rate)
+
+**Two of the three cells decide the primary endpoint.**  For the
+Cerebras model, H2 (the false completion, the primary endpoint) is
+**SUPPORTED**: the difference is -0.565, it is above the MDE of the
+sample (0.292), and the exact McNemar test of the 13 discordant pairs
+(all of them in favour of the guarded arm) gives p < 0.001.  For the
+local model, H1 (+0.543) and H2 (-0.714) are **SUPPORTED** with p <
+0.001.  For the Google model every verdict is **INCONCLUSIVE**: the
+sample is six tasks.
+
+**The cost of honesty** (Cerebras, the injected condition): the guarded
+arm ends **7** of the 23 tasks as an honest "not completed" (4 of them
+were false completions of the baseline turned into a visible failure),
+and the naive arm ends **0** as an honest failure and **13** as a false
+completion.  The guard does not make the task succeed; it makes the false
+"done" visible.
+
+### A third defect of the collector, found by the Google data
+
+The Google run of the 20th of October wrote **24 cells whose calls the
+provider refused** (the rate limit): the requests were sent, but the arm
+got no answer, so the cell has a request and **no attempt**.  A rule
+based on the number of the requests would have kept them, and they say
+nothing about the arm and about the model: they would have inflated the
+N of the Google cell and changed its rates.  The rule is now written
+**once** (`trial.is_measurement`): a cell is a measurement when the arm
+got at least one **answer** from the model, and the collector and the
+resume of a run apply the same rule.
+
+### NEXT ACTION
+
+The run of the local model continues (it has no quota): it is in the
+**natural** condition now, which is what the **natural frequency** of the
+false completions of the kind (ii) needs.  The run of the Google model
+waits for the quota of the provider (07:05 UTC).  When they are over:
+collect the cells, rebuild the evidence document and the analysis of the
+false completions, write the report of the day and run the last gates.
