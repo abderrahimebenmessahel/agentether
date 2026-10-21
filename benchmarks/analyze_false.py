@@ -670,7 +670,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--task-set",
-        choices=("v2", "v3"),
+        choices=("v2", "v3", "v3-20"),
         default="v2",
         help="the task set of the run",
     )
@@ -698,6 +698,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.meta and Path(args.meta).exists():
         meta = json.loads(Path(args.meta).read_text(encoding="utf-8"))
     if args.task_set == "v3":
+        # The sixty tasks of the trial v3: the twenty hand-written ones
+        # and the forty generated ones.
+        from tasks_v3_gen import TASKS_V3_FULL
+
+        tasks = TASKS_V3_FULL
+    elif args.task_set == "v3-20":
         from tasks_v3 import TASKS_V3
 
         tasks = TASKS_V3

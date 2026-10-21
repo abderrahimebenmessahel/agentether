@@ -52,11 +52,19 @@ def main(argv: list[str] | None = None) -> int:
     path = Path(args.progress)
     cells: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str, str]] = set()
+    empty = 0
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
         record = json.loads(line)
+        # The **empty** cells are dropped **before** the deduplication: a
+        # run that was stopped in the middle of a cell wrote one, and the
+        # next run does that cell again.  Keeping the first occurrence of
+        # the key would keep the empty one and lose the measurement.
+        if int(record.get("requests", 0) or 0) <= 0:
+            empty += 1
+            continue
         key = (
             str(record.get("model", "")),
             str(record.get("arm", "")),
@@ -67,14 +75,14 @@ def main(argv: list[str] | None = None) -> int:
             continue
         seen.add(key)
         cells.append(record)
-    kept, dropped = collect(cells)
+    kept, _dropped = collect(cells)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8", newline="\n") as handle:
         for cell in kept:
             handle.write(json.dumps(cell, sort_keys=True) + "\n")
     print(f"cells kept: {len(kept)}")
-    print(f"cells dropped (no attempt: the run was stopped in the middle): {dropped}")
+    print(f"cells dropped (no request: the run was stopped in the middle): {empty}")
     print(f"written: {out}")
     return 0
 

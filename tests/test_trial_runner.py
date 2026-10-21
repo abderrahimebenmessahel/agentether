@@ -296,3 +296,23 @@ def test_the_collector_drops_the_cells_without_a_request() -> None:
     kept, dropped = collect(cells)
     assert [cell["task"] for cell in kept] == ["t2"]
     assert dropped == 1
+
+
+def test_the_collector_keeps_the_measurement_and_not_the_empty_cell() -> None:
+    """A cell that was run again replaces the empty cell of the first try.
+
+    The progress file of a run holds the empty cell of the first try (the
+    run was stopped in the middle of it) and then the measurement of the
+    next run.  The collector must keep the **measurement**: the empty one
+    is not a measurement, and keeping it would lose the cell from the
+    evidence document.
+    """
+    from collect_cells import collect
+
+    cells = [
+        {"task": "t1", "requests": 0, "attempts": 0},
+        {"task": "t1", "requests": 4, "attempts": 1},
+    ]
+    kept, dropped = collect(cells)
+    assert [cell["task"] for cell in kept] == ["t1"]
+    assert dropped == 1
