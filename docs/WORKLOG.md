@@ -1069,3 +1069,57 @@ false completions of the kind (ii) needs.  The run of the Google model
 waits for the quota of the provider (07:05 UTC).  When they are over:
 collect the cells, rebuild the evidence document and the analysis of the
 false completions, write the report of the day and run the last gates.
+
+### The grid of the local model is complete
+
+The four shards of the local model finished their grid: **60 tasks per
+cell in the two conditions** (480 cells), which is exactly the size that
+the protocol of the trial v3 planned and the size that the addendum
+declared.  The MDE of the sample is 0.181.
+
+**The injected condition** (the primary endpoint, N = 60):
+
+| Arm | correct completion | false completion | requests | tokens |
+| --- | --- | --- | --- | --- |
+| naive | 0.117 | 0.567 | 210 | 199 000 |
+| simple-retry | 0.133 | 0.817 | 251 | 265 000 |
+| agentether-claims-only | 0.600 | 0.133 | 325 | 316 000 |
+| **agentether** (with `expects`) | **0.750** | **0.083** | 326 | 293 990 |
+
+**The natural condition** (no fault is injected, N = 60): the naive arm
+falsely completes 0.617 of the tasks, the baseline 0.683 and the two
+guarded arms 0.200 and 0.217.
+
+**The verdicts** (the exact McNemar test, the MDE of the achieved N):
+H1 **SUPPORTED** (+0.617, p < 0.001), H2 **SUPPORTED** (-0.733, 45 tasks
+in favour of the guarded arm, p < 0.001), H3 **SUPPORTED** (326 against
+251 requests and 293 990 against 164 874 tokens), H4 **INCONCLUSIVE**
+(-0.086, p = 0.453): the expectations add nothing to the claims-only arm
+on this model at this size.
+
+**The natural frequency of the kind (ii)** (`docs/natural-frequency.md`):
+with **no fault injected at all**, the naive arm fails to produce a
+required file and claims it did on **0.467** of the tasks (95 % CI
+[0.346, 0.591]) and the baseline on 0.367; the two guarded arms on
+**0.000** (95 % CI [0.000, 0.060]).  The evidence for the value of the
+declarative expectations does not rest on a fault that only they can
+catch.
+
+### The report of the day is generated
+
+`benchmarks/fill_report.py` extracts the tables of
+`docs/final-report-2026-10-21.md` from `docs/evidence.md` and from
+`docs/natural-frequency.md`, and the prose lives in
+`benchmarks/report-template-2026-10-21.md`: **the report cannot
+contradict the data**, because its numbers are the numbers of the
+generated documents.
+
+### NEXT ACTION
+
+The run of the Google model starts at **07:05 UTC**, when the quota of
+the provider turns over (the day of the provider turns at midnight
+Pacific time).  It is started by `logs/run_google_when_quota_resets.sh`
+and it resumes the work directory of the first session.  After it: the
+cells are collected, the evidence document and the analysis of the false
+completions are rebuilt, the report is filled again and the gates are
+run for the last time.
