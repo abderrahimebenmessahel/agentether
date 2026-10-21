@@ -1189,3 +1189,25 @@ runs, rebuild `docs/evidence.md`, `docs/natural-frequency.md` and
 (`python benchmarks/fill_report.py docs/final-report-<date>.md`) and run
 the gates.  The decisions of the maintainer (public, tag, PyPI, the
 WSL password) are in the section 9 of the report.
+
+### The end of the session
+
+The state of the repository at the end of the session of the 21st of
+October 2026:
+
+| | |
+| --- | --- |
+| the branch | `main`, pushed, the working tree clean |
+| the CI | **green on the ten cells** and on the dependency audit (the runs `39563556196` and `39565620467`) |
+| the tests | 512 passed and 4 skipped on Windows (CPython 3.14.7), 514 passed and 2 skipped in WSL on CPython 3.10, 3.11, 3.12 and 3.13 |
+| `mypy --strict` | clean, 66 files |
+| `ruff check` / `ruff format --check` | clean, 116 files |
+| the coverage | 89 % of the lines |
+| the package | the wheel and the sdist of `0.3.0a1` build, `twine check` passes, the wheel works in a fresh venv on Windows and on Linux |
+| the secrets | `scan_secrets.py` finds 0 in the tree, 0 in the history, and the wheel is clean |
+| the data | 3 196 requests, 2 750 224 tokens and 77 464 s of calls, in two runs (the trial v3 and the supplementary trial v2) |
+| the money | none: the two cloud models stayed under half of the daily quota of their provider, the local model costs a download |
+
+**The decisions of the maintainer** are in the section 9 of the report:
+make the repository public, tag and release `0.3.0a1`, publish on PyPI
+and change the WSL password.  **None of them was done.**

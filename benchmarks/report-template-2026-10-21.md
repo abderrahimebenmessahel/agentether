@@ -384,7 +384,7 @@ cell is computed from the N it reached.
 | `mypy --strict` | clean, 66 files, on Windows and on the four Linux versions |
 | `ruff check` / `ruff format --check` | clean, 115 files (Windows), 111 (Linux) |
 | `pytest --cov=src/agentether` | **89 %** of the lines |
-| GitHub CI | **green on the ten cells** and on the dependency audit (the run `39563556196`, the last of the session) |
+| GitHub CI | **green on the ten cells** and on the dependency audit (the runs `39563556196` and `39565620467`, the last two of the session) |
 | `python -m build` + `twine check` | the wheel and the sdist of `0.3.0a1` **PASSED** |
 | the wheel in a fresh venv | works on **Windows** (`packaging_check.py`) and on **Linux** (the quickstart, the CLI and the benchmark) |
 | `scan_secrets.py` | **0** in the tree, **0** in the history, the wheel is clean |
