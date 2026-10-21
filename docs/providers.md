@@ -24,7 +24,7 @@ rotates a key to get around a quota.
 | Groq | `https://api.groq.com/openai/v1` | `Authorization: Bearer` | 30 | 1000 | `seed` | `/models` (no price) |
 | Cerebras | `https://api.cerebras.ai/v1` | `Authorization: Bearer` | 5 | **UNVERIFIED** (1000 used) | `seed` | `/models` (no price) |
 | Mistral | `https://api.mistral.ai/v1` | `Authorization: Bearer` | **UNVERIFIED** (2 used) | **UNVERIFIED** (100 used) | `random_seed` | `/models` (no price) |
-| Google AI Studio | `https://generativelanguage.googleapis.com/v1beta/openai` | `Authorization: Bearer` | **UNVERIFIED** (15 used) | **UNVERIFIED** (1500 used) | none for chat | `/models` (no price) |
+| Google AI Studio | `https://generativelanguage.googleapis.com/v1beta/openai` | `Authorization: Bearer` | **UNVERIFIED** (15 used) | **500 per model** (verified from the answer of the provider, 2026-10-21) | none for chat | `/models` (no price) |
 | Ollama (local) | `http://localhost:11434/v1` | none | no quota | no quota | `seed` | `/models` (no price) |
 
 The path of the call is `/chat/completions` in every case, but the **base
@@ -149,11 +149,30 @@ therefore never concatenated by hand in the code.
 * `GET /v1beta/openai/models` lists the models.  The **price of a model is
   UNVERIFIED**: the schema of the native API has the token limits but no
   cost field.  **verified (URL)**
-* The **numeric limits of the free tier are UNVERIFIED**: the
-  documentation says that they depend on the tier and are shown in AI
-  Studio.  Two facts are documented: the limits apply **per project, not
+* The **numeric limits of the free tier**: the documentation says that
+  they depend on the tier and are shown in AI Studio, and it publishes no
+  number.  Two facts are documented: the limits apply **per project, not
   per key**, and the daily count is **reset at midnight Pacific time**.
   **verified**
+* The **daily limit of the free tier is 500 requests per model**, and the
+  answer of the provider says so when the quota is spent:
+
+  ```text
+  HTTP 429 - "Quota exceeded for metric:
+  generativelanguage.googleapis.com/generate_content_free_tier_requests,
+  limit: 500, model: gemini-3.5-flash-lite.
+  Please retry in 6h56m14.06411813s."
+  ```
+
+  The limit is **per model**: `gemini-3.6-flash` was refused while
+  `gemini-3.5-flash-lite` still answered.  The day of the provider turns
+  at **midnight Pacific time** (07:00 UTC), and not at midnight UTC: a
+  run that starts at 00:10 UTC meets the quota of the day that is ending.
+  **verified (the answer of the provider, 2026-10-21)**
+* The **token limit of the free tier is still UNVERIFIED**: the answer of
+  the provider names the request metric and the number of requests, and
+  not a number of tokens.  The runs of this project impose a token cap
+  of their own (250 000 tokens for the Google model).
 * `response_format` is a supported parameter of the chat completions.
   Whether the mode `{"type": "json_object"}` is accepted for the chat is
   **UNVERIFIED**.  **verified (parameter), UNVERIFIED (mode)**
@@ -178,6 +197,14 @@ therefore never concatenated by hand in the code.
   <https://docs.ollama.com/api>
 * Base `http://localhost:11434/v1`, `POST /chat/completions`.  **verified**
 * **No key is needed** for a local server.  **verified**
+* **The setup of this machine** (2026-10-21): the Windows bundle
+  (`ollama-windows-amd64.zip`, 1.47 GB) is extracted in
+  `C:/Users/rimob/ollama` and the server runs as the user, with
+  `OLLAMA_MODELS=C:/Users/rimob/ollama-models` and
+  `OLLAMA_NUM_PARALLEL=4`.  The model of the trial is
+  `qwen2.5:1.5b-instruct` (986 MB, Q4_K_M), which runs **entirely in the
+  VRAM** of the GeForce RTX 3050 of the machine.  The total of the
+  downloads is 2.46 GB.  **verified (the machine)**
 * `GET /v1/models` returns `created` and `owned_by`.  The **price of a
   model is UNVERIFIED**.  **verified (URL and fields)**
 * A local server has **no quota**.  **verified (absence)**

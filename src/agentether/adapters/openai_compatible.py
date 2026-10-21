@@ -901,7 +901,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
         base_url="https://generativelanguage.googleapis.com/v1beta/openai",
         api_key_env="GEMINI_API_KEY",
         requests_per_minute=15,
-        requests_per_day=1500,
+        requests_per_day=500,
         seed_parameter=None,
         free_models=(
             "gemini-3.8-flash",
@@ -916,11 +916,13 @@ PROVIDERS: dict[str, ProviderSpec] = {
         docs_url="https://ai.google.dev/gemini-api/docs/rate-limits",
         verified_on="2026-10-20",
         notes=(
-            "UNVERIFIED: the free tier limits.  The documentation says that "
-            "they depend on the tier and are shown in AI Studio.  The limits "
-            "apply per project, not per key, and the daily count is reset at "
-            "midnight Pacific time.  The provider has no seed for the chat "
-            "completions."
+            "The daily limit is 500 requests per model, and the answer of the "
+            "provider says so when the quota is spent (verified on "
+            "2026-10-21).  UNVERIFIED: the limit of requests per minute and "
+            "the limit of tokens per day.  The limits apply per project, not "
+            "per key, and the daily count is reset at midnight Pacific time "
+            "(07:00 UTC), not at midnight UTC.  The provider has no seed for "
+            "the chat completions."
         ),
     ),
     "ollama": ProviderSpec(
