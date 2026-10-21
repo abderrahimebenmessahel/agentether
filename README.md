@@ -1,7 +1,6 @@
 # AgenTether
 
-[![PyPI](https://img.shields.io/badge/pypi-agentether-blue)](https://pypi.org/project/agentether/)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.10%E2%80%933.14-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](CHANGELOG.md)
 [![Typing](https://img.shields.io/badge/typing-mypy%20--strict-informational)](https://mypy-lang.org/)
@@ -302,22 +301,64 @@ The **injected** condition, the primary endpoint:
 | Model | N | naive | simple-retry | agentether-claims-only | **agentether** (with `expects`) |
 | --- | --- | --- | --- | --- | --- |
 | `cerebras/gpt-oss-120b` | 23 | 0.565 | 0.565 | 0.174 | **0.000** |
-| `ollama/qwen2.5:3b-instruct` | 35 | 0.543 | 0.829 | 0.200 | **0.114** |
-| `google/gemini-3.5-flash-lite` | 6 | 0.500 | 0.167 | 0.167 | **0.000** |
+| `ollama/qwen2.5:3b-instruct` | 60 | 0.567 | 0.817 | 0.133 | **0.083** |
+| `google/gemini-3.5-flash-lite` | 11 | 0.455 | 0.273 | 0.273 | **0.000** |
 
 (the false completion rate; the correct completion rate, the Wilson
 intervals, the paired differences and the p values are in
 [`docs/evidence.md`](docs/evidence.md))
 
-**Two of the three cells decide the primary endpoint.**  For the
-Cerebras model the guarded arm has **no** false completion against 0.565
-of the baseline (13 tasks in favour of the guarded arm, the exact
-McNemar test gives p < 0.001, and the difference is above the minimum
-detectable effect of the sample): **H2 is SUPPORTED**.  For the local
-model the difference is -0.714 (26 tasks in favour, p < 0.001) and the
-correct completion rate is also better (+0.543, p < 0.001): **H1 and H2
-are SUPPORTED**.  For the Google model the sample is still too small
-(N = 6): every verdict is **INCONCLUSIVE**.
+The **natural** condition, the local model only (no fault is injected in
+this one):
+
+| Model | N | naive | simple-retry | agentether-claims-only | **agentether** (with `expects`) |
+| --- | --- | --- | --- | --- | --- |
+| `ollama/qwen2.5:3b-instruct` | 60 | 0.617 | 0.683 | 0.217 | **0.200** |
+
+(the false completion rate, on the same sixty tasks)
+
+**Two of the three cells support the primary endpoint.**  The primary
+endpoint is H2 (the false completion rate) against the simple-retry
+baseline.  For the Cerebras model the guarded arm has **no** false
+completion against 0.565 of the baseline (13 tasks in favour of the
+guarded arm, the exact McNemar test gives p = 0.000, and the difference
+is above the minimum detectable effect of the sample): **H2 is
+SUPPORTED**.  For the local model the difference is -0.733 (45 tasks in
+favour, p = 0.000) and the correct completion rate is also better
+(+0.617, 38 tasks in favour, p = 0.000): **H1 and H2 are SUPPORTED**.
+For the Google model the sample is still too small (N = 11, the minimum
+detectable effect of that cell is 0.422): every verdict of H1 and H2
+against the baseline is **INCONCLUSIVE**.
+
+**The naive arm does not say the same thing.**  The hypotheses of the
+protocol are stated against the simple-retry baseline, and the naive arm
+(one call per step, the claim trusted) is the second comparator: a
+baseline that retries writes the files of **every** answer and the last
+one wins, so a retry can overwrite a good file with a worse one.
+Against the naive arm the Google cell does **not** support the primary
+endpoint: the false completion difference is -0.455 (5 tasks in favour
+of the guarded arm) but p = 0.062, so **H2 is NOT SUPPORTED** there,
+while the correct completion difference is +0.545 (p = 0.031) and **H1
+is SUPPORTED**.  For the Cerebras model H2 against the naive arm is
+-0.565 (p = 0.000): SUPPORTED, and H1 is +0.261 (p = 0.146):
+INCONCLUSIVE.  For the local model both are SUPPORTED: H1 is +0.633
+(p = 0.000) and H2 is -0.483 (p = 0.000).
+
+**The contribution of the declarative expectations is INCONCLUSIVE in
+every cell.**  H4 asks whether the arm that *declares* what the step
+must produce has fewer false completions than the arm that only checks
+the files the agent claims.  The differences are -0.273 (the Google
+model, p = 0.250), -0.174 (the Cerebras model, p = 0.125) and -0.050
+(the local model, injected, p = 0.508), and -0.017 in the natural
+condition of the local model (p = 1.000).  Every one of them is
+**INCONCLUSIVE**: the sample is too small.  The data show the direction
+only; they do not decide what the declarative expectations add.
+
+**The guarded arm costs more.**  H3 is **SUPPORTED** in every cell of
+the injected condition: 46 requests against 44 and 45438 tokens against
+25418 for the Google model, 120 against 81 requests and 160091 against
+83277 tokens for the Cerebras model, 326 against 251 requests and
+293990 against 164874 tokens for the local model.
 
 **The cost of honesty is in the evidence.**  The guard does not make a
 task succeed; it makes a false "done" visible.  For the Cerebras model
@@ -327,13 +368,28 @@ the guarded arm ends **7** tasks of the 23 as an honest "not completed"
 **0** honest failures and **13** false completions: the same tasks,
 reported as successes.
 
-**What the data do NOT show.**  The sample is still small (23 to 35
-tasks per cell, not the 60 of the protocol), the tasks are synthetic, the
-ground truth checks are the ones the author of the library wrote, and two
-of the three models are free tier models with their own limits.  The
-local model is **not deterministic** at temperature 0 (the GPU is not),
-so the comparison is paired on the task and the fault schedule and not
-on the answer of the model.
+**The natural condition, the local model only.**  Without the injected
+faults, on the same sixty tasks, the guarded arm ends 12 false
+completions (against 37 of the naive arm and 41 of the simple-retry
+baseline) and 40 correct completions (against 5 and 7).  The paired
+differences against the baseline are +0.550 for the correct completion
+and -0.483 for the false completion.  The verdicts of
+[`docs/evidence.md`](docs/evidence.md) are stated for the injected
+condition; the natural cell is reported as differences.
+
+**What the data do NOT show.**  The two free tier cells are short of the
+sixty tasks of the protocol (23 tasks per cell for the Cerebras model
+and 11 for the Google model): the run stopped at the token cap of the
+day of the Cerebras model, and the provider refused the calls of the
+Google model with HTTP 429.  Only the local model reached the sixty
+tasks, and it is **not deterministic** at temperature 0 (the GPU is not),
+so its comparison is paired on the task and the fault schedule and not
+on the answer of the model.  The tasks are synthetic, the ground truth
+checks are the ones the author of the library wrote, and the run is a
+**partial** confirmatory run: the selection rule of the protocol v2 (a
+band on the naive success rate) was not satisfiable by the models that
+had quota, and the rule of the protocol v3 (the capability probe and the
+quota) was decided before the new data.
 
 **The trial v2 (the supplementary run).**  Three arms and two conditions,
 N = 12 tasks per cell, two models.  The selection rule of that protocol
@@ -385,12 +441,16 @@ The full comparison, with what each project does better, is in
 * **`command_succeeds` runs a subprocess** with your privileges.  Only
   verify commands you trust, and keep them outside the agent writable work
   directory (the default rejects an executable inside it).
-* **The evidence is small.**  The trial is a tiny sample from two free
-  models on one day, and the hypotheses it tests came out **inconclusive**
-  (the sample is too small to reach the minimum detectable effect).  The
-  run is also a *supplementary* one: the selection rule of the protocol
-  was not met, for the reason given in
-  [`docs/evidence.md`](docs/evidence.md).
+* **The evidence is small and partly inconclusive.**  The trial v3 is a
+  tiny sample from three models on one day (23 tasks per cell for the
+  Cerebras model, 11 for the Google model, 60 for the local one).  The
+  primary endpoint is **supported** in the two cells that reached the
+  sample the protocol asks for (the Cerebras model and the local model)
+  and **inconclusive** in the Google cell, whose sample is too small to
+  reach the minimum detectable effect.  The contribution of the
+  declarative expectations (H4) is **inconclusive in every cell**.  The
+  trial v2 is a *supplementary* run: its selection rule was not met, for
+  the reason given in [`docs/evidence.md`](docs/evidence.md).
 * **The audit was written by an AI.**  There is no independent human review
   of this code yet.
 
@@ -435,8 +495,13 @@ How to reproduce the evidence: see
 | [`docs/faq.md`](docs/faq.md) | "Why not X?" |
 | [`docs/trial-protocol.md`](docs/trial-protocol.md) | The pre-registration of the first trial (run 1). |
 | [`docs/trial-protocol-v2.md`](docs/trial-protocol-v2.md) | The pre-registration of the trial v2. |
+| [`docs/trial-protocol-v3.md`](docs/trial-protocol-v3.md) | The pre-registration of the trial v3 (the confirmatory run). |
+| [`docs/trial-protocol-v3-addendum.md`](docs/trial-protocol-v3-addendum.md) | The addendum of the trial v3: the extended task set, decided before the new data. |
 | [`docs/providers.md`](docs/providers.md) | The providers of the free tier and their limits. |
 | [`docs/final-report-2026-10-20.md`](docs/final-report-2026-10-20.md) | The report of the audit of 2026-10-20. |
+| [`docs/final-report-2026-10-21.md`](docs/final-report-2026-10-21.md) | The report of the trial v3 and of the audit of 2026-10-21. |
+| [`docs/release-checklist.md`](docs/release-checklist.md) | The checklist of the release: the gates, the package, and the decisions that are left. |
+| [`docs/WORKLOG.md`](docs/WORKLOG.md) | The raw working log of the sessions (long). |
 | [`docs/evidence.md`](docs/evidence.md) | The results of the trial. |
 
 ## Examples
