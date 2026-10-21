@@ -815,3 +815,126 @@ condition completed**, keep the paired analysis on that set, show how
 many tasks were dropped, and a test must fail when a table mixes two
 different numbers of tasks.  The document is then regenerated from the raw
 cells only.
+
+### Phase 2 — the presentation of an unequal N
+
+`benchmarks/evidence.py` and `benchmarks/trial.py` now compute **every**
+rate of a cell on the **common set of its tasks**: the tasks that every
+arm of that model and of that condition completed
+(`trial.common_task_set`).  The paired differences, the hypotheses, the
+verdicts and the H4 comparison are computed on the same set, the number of
+dropped tasks is a column of the table, and the **MDE of a cell is
+computed from the N it really reached** (`1.4 / sqrt(N)`) instead of a
+number that was written down before the run.
+
+The effect on the data of the first session of the trial v3: the Google
+model had seven tasks for two arms and six for the other two.  The common
+set is **six**, and the naive arm drops one task: its false completion
+rate goes from 0.571 (N = 7) to **0.500** (N = 6) and its correct
+completion rate from 0.286 to **0.333**.  The naive arm was better than
+the document said, and the common set says so.
+
+The document also carries the **cost of honesty** (the phase 4 of the
+brief): the tasks the arm did not claim to have finished while the ground
+truth says they were not finished, and the ones that were a false
+completion of the baseline.
+
+The tests (`tests/test_evidence_consistency.py`, 14 tests) fail when a
+table mixes two numbers of tasks and when the N of a table is not the
+common set of the raw cells.
+
+### Phase 3 — the third model, a local one (no quota)
+
+**The machine.**  15.8 GB of RAM, one **NVIDIA GeForce RTX 3050 Laptop
+GPU** with 4 GB of VRAM (1.2 GB used by the display), 151 GB of free disk.
+`nvidia-smi` answers, and the CUDA driver is 610.88.
+
+**Ollama was installed without sudo and without an administrator
+account**: the Windows bundle (1.47 GB) was downloaded and extracted into
+`C:\Users\rimob\ollama` (1.9 GB), and the server runs as the user with
+`OLLAMA_MODELS=C:\Users\rimob\ollama-models`.  The total of the downloads
+is 1.47 GB (the bundle) + 0.99 GB (the model) = **2.46 GB**, under the
+5 GB of the brief.  The server is started with:
+
+```
+C:\Users\rimob\ollama\ollama.exe serve
+```
+
+with `OLLAMA_NUM_PARALLEL=4` (four requests in flight at the same time).
+
+**The model** is `qwen2.5:1.5b-instruct` (986 MB, Q4_K_M, entirely in the
+VRAM).  The **capability probe** (`benchmarks/results/probe-ollama.json`,
+12 requests):
+
+| Metric | Value |
+| --- | --- |
+| requests that answered | 12 / 12 |
+| telemetry that parses | 0.917 |
+| the name of the step is exact | 0.917 |
+| progress = 100 | 0.917 |
+| the file blocks are there | 1.000 |
+| the artifacts are claimed | 0.917 |
+| deterministic at temperature 0 | **no** |
+| seconds per request | 11.0 |
+
+The model **passes the probe** (it follows the protocol, its telemetry
+parses, it answers).  It is **not deterministic** at temperature 0 (the
+GPU is not), like the Google model of the trial v3.  The comparison is
+therefore paired on the **task and the fault schedule**, and not on the
+answer of the model: the difference between the arms carries the
+variance of the model.  It is stated in the report.
+
+**The local model is a third model with no quota**: the compute is free,
+so the rule of the half of the daily quota does not apply to it, and the
+caps of the day are only a safety net.
+
+### Phase 4 — the runs of the day
+
+Three runs are in flight at the same time (the local one on the GPU, the
+two cloud ones on the network):
+
+| Run | Provider | Model | Cap of the day | Command |
+| --- | --- | --- | --- | --- |
+| local | ollama | qwen2.5:1.5b-instruct | none (a safety net of 100 000 requests) | four shards of 15 tasks, `--task-offset 0/15/30/45` |
+| cerebras | cerebras | gpt-oss-120b | 500 requests, 500 000 tokens | the work directory of the first session is resumed |
+| google | google | gemini-3.5-flash-lite | 500 requests, 250 000 tokens | the work directory of the first session is resumed |
+
+The counters of the day are on disk and were **reset by the day itself**
+(the counter is keyed by the UTC date, and the day turned over at 00:00
+UTC).  The counters of the 20th of October were at the cap of the
+Cerebras model (500 of 500) and at 733 of 750 for the Google model, and
+the two runs of the 21st start from zero.
+
+**The Google cap is stricter than the rule.**  The documented limit of
+Google is 1500 requests per day (the half is 750), but the token limit is
+**not published** and the provider refused the calls of the 20th of
+October with `HTTP 429` after 528 requests of the day.  The run of the
+21st uses **500 requests and 250 000 tokens** (a third of the documented
+requests and a self-imposed token cap), and the provider is left alone
+for the day if it refuses.
+
+**A defect of the resume, found by the resumption itself.**  The progress
+file of the first session of the trial v3 holds **136 cells without a
+request**: they are the cells the arms wrote when they swallowed the stop
+of the daily cap.  The resume took them for done, and the natural
+condition of the Cerebras model (80 cells) would **never** have been run
+again.  A cell without a request is not a measurement: `_read_progress`
+drops them now, and a test pins it.
+
+### The gates of the day
+
+| Check | Result |
+| --- | --- |
+| `pytest` on Windows (CPython 3.14.7) | **510 passed, 4 skipped** |
+| `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | **512 passed, 2 skipped** on each |
+| `mypy --strict` | clean, 66 files, on Windows and on the four Linux versions |
+| `ruff check` / `ruff format --check` | clean, 110 files (Windows), 106 (Linux) |
+| `pytest --cov=src/agentether` | **89 %** of the lines |
+
+### NEXT ACTION
+
+The three runs of the day are in flight.  The next steps are: collect the
+cells, build the result files with `benchmarks/collect_cells.py`, rebuild
+the evidence document, write the report of the day and run the rest of
+the gates (the CI, the wheel, `twine check`, the fresh venv and
+`scan_secrets.py`).
