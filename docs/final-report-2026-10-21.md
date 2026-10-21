@@ -143,8 +143,8 @@ set of the raw cells.
 GPU** with 4 GB of VRAM.
 
 **Ollama was installed without sudo**: the Windows bundle (1.47 GB) was
-extracted into `C:/Users/rimob/ollama` and the server runs as the user
-with `OLLAMA_MODELS=C:/Users/rimob/ollama-models`.  The total of the
+extracted into `<HOME>/ollama` and the server runs as the user
+with `OLLAMA_MODELS=<HOME>/ollama-models`.  The total of the
 downloads of the day is 1.47 GB (the bundle) + 0.99 GB (the first
 model) + 1.9 GB (the second model) = **4.36 GB**, under the 5 GB of the
 brief.

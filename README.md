@@ -54,7 +54,7 @@ attempts  : 2
 summary   : I wrote the notes for real.
 the file  : True
 the first claim was rejected: the file did not exist yet
-the memory file: C:\Users\rimob\AppData\Local\Temp\tmp1sr8sq_i\memory\PROJECT_MEMORY.md
+the memory file: <TEMP>/memory/PROJECT_MEMORY.md
 ```
 
 The first attempt claimed success; the verifier found that the file was not

@@ -852,13 +852,13 @@ GPU** with 4 GB of VRAM (1.2 GB used by the display), 151 GB of free disk.
 
 **Ollama was installed without sudo and without an administrator
 account**: the Windows bundle (1.47 GB) was downloaded and extracted into
-`C:\Users\rimob\ollama` (1.9 GB), and the server runs as the user with
-`OLLAMA_MODELS=C:\Users\rimob\ollama-models`.  The total of the downloads
+`<HOME>\ollama` (1.9 GB), and the server runs as the user with
+`OLLAMA_MODELS=<HOME>\ollama-models`.  The total of the downloads
 is 1.47 GB (the bundle) + 0.99 GB (the model) = **2.46 GB**, under the
 5 GB of the brief.  The server is started with:
 
 ```
-C:\Users\rimob\ollama\ollama.exe serve
+<HOME>\ollama\ollama.exe serve
 ```
 
 with `OLLAMA_NUM_PARALLEL=4` (four requests in flight at the same time).

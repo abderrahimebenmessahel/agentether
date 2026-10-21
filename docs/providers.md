@@ -199,8 +199,8 @@ therefore never concatenated by hand in the code.
 * **No key is needed** for a local server.  **verified**
 * **The setup of this machine** (2026-10-21): the Windows bundle
   (`ollama-windows-amd64.zip`, 1.47 GB) is extracted in
-  `C:/Users/rimob/ollama` and the server runs as the user, with
-  `OLLAMA_MODELS=C:/Users/rimob/ollama-models` and
+  `<HOME>/ollama` and the server runs as the user, with
+  `OLLAMA_MODELS=<HOME>/ollama-models` and
   `OLLAMA_NUM_PARALLEL=4`.  The model of the trial is
   `qwen2.5:1.5b-instruct` (986 MB, Q4_K_M), which runs **entirely in the
   VRAM** of the GeForce RTX 3050 of the machine.  The total of the
