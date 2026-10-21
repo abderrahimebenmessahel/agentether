@@ -170,6 +170,12 @@ breaking changes. They are listed below.
 
 ### Fixed
 
+- **A local provider that needs no key is not refused any more.**  The
+  generic OpenAI-compatible worker raised a configuration error when a key
+  resolver was passed and the resolver answered with an empty string, which
+  is exactly what a local provider (Ollama) does.  The error is now raised
+  only for a provider that names an environment variable, and the message
+  names the variables of the provider.
 - **Marker injection into the project memory is closed.**  Every string the
   model controls (the summary, the step name, the artifact paths, the failure
   reasons) is escaped when it is written, so it can never contain a literal
