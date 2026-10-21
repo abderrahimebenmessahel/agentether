@@ -385,15 +385,34 @@ def paired_difference(
 # ----------------------------------------------------------------------
 # the runner
 # ----------------------------------------------------------------------
+def is_measurement(cell: dict[str, Any]) -> bool:
+    """Whether a cell is a measurement of the arm.
+
+    A cell is a measurement when the arm got **at least one answer** from
+    the model (``attempts > 0``).  Two kinds of cell are not:
+
+    * the cell of a run that was **stopped** in the middle of it (the
+      daily cap was reached): it has no request and no attempt;
+    * the cell of a run whose calls were all **refused** by the provider
+      (a rate limit): the request was sent, but the arm got no answer.
+
+    The second kind is the one that a rule based on the number of the
+    requests would keep, and it is wrong: a refused call says nothing
+    about the arm and about the model.  The rule is the same in the
+    collector and in the resume of a run.
+    """
+    return int(cell.get("attempts", 0) or 0) > 0
+
+
 def _read_progress(progress_path: Path) -> list[dict[str, Any]]:
     """The cells of the previous runs of this work directory.
 
-    **A cell without a request is not a measurement.**  The first run of
+    **A cell that is not a measurement is dropped.**  The first run of
     the trial v3 swallowed the stop of the daily cap and wrote 136 empty
     cells; a resumed run that took them for done would skip them for
     ever, and the natural condition of the Cerebras model (80 cells) would
-    never have been run.  The empty cells are therefore dropped here, and
-    the run does them again.
+    never have been run.  The cells that are not measurements are
+    therefore dropped here, and the run does them again.
     """
     cells: list[dict[str, Any]] = []
     if not progress_path.exists():
@@ -408,11 +427,7 @@ def _read_progress(progress_path: Path) -> list[dict[str, Any]]:
                 record = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            try:
-                requests = int(record.get("requests", 0) or 0)
-            except (TypeError, ValueError):
-                requests = 0
-            if requests <= 0:
+            if not is_measurement(record):
                 continue
             key = (record["model"], record["arm"], record["condition"], record["task"])
             if key in seen:

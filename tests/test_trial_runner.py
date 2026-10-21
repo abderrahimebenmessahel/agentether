@@ -229,6 +229,7 @@ def test_the_progress_file_is_read_once_per_cell(tmp_path: Path) -> None:
         "condition": "natural",
         "task": "t1",
         "requests": 1,
+        "attempts": 1,
     }
     with progress.open("w", encoding="utf-8") as handle:
         handle.write(json.dumps(record) + "\n")
@@ -260,6 +261,16 @@ def test_a_cell_without_a_request_is_not_a_measurement(tmp_path: Path) -> None:
             "condition": "injected",
             "task": "t1",
             "requests": 0,
+            "attempts": 0,
+            "tokens": 0,
+        },
+        {
+            "model": "m",
+            "arm": "naive",
+            "condition": "injected",
+            "task": "t1b",
+            "requests": 3,
+            "attempts": 0,
             "tokens": 0,
         },
         {
@@ -268,6 +279,7 @@ def test_a_cell_without_a_request_is_not_a_measurement(tmp_path: Path) -> None:
             "condition": "injected",
             "task": "t2",
             "requests": 3,
+            "attempts": 1,
             "tokens": 100,
         },
     ]
@@ -291,11 +303,12 @@ def test_the_collector_drops_the_cells_without_a_request() -> None:
 
     cells = [
         {"task": "t1", "requests": 0, "attempts": 0},
+        {"task": "t1b", "requests": 3, "attempts": 0},
         {"task": "t2", "requests": 3, "attempts": 1},
     ]
     kept, dropped = collect(cells)
     assert [cell["task"] for cell in kept] == ["t2"]
-    assert dropped == 1
+    assert dropped == 2
 
 
 def test_the_collector_keeps_the_measurement_and_not_the_empty_cell() -> None:

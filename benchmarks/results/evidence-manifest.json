@@ -1,11 +1,15 @@
 {
   "runs": [
     {
-      "label": "Trial v3 (2026-10-20)",
+      "label": "Trial v3 (2026-10-20 and 2026-10-21)",
       "protocol": "trial-protocol-v3.md",
       "progress": [
         "benchmarks/results/trial-v3-cerebras-cells.jsonl",
-        "benchmarks/results/trial-v3-google-cells.jsonl"
+        "benchmarks/results/trial-v3-google-cells.jsonl",
+        "benchmarks/results/trial-v3-local-shard0-cells.jsonl",
+        "benchmarks/results/trial-v3-local-shard15-cells.jsonl",
+        "benchmarks/results/trial-v3-local-shard30-cells.jsonl",
+        "benchmarks/results/trial-v3-local-shard45-cells.jsonl"
       ],
       "meta": "benchmarks/results/trial-v3-meta.json"
     },
