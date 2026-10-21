@@ -35,13 +35,11 @@ uploaded anywhere).
 
 | Run | Requests | Tokens | Wall clock (s) |
 | --- | --- | --- | --- |
-| trial v3 (the 20th and the 21st of October) | 2 646 | 2 273 410 | 62542.0 |
+| trial v3 (the 20th and the 21st of October) | 2 664 | 2 285 943 | 66446.3 |
 | trial v2 (the supplementary run of the 20th of October) | 450 | 394 951 | 10527.1 |
-| **total** | **3 096** | **2 668 361** | **73069.1** |
+| **total** | **3 114** | **2 680 894** | **76973.4** |
 
-The trial v3 grew by 2 646 requests and 2 273 410 tokens since the
-report of the 20th of October, and the trial v2 did not move at all: its
-450 requests and its 394 951 tokens are the same numbers as then.
+The trial v3 grew by 2 664 requests and 2 285 943 tokens since the report of the 20th of October, and the trial v2 did not move at all: its 450 requests and its 394 951 tokens are the same numbers as then.
 
 ---
 

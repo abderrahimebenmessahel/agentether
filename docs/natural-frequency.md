@@ -43,10 +43,10 @@ the tasks that every arm of that model and of that condition completed.
 
 | Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
 | --- | --- | --- | --- | --- |
-| agentether | 59 | 12 | 0 | 0.000 [0.000, 0.061] |
-| agentether-claims-only | 59 | 12 | 0 | 0.000 [0.000, 0.061] |
-| naive | 59 | 37 | 28 | 0.475 [0.353, 0.600] |
-| simple-retry | 59 | 41 | 22 | 0.373 [0.261, 0.500] |
+| agentether | 60 | 12 | 0 | 0.000 [0.000, 0.060] |
+| agentether-claims-only | 60 | 13 | 0 | 0.000 [0.000, 0.060] |
+| naive | 60 | 37 | 28 | 0.467 [0.346, 0.591] |
+| simple-retry | 60 | 41 | 22 | 0.367 [0.256, 0.493] |
 
 ## What this shows and what it does not
 
