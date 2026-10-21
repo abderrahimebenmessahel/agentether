@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the full check suite for one Python version inside WSL.
-# Usage: bash run_linux_matrix.sh 3.10
+# Usage: AGENTETHER_SRC=<path of the checkout> bash run_linux_matrix.sh 3.10
 # The virtual environments live outside the source tree so that the linters
 # never see them.
 #
@@ -8,7 +8,16 @@
 # run from /mnt/c, which is slow and has the wrong permissions.
 set -uo pipefail
 export PATH="$HOME/.local/bin:$PATH"
-SOURCE="/mnt/c/Users/rimob/Documents/ContextGuard"
+# The checkout of the project, as WSL sees it.  The path is read from the
+# environment: the path of the machine of the maintainer is not a property
+# of the project.
+if [ -z "${AGENTETHER_SRC:-}" ]; then
+  echo "AGENTETHER_SRC is not set." >&2
+  echo "It must be the path of the checkout of the project, as WSL sees it," >&2
+  echo "for example: AGENTETHER_SRC=/mnt/c/path/to/the/checkout" >&2
+  exit 2
+fi
+SOURCE="$AGENTETHER_SRC"
 TARGET="$HOME/agentether-linux"
 PY="$1"
 VENV="$HOME/venvs/cg${PY/./}"
