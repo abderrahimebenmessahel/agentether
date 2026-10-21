@@ -20,6 +20,31 @@ uploaded anywhere).
 
 ---
 
+## 0. The erratum of the report of the 20th of October, and the totals of the two runs together
+
+> The erratum of the report of the 20th of October (the commit `be84cca`)
+> corrected two numbers that the raw cells did not support: the total of
+> the tokens of the trial v2 was **394 951** and not "450 000 tokens"
+> (450 was the number of the *requests*), and the token count of the
+> Google model was **188 346** and not 0.  **The correction stands**, the
+> raw cells of the trial v2 did not move, and the totals of the trial v2
+> are in the table of the section 4.6.  A correction that hides what it
+> corrects is not a correction.
+
+**The totals of the two runs together**, summed from the raw cells:
+
+| Run | Requests | Tokens | Wall clock (s) |
+| --- | --- | --- | --- |
+| trial v3 (the 20th and the 21st of October) | 2 646 | 2 273 410 | 62542.0 |
+| trial v2 (the supplementary run of the 20th of October) | 450 | 394 951 | 10527.1 |
+| **total** | **3 096** | **2 668 361** | **73069.1** |
+
+The trial v3 grew by 2 646 requests and 2 273 410 tokens since the
+report of the 20th of October, and the trial v2 did not move at all: its
+450 requests and its 394 951 tokens are the same numbers as then.
+
+---
+
 ## 0. What this session did
 
 The brief of the maintainer had five phases.
@@ -175,13 +200,22 @@ nothing: a download of 1.9 GB and the electricity of the machine.
 **The models of the run** (the N and the MDE are **computed** from the
 cells, not written down before the run):
 
-{{TABLE:V3-MODELS}}
+| Provider | Model | Pilot (naive, natural) | Qualifies | N per cell | MDE of the paired difference |
+| --- | --- | --- | --- | --- | --- |
+| cerebras | gpt-oss-120b | 19/20 = 0.950 | passes the capability probe; no band (the rule of the v3) | 23 | 0.292 |
+| google | gemini-3.5-flash-lite | 17/20 = 0.850 | passes the capability probe; no band (the rule of the v3) | 6 | 0.572 |
+| ollama | qwen2.5:3b-instruct | not run | passes the capability probe (1.000 on the telemetry, the name of the step, the progress, the file blocks and the artifacts); no band and no quota: the compute is local and free | 59 | 0.182 |
 
 **The request and the token totals** (summed from the raw cells; the
 total is a row of its own, so a reader can add the rows and find the
 same number):
 
-{{TABLE:V3-TOTALS}}
+| Model | Requests | Tokens | Wall clock (s) |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 104 | 76145 | 1279.0 |
+| gpt-oss-120b | 412 | 496363 | 6345.9 |
+| qwen2.5:3b-instruct | 2130 | 1700902 | 54917.1 |
+| **total** | **2646** | **2273410** | **62542.0** |
 
 **The consistency check.**  The payload of the run of the Cerebras model
 counts **415 requests and 500 198 tokens**; the cells count **412
@@ -199,12 +233,12 @@ The column "Dropped" is the number of tasks the arm had beyond that set.
 
 **The injected condition** (the primary endpoint):
 
-{{TABLE:V3-INJECTED}}
+
 
 **The natural condition** (no fault is injected; every failure is the
 failure of the model):
 
-{{TABLE:V3-NATURAL}}
+
 
 ### 4.3 The verdicts
 
@@ -216,7 +250,7 @@ two-sided McNemar test of the discordant pairs rejects the null
 hypothesis.  The MDE of a cell is `1.4 / sqrt(N)` with the **achieved**
 N.
 
-{{TABLE:V3-VERDICTS}}
+
 
 The hypotheses of the protocol are stated against the **simple-retry**
 baseline.  The **naive** arm (one call per step, the claim is trusted)
@@ -225,17 +259,17 @@ always a fair one: a baseline that retries writes the files of **every**
 answer and the last one wins, so with a model that is not deterministic a
 retry can overwrite a good file with a worse one.  The example is in the
 data of the local model: the baseline has a false completion rate of
-0.8 against 0.55 of the naive arm, and on the task `task01-bakery` its
+0.817 against 0.567 of the naive arm, and on the task `task01-bakery` its
 `notes.md` is empty and its `README.md` holds the beginning of a broken
 answer, while the naive arm kept a complete `notes.md`.
 
-{{TABLE:V3-NAIVE-VERDICTS}}
+
 
 **The contribution of the declarative expectations (H4)** -- the arm that
 declares what the step must produce against the arm that only checks the
 claimed files:
 
-{{TABLE:V3-H4}}
+
 
 **What the verdicts mean, stated plainly.**
 
@@ -270,7 +304,39 @@ produce.
 mention it* -- with its Wilson interval.  In the natural condition
 nothing is injected, so every one of them is a failure of the model:
 
-{{TABLE:NATURAL-FREQUENCY}}
+## gemini-3.5-flash-lite -- injected
+| Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
+| --- | --- | --- | --- | --- |
+| agentether | 6 | 0 | 0 | 0.000 [0.000, 0.390] |
+| agentether-claims-only | 6 | 1 | 0 | 0.000 [0.000, 0.390] |
+| naive | 6 | 3 | 0 | 0.000 [0.000, 0.390] |
+| simple-retry | 6 | 1 | 0 | 0.000 [0.000, 0.390] |
+
+## gpt-oss-120b -- injected
+| Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
+| --- | --- | --- | --- | --- |
+| agentether | 23 | 0 | 0 | 0.000 [0.000, 0.143] |
+| agentether-claims-only | 23 | 4 | 0 | 0.000 [0.000, 0.143] |
+| naive | 23 | 13 | 5 | 0.217 [0.097, 0.419] |
+| simple-retry | 23 | 13 | 5 | 0.217 [0.097, 0.419] |
+
+## qwen2.5:3b-instruct -- injected
+| Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
+| --- | --- | --- | --- | --- |
+| agentether | 60 | 5 | 0 | 0.000 [0.000, 0.060] |
+| agentether-claims-only | 60 | 8 | 0 | 0.000 [0.000, 0.060] |
+| naive | 60 | 34 | 20 | 0.333 [0.227, 0.459] |
+| simple-retry | 60 | 49 | 21 | 0.350 [0.242, 0.476] |
+
+## qwen2.5:3b-instruct -- natural
+| Arm | N | False completions | Of which (ii) | Rate of (ii) (95% CI) |
+| --- | --- | --- | --- | --- |
+| agentether | 59 | 12 | 0 | 0.000 [0.000, 0.061] |
+| agentether-claims-only | 59 | 12 | 0 | 0.000 [0.000, 0.061] |
+| naive | 59 | 37 | 28 | 0.475 [0.353, 0.600] |
+| simple-retry | 59 | 41 | 22 | 0.373 [0.261, 0.500] |
+
+## What this shows and what it does not
 
 **The number that matters for the real world is the second one.**  The
 local model of the trial, with **no fault injected at all**, falsely
@@ -285,7 +351,7 @@ a task succeed.  A task the model cannot finish is a failure either way,
 but the naive arm reports it as a success and the guarded arm reports it
 as a failure.  The difference is honest, and it has a price.
 
-{{TABLE:V3-HONESTY}}
+
 
 **The price, in one line.**  The guarded arm ends more tasks as an honest
 "not completed" than the naive arm, and it converts a large share of the
@@ -299,7 +365,11 @@ the gain is in the false completion rate (H2).
 The data of the trial v2 stay a **supplementary** run and are not mixed
 with the data of the trial v3.  Their totals (the same rule as above):
 
-{{TABLE:V2-TOTALS}}
+| Model | Requests | Tokens | Wall clock (s) |
+| --- | --- | --- | --- |
+| gemini-3.5-flash-lite | 261 | 188346 | 7930.1 |
+| gpt-oss-120b | 189 | 206605 | 2597.0 |
+| **total** | **450** | **394951** | **10527.1** |
 
 The verdicts of the trial v2 did not change in this session: every
 difference of that run is smaller than the minimum detectable effect of
