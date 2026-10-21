@@ -396,9 +396,9 @@ cell is computed from the N it reached.
 | Check | Result |
 | --- | --- |
 | `pytest` on Windows (CPython 3.14.7) | **512 passed, 4 skipped** |
-| `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | **512 passed, 2 skipped** on each of the four versions |
+| `pytest` in WSL on CPython 3.10, 3.11, 3.12 and 3.13 | **514 passed, 2 skipped** on each of the four versions |
 | `mypy --strict` | clean, 66 files, on Windows and on the four Linux versions |
-| `ruff check` / `ruff format --check` | clean, 110 files (Windows), 106 (Linux) |
+| `ruff check` / `ruff format --check` | clean, 115 files (Windows), 111 (Linux) |
 | `pytest --cov=src/agentether` | **89 %** of the lines |
 | GitHub CI | **green on the ten cells** and on the dependency audit (the run `39519899117`) |
 | `python -m build` + `twine check` | the wheel and the sdist of `0.3.0a1` **PASSED** |
